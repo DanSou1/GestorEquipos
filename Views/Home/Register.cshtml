@@ -1,0 +1,105 @@
+﻿@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Registrate</title>
+    <!-- Tailwind CSS v3 CDN with Plugins -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <!-- Google Fonts: Inter for modern typography -->
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet" />
+    <style data-purpose="typography">
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+    <style data-purpose="layout-styling">
+        .registration-card {
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        }
+
+        .bg-soft-blue {
+            background-color: #f0f7ff;
+        }
+    </style>
+</head>
+<body class="bg-soft-blue min-h-screen flex items-center justify-center p-4">
+    <!-- BEGIN: RegistrationFormContainer -->
+    <main class="w-full max-w-md" data-purpose="registration-container">
+        <!-- BEGIN: BrandLogo -->
+        <div class="text-center mb-8" data-purpose="brand-header">
+            <div class="inline-flex items-center justify-center w-12 h-12 bg-blue-600 rounded-lg mb-4 shadow-sm">
+                <svg class="h-8 w-8 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                </svg>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-900">Crear una cuenta</h1>
+            <p class="text-gray-500 mt-2">Ingresa como tecnico hoy!</p>
+        </div>
+        <!-- END: BrandLogo -->
+        <!-- BEGIN: RegistrationCard -->
+        <section class="bg-white registration-card rounded-2xl p-8 border border-gray-100" data-purpose="registration-card">
+            <form action="#" class="space-y-5" method="POST">
+                <!-- Full Name Input -->
+                <div data-purpose="input-group">
+                    <label class="block text-sm font-medium text-gray-700 mb-1" for="full-name">Nombre completo</label>
+                    <input class="block w-full px-4 py-3 rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out" id="full-name" name="full-name" placeholder="John Doe" required="" type="text" />
+                </div>
+                <!-- Email Address Input -->
+                <div data-purpose="input-group">
+                    <label class="block text-sm font-medium text-gray-700 mb-1" for="email">Correo electronico</label>
+                    <input class="block w-full px-4 py-3 rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out" id="email" name="email" placeholder="name@exro.com" required="" type="email" />
+                </div>
+                <!-- Password Input -->
+                <div data-purpose="input-group">
+                    <label class="block text-sm font-medium text-gray-700 mb-1" for="password">Contraseña</label>
+                    <input class="block w-full px-4 py-3 rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out" id="password" name="password" placeholder="••••••••" required="" type="password" />
+                </div>
+                <!-- Confirm Password Input -->
+                <div data-purpose="input-group">
+                    <label class="block text-sm font-medium text-gray-700 mb-1" for="confirm-password">Confirmar contraseña</label>
+                    <input class="block w-full px-4 py-3 rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out" id="confirm-password" name="confirm-password" placeholder="••••••••" required="" type="password" />
+                </div>
+                <!-- Terms and Conditions Checkbox -->
+                <div class="flex items-start">
+                    <div class="flex items-center h-5">
+                        <input class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer" id="terms" name="terms" required="" type="checkbox" />
+                    </div>
+                    <div class="ml-3 text-sm">
+                        <label class="font-medium text-gray-600" for="terms">
+                            I agree to the
+                            <a class="text-blue-600 hover:text-blue-500 underline decoration-blue-200" href="#">Terminos y condiciones</a>
+                        </label>
+                    </div>
+                </div>
+                <!-- Submit Button -->
+                <div class="pt-2">
+                    <button class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200" type="submit">
+                        Registrarte
+                    </button>
+                </div>
+            </form>
+            <!-- BEGIN: CardFooter -->
+            <div class="mt-8 text-center" data-purpose="form-footer">
+                <p class="text-sm text-gray-500">
+                    ¿Ya tienes una cuenta?
+                    <a class="font-semibold text-blue-600 hover:text-blue-500 transition-colors duration-150" href="#">Inicia sesión</a>
+                </p>
+            </div>
+            <!-- END: CardFooter -->
+        </section>
+        <!-- END: RegistrationCard -->
+        <!-- BEGIN: PageFooter -->
+        <footer class="mt-8 text-center text-xs text-gray-400" data-purpose="page-footer">
+            © 2026 Exro SAS
+        </footer>
+        <!-- END: PageFooter -->
+    </main>
+    <!-- END: RegistrationFormContainer -->
+</body>
+</html>
