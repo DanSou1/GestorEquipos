@@ -19,6 +19,7 @@ namespace Gestor_Equipos.Controllers
             bool access = await _authService.ValidateUserAsync(user.email, user.passwordHash);
             if (access)
             {
+                Console.WriteLine("Acceso concedido");
                 return View("Privacy");
             }
             else
