@@ -3114,11 +3114,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\Help Desk\\Documents\\GitHub\\Gestor_Equipos\\Gestor_Equipos.csproj",
+      "projectUniqueName": "C:\\Users\\Help Desk\\Documents\\GitHub\\GestorEquipos\\Gestor_Equipos.csproj",
       "projectName": "Gestor_Equipos",
-      "projectPath": "C:\\Users\\Help Desk\\Documents\\GitHub\\Gestor_Equipos\\Gestor_Equipos.csproj",
+      "projectPath": "C:\\Users\\Help Desk\\Documents\\GitHub\\GestorEquipos\\Gestor_Equipos.csproj",
       "packagesPath": "C:\\Users\\Help Desk\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\Help Desk\\Documents\\GitHub\\Gestor_Equipos\\obj\\",
+      "outputPath": "C:\\Users\\Help Desk\\Documents\\GitHub\\GestorEquipos\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
