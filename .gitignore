@@ -1,0 +1,25 @@
+# Carpetas de compilación de .NET
+bin/
+obj/
+
+# Configuraciones locales de Visual Studio / VS Code
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Archivos de publicación
+PublishOutput/
+out/
+build/
+
+# Bases de datos locales de SQLite (si llegas a usar)
+*.db
+*.db-shm
+*.db-wal
+
+# Archivos temporales del sistema operativo
+Thumbs.db
+.DS_Store
