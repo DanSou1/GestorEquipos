@@ -50,7 +50,8 @@
               "RelativeToolTip": "Program.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAgAAAA4AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-03-27T17:13:09.473Z"
+              "WhenOpened": "2026-03-27T17:13:09.473Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
@@ -75,7 +76,8 @@
               "RelativeToolTip": "Models\\DbContext\\DbContext.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-03-12T20:18:35.913Z"
+              "WhenOpened": "2026-03-12T20:18:35.913Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
@@ -85,9 +87,10 @@
               "RelativeDocumentMoniker": "Services\\Auth\\AuthService.cs",
               "ToolTip": "C:\\Users\\Help Desk\\Documents\\GitHub\\GestorEquipos\\Services\\Auth\\AuthService.cs",
               "RelativeToolTip": "Services\\Auth\\AuthService.cs",
-              "ViewState": "AgIAAAYAAAAAAAAAAAA/wA4AAAAxAAAAAAAAAA==",
+              "ViewState": "AgIAAAcAAAAAAAAAAAAswA4AAAAxAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-03-17T15:24:19.452Z"
+              "WhenOpened": "2026-03-17T15:24:19.452Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
@@ -99,7 +102,8 @@
               "RelativeToolTip": "Models\\State.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-03-06T17:08:26.74Z"
+              "WhenOpened": "2026-03-06T17:08:26.74Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
@@ -111,7 +115,8 @@
               "RelativeToolTip": "Models\\AssetAssignment.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-03-06T15:57:17.336Z"
+              "WhenOpened": "2026-03-06T15:57:17.336Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
@@ -123,7 +128,8 @@
               "RelativeToolTip": "Views\\Home\\Index.cshtml",
               "ViewState": "AgIAABIAAAAAAAAAAAAYwBoAAAA/AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2026-02-16T14:50:43.367Z"
+              "WhenOpened": "2026-02-16T14:50:43.367Z",
+              "EditorCaption": ""
             }
           ]
         }

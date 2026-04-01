@@ -3114,9 +3114,9 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\Help Desk\\Documents\\GitHub\\GestorEquipos\\Gestor_Equipos.csproj",
-      "projectName": "Gestor_Equipos",
-      "projectPath": "C:\\Users\\Help Desk\\Documents\\GitHub\\GestorEquipos\\Gestor_Equipos.csproj",
+      "projectUniqueName": "C:\\Users\\Help Desk\\Documents\\GitHub\\GestorEquipos\\GestorEquipos.csproj",
+      "projectName": "GestorEquipos",
+      "projectPath": "C:\\Users\\Help Desk\\Documents\\GitHub\\GestorEquipos\\GestorEquipos.csproj",
       "packagesPath": "C:\\Users\\Help Desk\\.nuget\\packages\\",
       "outputPath": "C:\\Users\\Help Desk\\Documents\\GitHub\\GestorEquipos\\obj\\",
       "projectStyle": "PackageReference",
