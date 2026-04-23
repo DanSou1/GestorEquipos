@@ -3,12 +3,16 @@
   "WorkspaceRootPath": "C:\\Users\\Help Desk\\Documents\\GitHub\\GestorEquipos\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{C6D32C05-6E33-4721-B4E6-239C8D7EEC1C}|GestorEquipos.csproj|c:\\users\\help desk\\documents\\github\\gestorequipos\\controllers\\logincontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{C6D32C05-6E33-4721-B4E6-239C8D7EEC1C}|GestorEquipos.csproj|solutionrelative:controllers\\logincontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{C6D32C05-6E33-4721-B4E6-239C8D7EEC1C}|GestorEquipos.csproj|c:\\users\\help desk\\documents\\github\\gestorequipos\\views\\home\\index.cshtml||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{C6D32C05-6E33-4721-B4E6-239C8D7EEC1C}|GestorEquipos.csproj|solutionrelative:views\\home\\index.cshtml||{40D31677-CBC0-4297-A9EF-89D907823A98}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{C6D32C05-6E33-4721-B4E6-239C8D7EEC1C}|GestorEquipos.csproj|c:\\users\\help desk\\documents\\github\\gestorequipos\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{C6D32C05-6E33-4721-B4E6-239C8D7EEC1C}|GestorEquipos.csproj|solutionrelative:program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{C6D32C05-6E33-4721-B4E6-239C8D7EEC1C}|GestorEquipos.csproj|c:\\users\\help desk\\documents\\github\\gestorequipos\\controllers\\logincontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{C6D32C05-6E33-4721-B4E6-239C8D7EEC1C}|GestorEquipos.csproj|solutionrelative:controllers\\logincontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{C6D32C05-6E33-4721-B4E6-239C8D7EEC1C}|GestorEquipos.csproj|c:\\users\\help desk\\documents\\github\\gestorequipos\\models\\dbcontext\\dbcontext.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
@@ -25,10 +29,6 @@
     {
       "AbsoluteMoniker": "D:0:0:{C6D32C05-6E33-4721-B4E6-239C8D7EEC1C}|GestorEquipos.csproj|c:\\users\\help desk\\documents\\github\\gestorequipos\\models\\assetassignment.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{C6D32C05-6E33-4721-B4E6-239C8D7EEC1C}|GestorEquipos.csproj|solutionrelative:models\\assetassignment.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{C6D32C05-6E33-4721-B4E6-239C8D7EEC1C}|GestorEquipos.csproj|c:\\users\\help desk\\documents\\github\\gestorequipos\\views\\home\\index.cshtml||{40D31677-CBC0-4297-A9EF-89D907823A98}",
-      "RelativeMoniker": "D:0:0:{C6D32C05-6E33-4721-B4E6-239C8D7EEC1C}|GestorEquipos.csproj|solutionrelative:views\\home\\index.cshtml||{40D31677-CBC0-4297-A9EF-89D907823A98}"
     }
   ],
   "DocumentGroupContainers": [
@@ -38,7 +38,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 1,
+          "SelectedChildIndex": 6,
           "Children": [
             {
               "$type": "Document",
@@ -48,13 +48,14 @@
               "RelativeDocumentMoniker": "Program.cs",
               "ToolTip": "C:\\Users\\Help Desk\\Documents\\GitHub\\GestorEquipos\\Program.cs",
               "RelativeToolTip": "Program.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAgAAAA4AAAAAAAAAA==",
+              "ViewState": "AgIAAAMAAAAAAAAAAAAIwBQAAAASAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-03-27T17:13:09.473Z"
+              "WhenOpened": "2026-03-27T17:13:09.473Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 2,
               "Title": "LoginController.cs",
               "DocumentMoniker": "C:\\Users\\Help Desk\\Documents\\GitHub\\GestorEquipos\\Controllers\\LoginController.cs",
               "RelativeDocumentMoniker": "Controllers\\LoginController.cs",
@@ -62,12 +63,11 @@
               "RelativeToolTip": "Controllers\\LoginController.cs",
               "ViewState": "AgIAAA0AAAAAAAAAAAAQwBUAAAA2AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-02-26T19:07:47.898Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-02-26T19:07:47.898Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 3,
               "Title": "DbContext.cs",
               "DocumentMoniker": "C:\\Users\\Help Desk\\Documents\\GitHub\\GestorEquipos\\Models\\DbContext\\DbContext.cs",
               "RelativeDocumentMoniker": "Models\\DbContext\\DbContext.cs",
@@ -79,7 +79,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 4,
               "Title": "AuthService.cs",
               "DocumentMoniker": "C:\\Users\\Help Desk\\Documents\\GitHub\\GestorEquipos\\Services\\Auth\\AuthService.cs",
               "RelativeDocumentMoniker": "Services\\Auth\\AuthService.cs",
@@ -91,7 +91,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 4,
+              "DocumentIndex": 5,
               "Title": "State.cs",
               "DocumentMoniker": "C:\\Users\\Help Desk\\Documents\\GitHub\\GestorEquipos\\Models\\State.cs",
               "RelativeDocumentMoniker": "Models\\State.cs",
@@ -103,7 +103,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 5,
+              "DocumentIndex": 6,
               "Title": "AssetAssignment.cs",
               "DocumentMoniker": "C:\\Users\\Help Desk\\Documents\\GitHub\\GestorEquipos\\Models\\AssetAssignment.cs",
               "RelativeDocumentMoniker": "Models\\AssetAssignment.cs",
@@ -115,15 +115,16 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 6,
+              "DocumentIndex": 0,
               "Title": "Index.cshtml",
               "DocumentMoniker": "C:\\Users\\Help Desk\\Documents\\GitHub\\GestorEquipos\\Views\\Home\\Index.cshtml",
               "RelativeDocumentMoniker": "Views\\Home\\Index.cshtml",
-              "ToolTip": "C:\\Users\\Help Desk\\Documents\\GitHub\\GestorEquipos\\Views\\Home\\Index.cshtml",
-              "RelativeToolTip": "Views\\Home\\Index.cshtml",
-              "ViewState": "AgIAABIAAAAAAAAAAAAYwBoAAAA/AAAAAAAAAA==",
+              "ToolTip": "C:\\Users\\Help Desk\\Documents\\GitHub\\GestorEquipos\\Views\\Home\\Index.cshtml*",
+              "RelativeToolTip": "Views\\Home\\Index.cshtml*",
+              "ViewState": "AgIAACcAAAAAAAAAAAAwwDwAAAAGAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2026-02-16T14:50:43.367Z"
+              "WhenOpened": "2026-02-16T14:50:43.367Z",
+              "EditorCaption": ""
             }
           ]
         }

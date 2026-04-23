@@ -2,45 +2,60 @@
     ViewData["Title"] = "Iniciar Sesión";
 }
 <div class="container">
-    <div class="row">
+    <div class="row justify-content-between align-items-center mt-5">
+
         <div class="col-md-6 order-md-1 order-2">
             <h1 class="text-light mt-5 text-center">Gestor de equipos</h1>
             <p class=" text-light text-center mt-3">Herramienta especializada en la administración de equipos, usuarios y hojas de vida para equipos de computo</p>
             <img id="image_main" class="img-fluid mt-5 mb-3 mx-auto d-block" src="/images/logo_login.png" alt="Logo Exro" />
-            <div class="row justify-content-around text-center">
-                <div class="border-5 col-md-3 mt-3 box_main rounded">
-                    <p class="text-light">Exporta PDF´S o Excel</p>
-                </div>
-                <div class="border-5 col-md-3 ml-1 mt-3 box_main rounded">
-                    <p class="text-light">Administra tus equipos</p>
-                </div>
-            </div>
-        </div>
-        <div class="tarjet_main col-md-5 mt-3 bg-light align-content-center">
 
-            <div class="mb-3 row p-3">
-                <img id="logo_factura" class="mx-auto img-fluid" src="/images/cuenta.png" alt="logo factura" />
-                <h2 class="text-center">Ingresa a tu cuenta</h2>
-                <form asp-controller="Login" asp-action="LoginUser" method="post">
-                    <label class="form-label">Correo electrónico</label>
-                    <div class="col-md-12">
-                        <input class="form-control" type="email" name="user" placeholder="tu@correo.com" />
-                    </div>
-                    <label class="mt-3 form-label">Contraseña</label>
-                    <div class="col-md-12">
-                        <input class="form-control" type="password" name="pwd" placeholder="XXXXXXX" />
-                    </div>
-                    <button type="submit" class="mt-3 boton_main btn btn-primary col-md-12">Iniciar Sesión</button>
-                    <a asp-controller="Home" asp-action="Register" class="mt-3 boton_main btn btn-primary col-md-12">Registrate!</a>
-                </form>
-            </div>
-            <div class="form-check">
-                <input class="form-check-input" type="checkbox" value="" id="flexCheckDefault">
-                <label class="form-check-label" for="flexCheckDefault">
-                    RECORDARME
-                </label>
-                <a href="#">¿Has olvidado tu contraseña?</a>
+            <div class="row justify-content-around text-center">
+                <div class="border-5 col-md-5 mt-3 box_main rounded p-2">
+                    <p class="text-light m-0">Exporta PDF's o Excel</p>
+                </div>
+                <div class="border-5 col-md-5 mt-3 box_main rounded p-2">
+                    <p class="text-light m-0">Administra tus equipos</p>
+                </div>
             </div>
         </div>
+
+        <div class="col-md-5 order-md-2 order-1 mt-3">
+            <div class="tarjet_main bg-light p-4 shadow rounded">
+                <div class="text-center mb-4">
+                    <img id="logo_factura" class="mx-auto img-fluid mb-2" src="/images/cuenta.png" alt="logo factura" style="max-width: 80px;" />
+                    <h2 class="fw-bold">Ingresa a tu cuenta</h2>
+                </div>
+
+                <form asp-controller="Login" asp-action="LoginUser" method="post">
+                    <div class="mb-3">
+                        <label class="form-label">Correo electrónico</label>
+                        <input class="form-control shadow-sm" type="email" name="user" placeholder="tu@correo.com" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Contraseña</label>
+                        <input class="form-control shadow-sm" type="password" name="pwd" placeholder="XXXXXXX" />
+                    </div>
+
+                    <div class="row g-2 mt-4">
+                        <div class="col-6">
+                            <button type="submit" class="btn btn-primary w-100 py-2 shadow-sm">Iniciar Sesión</button>
+                        </div>
+                        <div class="col-6">
+                            <a asp-controller="Home" asp-action="Register" class="btn btn-primary w-100 py-2 shadow-sm">Regístrate!</a>
+                        </div>
+                    </div>
+                </form>
+
+                <div class="d-flex justify-content-between align-items-center mt-4 small">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="flexCheckDefault">
+                        <label class="form-check-label" for="flexCheckDefault">RECORDARME</label>
+                    </div>
+                    <a href="#" class="text-decoration-none">¿Has olvidado tu contraseña?</a>
+                </div>
+            </div>
+        </div>
+
     </div>
 </div>
