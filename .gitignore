@@ -15,6 +15,9 @@ PublishOutput/
 out/
 build/
 
+# Resultados de pruebas / cobertura
+TestResults/
+
 # Bases de datos locales de SQLite (si llegas a usar)
 *.db
 *.db-shm

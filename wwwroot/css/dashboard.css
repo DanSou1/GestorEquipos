@@ -1,0 +1,353 @@
+/* Design system for the post-login admin dashboard, based on the "Exro TI - Dashboard
+   Administrativo Unificado" Stitch mockup. Scoped to pages rendered through _Layout.cshtml. */
+
+:root {
+  --sidebar-width: 240px;
+  --color-navy-900: #0e2547;
+  --color-navy-800: #15315f;
+  --color-navy-700: #1c3d73;
+  --color-accent-blue: #2c67e5;
+  --color-accent-green: #22c55e;
+  --color-accent-green-dark: #16a34a;
+  --color-slate-600: #475569;
+  --color-slate-500: #64748b;
+  --color-slate-400: #94a3b8;
+  --color-bg-app: #f3f5f9;
+  --color-border: #e5e9f0;
+}
+
+body.app-shell {
+  margin: 0;
+  background-color: var(--color-bg-app);
+  color: #1e293b;
+}
+
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+  align-items: stretch;
+}
+
+/* ---------- Sidebar ---------- */
+
+.app-sidebar {
+  width: var(--sidebar-width);
+  flex: 0 0 var(--sidebar-width);
+  background-color: var(--color-navy-900);
+  color: #cfe0ff;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem 0;
+}
+
+.app-sidebar__profile {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 1.25rem 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.app-sidebar__avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: var(--color-navy-700);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #ffffff;
+}
+
+.app-sidebar__profile-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #ffffff;
+  line-height: 1.2;
+}
+
+.app-sidebar__profile-role {
+  font-size: 0.75rem;
+  color: #93a9d1;
+}
+
+.app-sidebar__nav {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1 1 auto;
+}
+
+.app-sidebar__nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 1.25rem;
+  color: #b9c9e8;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border-left: 3px solid transparent;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.app-sidebar__nav-link:hover {
+  background-color: var(--color-navy-800);
+  color: #ffffff;
+}
+
+.app-sidebar__nav-link.active {
+  background-color: var(--color-navy-800);
+  color: #ffffff;
+  border-left-color: var(--color-accent-green);
+}
+
+.app-sidebar__nav-link svg {
+  flex-shrink: 0;
+}
+
+.app-sidebar__footer {
+  padding: 0.5rem 1.25rem 0;
+  border-top: 1px solid var(--color-navy-700);
+  margin-top: 0.5rem;
+  padding-top: 1rem;
+}
+
+.app-sidebar__logout {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  background: none;
+  border: none;
+  color: #b9c9e8;
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 0.5rem 0;
+  cursor: pointer;
+}
+
+.app-sidebar__logout:hover {
+  color: #ffffff;
+}
+
+/* ---------- Main content ---------- */
+
+.app-main {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.app-content {
+  flex: 1 1 auto;
+  padding: 2rem;
+}
+
+.app-footer {
+  padding: 1rem 2rem;
+  text-align: center;
+  color: var(--color-slate-500);
+  font-size: 0.85rem;
+}
+
+.app-footer a {
+  color: var(--color-slate-500);
+}
+
+/* ---------- Stat cards ---------- */
+
+.stat-card-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.stat-card__header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.stat-card__icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.stat-card__icon--blue { background-color: #e3ebfd; color: var(--color-accent-blue); }
+.stat-card__icon--green { background-color: #e2f8ea; color: var(--color-accent-green-dark); }
+.stat-card__icon--gray { background-color: #eef1f5; color: var(--color-slate-500); }
+
+.stat-card__label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--color-slate-500);
+  text-transform: uppercase;
+}
+
+.stat-card__value {
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 0.6rem;
+}
+
+.stat-card__bar {
+  height: 3px;
+  border-radius: 2px;
+  background-color: var(--color-border);
+}
+
+.stat-card__bar--blue { background-color: var(--color-accent-blue); }
+.stat-card__bar--green { background-color: var(--color-accent-green); }
+.stat-card__bar--gray { background-color: var(--color-slate-400); }
+
+/* ---------- Section header / toolbar ---------- */
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.section-header h1,
+.section-header h2 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.btn-app-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--color-accent-blue);
+  border: none;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  text-decoration: none;
+}
+
+.btn-app-primary:hover {
+  background-color: #1d4fc4;
+  color: #ffffff;
+}
+
+.app-toolbar {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.app-toolbar .form-control,
+.app-toolbar .form-select {
+  border-radius: 8px;
+  border-color: var(--color-border);
+}
+
+.app-toolbar__search {
+  flex: 1 1 320px;
+  position: relative;
+}
+
+.app-toolbar__search svg {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-slate-400);
+}
+
+.app-toolbar__search input {
+  padding-left: 2.25rem;
+}
+
+/* ---------- Cards / tables ---------- */
+
+.app-card {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  overflow: hidden;
+}
+
+.app-table {
+  width: 100%;
+  margin: 0;
+  border-collapse: collapse;
+}
+
+.app-table thead th {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--color-slate-500);
+  border-bottom: 1px solid var(--color-border);
+  padding: 0.85rem 1.25rem;
+  text-align: left;
+}
+
+.app-table tbody td {
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.9rem;
+  vertical-align: middle;
+}
+
+.app-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.app-table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+.app-table a {
+  color: var(--color-accent-blue);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.app-table a:hover {
+  text-decoration: underline;
+}
+
+/* ---------- Status badges ---------- */
+
+.badge-estado {
+  display: inline-block;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.badge-estado--activo { background-color: var(--color-accent-green-dark); }
+.badge-estado--inactivo { background-color: var(--color-slate-600); }

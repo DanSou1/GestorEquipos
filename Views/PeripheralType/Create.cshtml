@@ -1,0 +1,24 @@
+@model PeripheralType
+@{
+    ViewData["Title"] = "Nuevo tipo de periférico";
+}
+
+<h1>Nuevo tipo de periférico</h1>
+
+<form asp-controller="PeripheralType" asp-action="Create" method="post">
+    @Html.AntiForgeryToken()
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+    <div class="mb-3">
+        <label asp-for="Name" class="form-label">Nombre (ej. Mouse, Teclado, Monitor)</label>
+        <input asp-for="Name" class="form-control" />
+        <span asp-validation-for="Name" class="text-danger"></span>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Guardar</button>
+    <a asp-controller="PeripheralType" asp-action="Index" class="btn btn-link">Cancelar</a>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

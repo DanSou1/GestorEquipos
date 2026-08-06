@@ -1,0 +1,21 @@
+@model List<PeripheralType>
+@{
+    ViewData["Title"] = "Tipos de periférico";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>Tipos de periférico</h1>
+    <a asp-controller="PeripheralType" asp-action="Create" class="btn btn-primary">Nuevo tipo</a>
+</div>
+
+<ul class="list-group">
+    @foreach (var t in Model)
+    {
+        <li class="list-group-item">@t.Name</li>
+    }
+</ul>
+
+@if (!Model.Any())
+{
+    <p class="text-muted">No hay tipos de periférico registrados.</p>
+}

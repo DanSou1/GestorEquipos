@@ -1,0 +1,64 @@
+@model GestorEquipos.Models.Auth.LoginViewModel
+
+@{
+    Layout = "_Layout_Login";
+    ViewData["Title"] = "Iniciar Sesion";
+}
+
+<div class="container">
+    <div class="row justify-content-between align-items-center mt-5">
+        <div class="col-md-6 order-md-1 order-2">
+            <h1 class="text-light mt-5 text-center">Gestor de equipos</h1>
+            <p class="text-light text-center mt-3">Herramienta especializada en la administracion de equipos, usuarios y hojas de vida para equipos de computo</p>
+            <img id="image_main" class="img-fluid mt-5 mb-3 mx-auto d-block" src="/images/logo_login.png" alt="Logo Exro" />
+
+            <div class="row justify-content-around text-center">
+                <div class="border-5 col-md-5 mt-3 box_main rounded p-2">
+                    <p class="text-light m-0">Exporta PDF o Excel</p>
+                </div>
+                <div class="border-5 col-md-5 mt-3 box_main rounded p-2">
+                    <p class="text-light m-0">Administra tus equipos</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-5 order-md-2 order-1 mt-3">
+            <div class="tarjet_main bg-light p-4 shadow rounded">
+                <div class="text-center mb-4">
+                    <img id="logo_factura" class="mx-auto img-fluid mb-2" src="/images/cuenta.png" alt="logo cuenta" style="max-width: 80px;" />
+                    <h2 class="fw-bold">Ingresa a tu cuenta</h2>
+                </div>
+
+                <form asp-controller="Login" asp-action="LoginUser" method="post">
+                    @Html.AntiForgeryToken()
+                    <input asp-for="ReturnUrl" type="hidden" />
+
+                    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+                    <div class="mb-3">
+                        <label asp-for="Email" class="form-label"></label>
+                        <input asp-for="Email" class="form-control shadow-sm" placeholder="tu@correo.com" autocomplete="username" />
+                        <span asp-validation-for="Email" class="text-danger"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Password" class="form-label"></label>
+                        <input asp-for="Password" class="form-control shadow-sm" placeholder="Contrasena" autocomplete="current-password" />
+                        <span asp-validation-for="Password" class="text-danger"></span>
+                    </div>
+
+                    <div class="form-check mt-3">
+                        <input asp-for="RememberMe" class="form-check-input" />
+                        <label asp-for="RememberMe" class="form-check-label"></label>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 py-2 shadow-sm mt-4">Iniciar Sesion</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

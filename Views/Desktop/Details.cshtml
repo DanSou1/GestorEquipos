@@ -1,0 +1,196 @@
+@model DesktopDetailViewModel
+@{
+    ViewData["Title"] = $"Hoja de vida - {Model.NameDesktop}";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>@Model.NameDesktop</h1>
+    <div class="d-flex align-items-center gap-2">
+        <span class="badge @(Model.Estado ? "bg-success" : "bg-secondary") fs-6">@(Model.Estado ? "Activo" : "Inactivo")</span>
+        @if (User.IsInRole("Administrador"))
+        {
+            <a asp-controller="Desktop" asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-secondary">Editar</a>
+            <a asp-controller="Desktop" asp-action="Assign" asp-route-desktopId="@Model.Id" class="btn btn-sm btn-outline-primary">Asignar</a>
+            @if (Model.Estado)
+            {
+                <form asp-controller="Desktop" asp-action="Deactivate" asp-route-id="@Model.Id" method="post" class="d-inline" onsubmit="return confirm('¿Enviar este equipo a RAES? Esta acción no se puede deshacer.');">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-sm btn-outline-danger">Enviar a RAES</button>
+                </form>
+            }
+        }
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-3">
+            <div class="card-header">Especificaciones</div>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item"><strong>Serial:</strong> @Model.SerialNumber</li>
+                <li class="list-group-item"><strong>Marca / Modelo:</strong> @Model.Brand / @Model.Model</li>
+                <li class="list-group-item"><strong>Procesador:</strong> @Model.Processor</li>
+                <li class="list-group-item"><strong>Disco:</strong> @Model.Disk</li>
+                <li class="list-group-item"><strong>Sistema Operativo:</strong> @Model.OSVersionName</li>
+                <li class="list-group-item"><strong>RAM:</strong> @Model.RamSpecification</li>
+                <li class="list-group-item"><strong>Acceso remoto:</strong> @(Model.RemoteInfo ?? "No configurado")</li>
+            </ul>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header">Asignación actual</div>
+            <div class="card-body">
+                <p class="mb-1"><strong>Usuario:</strong> @Model.CurrentUserName</p>
+                <p class="mb-1"><strong>Área:</strong> @Model.CurrentAreaName</p>
+                <p class="mb-0"><strong>Regional:</strong> @Model.CurrentRegionalName</p>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header">Historial de asignaciones</div>
+            <ul class="list-group list-group-flush">
+                @foreach (var a in Model.AsignationHistory)
+                {
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>@a.UserName</span>
+                        <span class="text-muted">@a.DateAsignation.ToString("yyyy-MM-dd")</span>
+                    </li>
+                }
+                @if (!Model.AsignationHistory.Any())
+                {
+                    <li class="list-group-item text-muted">Sin historial de asignaciones.</li>
+                }
+            </ul>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                Licencias
+                @if (User.IsInRole("Administrador"))
+                {
+                    <a asp-controller="License" asp-action="Create" asp-route-desktopId="@Model.Id" class="btn btn-sm btn-outline-primary">Agregar licencia</a>
+                }
+            </div>
+            <ul class="list-group list-group-flush">
+                @foreach (var l in Model.Licenses)
+                {
+                    <li class="list-group-item">
+                        <strong>@l.SoftwareType</strong>
+                        @if (l.NoLicense)
+                        {
+                            <span class="badge bg-warning text-dark ms-2">Sin licencia</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted ms-2">@l.LicenseKey</span>
+                        }
+                    </li>
+                }
+                @if (!Model.Licenses.Any())
+                {
+                    <li class="list-group-item text-muted">Sin licencias registradas.</li>
+                }
+            </ul>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                Periféricos
+                @if (User.IsInRole("Administrador"))
+                {
+                    <a asp-controller="Peripheral" asp-action="Create" asp-route-desktopId="@Model.Id" class="btn btn-sm btn-outline-primary">Agregar periférico</a>
+                }
+            </div>
+            <ul class="list-group list-group-flush">
+                @foreach (var p in Model.Peripherals)
+                {
+                    <li class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>@p.TypeName</strong> — @p.Brand @p.Model
+                                @if (!string.IsNullOrWhiteSpace(p.Serial))
+                                {
+                                    <span class="text-muted">(Serial: @p.Serial)</span>
+                                }
+                                <br />
+                                <span class="badge @(p.Estado == "Activo" ? "bg-success" : p.Estado == "Raes" ? "bg-dark" : "bg-secondary")">@p.Estado</span>
+                            </div>
+                            @if (User.IsInRole("Administrador"))
+                            {
+                                <a asp-controller="Peripheral" asp-action="AddObservation" asp-route-peripheralId="@p.Id" asp-route-desktopId="@Model.Id" class="btn btn-sm btn-outline-secondary">Registrar novedad</a>
+                            }
+                        </div>
+                        @if (p.Observations.Any())
+                        {
+                            <ul class="mt-2 small text-muted mb-0">
+                                @foreach (var o in p.Observations)
+                                {
+                                    <li>@o.Date.ToString("yyyy-MM-dd") — <strong>@o.Type</strong>: @o.Description</li>
+                                }
+                            </ul>
+                        }
+                    </li>
+                }
+                @if (!Model.Peripherals.Any())
+                {
+                    <li class="list-group-item text-muted">Sin periféricos registrados.</li>
+                }
+            </ul>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                Historial de mantenimiento
+                @if (User.IsInRole("Administrador"))
+                {
+                    <a asp-controller="Maintenance" asp-action="Create" asp-route-desktopId="@Model.Id" class="btn btn-sm btn-outline-primary">Registrar mantenimiento</a>
+                }
+            </div>
+            <ul class="list-group list-group-flush">
+                @foreach (var m in Model.Maintenances)
+                {
+                    <li class="list-group-item">
+                        <div class="d-flex justify-content-between">
+                            <strong>@m.MaintenanceTypeName</strong>
+                            <span class="text-muted">@m.Date.ToString("yyyy-MM-dd")</span>
+                        </div>
+                        <div>@m.Description</div>
+                        <div class="small text-muted">Técnico: @m.TechnicianName</div>
+                    </li>
+                }
+                @if (!Model.Maintenances.Any())
+                {
+                    <li class="list-group-item text-muted">Sin mantenimientos registrados.</li>
+                }
+            </ul>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header">Historial de cambios de especificaciones</div>
+            <ul class="list-group list-group-flush">
+                @foreach (var s in Model.SpecChangeLogs)
+                {
+                    <li class="list-group-item">
+                        <div class="d-flex justify-content-between">
+                            <strong>@s.FieldName</strong>
+                            <span class="text-muted">@s.Date.ToString("yyyy-MM-dd")</span>
+                        </div>
+                        <div class="small">@(s.OldValue ?? "—") → @(s.NewValue ?? "—")</div>
+                        <div class="small text-muted">Por: @s.ChangedByName</div>
+                    </li>
+                }
+                @if (!Model.SpecChangeLogs.Any())
+                {
+                    <li class="list-group-item text-muted">Sin cambios registrados.</li>
+                }
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div class="d-flex justify-content-between align-items-center">
+    <a asp-controller="Desktop" asp-action="Index" class="btn btn-link">&larr; Volver al listado</a>
+    <a asp-controller="Desktop" asp-action="DownloadPdf" asp-route-id="@Model.Id" class="btn btn-outline-primary">Descargar PDF</a>
+</div>

@@ -1,0 +1,73 @@
+@model UserDetailViewModel
+@{
+    ViewData["Title"] = $"Hoja de vida - {Model.Name} {Model.LastName}";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>@Model.Name @Model.LastName</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-3">
+            <div class="card-header">Perfil</div>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item"><strong>Correo:</strong> @Model.Email</li>
+                <li class="list-group-item"><strong>Correo Teams:</strong> @Model.EmailTeams</li>
+                <li class="list-group-item"><strong>Área:</strong> @Model.AreaName</li>
+                <li class="list-group-item"><strong>Regional:</strong> @Model.RegionalName</li>
+                <li class="list-group-item">
+                    <strong>Usuario / Rol:</strong>
+                    @if (Model.Username is not null)
+                    {
+                        @($"{Model.Username} ({Model.RolName})")
+                    }
+                    else
+                    {
+                        <span class="text-muted">Sin cuenta de acceso</span>
+                    }
+                </li>
+            </ul>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header">Equipos asignados actualmente</div>
+            <ul class="list-group list-group-flush">
+                @foreach (var d in Model.CurrentDesktops)
+                {
+                    <li class="list-group-item d-flex justify-content-between">
+                        <a asp-controller="Desktop" asp-action="Details" asp-route-id="@d.DesktopId">@d.NameDesktop (@d.SerialNumber)</a>
+                        <span class="text-muted">Desde @d.SinceDate.ToString("yyyy-MM-dd")</span>
+                    </li>
+                }
+                @if (!Model.CurrentDesktops.Any())
+                {
+                    <li class="list-group-item text-muted">Sin equipos asignados actualmente.</li>
+                }
+            </ul>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card mb-3">
+            <div class="card-header">Historial de asignaciones</div>
+            <ul class="list-group list-group-flush">
+                @foreach (var a in Model.AsignationHistory)
+                {
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>@a.NameDesktop (@a.SerialNumber)</span>
+                        <span class="text-muted">@a.DateAsignation.ToString("yyyy-MM-dd")</span>
+                    </li>
+                }
+                @if (!Model.AsignationHistory.Any())
+                {
+                    <li class="list-group-item text-muted">Sin historial de asignaciones.</li>
+                }
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div class="d-flex justify-content-between align-items-center">
+    <a asp-controller="UserAdmin" asp-action="Index" class="btn btn-link">&larr; Volver al listado</a>
+</div>

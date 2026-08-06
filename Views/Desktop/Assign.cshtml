@@ -1,0 +1,19 @@
+@{
+    ViewData["Title"] = "Asignar equipo";
+    int desktopId = ViewBag.DesktopId;
+}
+
+<h1>Asignar equipo</h1>
+
+<form asp-controller="Desktop" asp-action="Assign" method="post">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="desktopId" value="@desktopId" />
+    <div class="mb-3">
+        <label class="form-label">Usuario</label>
+        <select name="userId" class="form-select" asp-items="ViewBag.Users">
+            <option value="">-- Selecciona --</option>
+        </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Asignar</button>
+    <a asp-controller="Desktop" asp-action="Details" asp-route-id="@desktopId" class="btn btn-link">Cancelar</a>
+</form>

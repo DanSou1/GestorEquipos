@@ -1,9 +1,11 @@
 using System.Diagnostics;
-using Gestor_Equipos.Models;
+using GestorEquipos.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Gestor_Equipos.Controllers
 {
+    [Authorize]
     public class HomeController : Controller
     {
         private readonly ILogger<HomeController> _logger;
@@ -14,10 +16,6 @@ namespace Gestor_Equipos.Controllers
         }
 
         public IActionResult Index()
-        {
-            return View();
-        }
-        public IActionResult Register()
         {
             return View();
         }

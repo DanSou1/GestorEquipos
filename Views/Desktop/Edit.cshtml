@@ -1,0 +1,71 @@
+@model DesktopEditViewModel
+@{
+    ViewData["Title"] = "Editar equipo";
+    int desktopId = ViewBag.DesktopId;
+}
+
+<h1>Editar equipo</h1>
+<p class="text-muted">Los cambios en las especificaciones quedan registrados en el historial de cambios de la hoja de vida.</p>
+
+<form asp-controller="Desktop" asp-action="Edit" asp-route-id="@desktopId" method="post">
+    @Html.AntiForgeryToken()
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label asp-for="NameDesktop" class="form-label">Nombre de equipo</label>
+            <input asp-for="NameDesktop" class="form-control" />
+            <span asp-validation-for="NameDesktop" class="text-danger"></span>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="SerialNumber" class="form-label">Serial del equipo</label>
+            <input asp-for="SerialNumber" class="form-control" />
+            <span asp-validation-for="SerialNumber" class="text-danger"></span>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="Brand" class="form-label">Marca del equipo</label>
+            <input asp-for="Brand" class="form-control" />
+            <span asp-validation-for="Brand" class="text-danger"></span>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="Model" class="form-label">Modelo del equipo</label>
+            <input asp-for="Model" class="form-control" />
+            <span asp-validation-for="Model" class="text-danger"></span>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="Processor" class="form-label">Tipo de procesador</label>
+            <input asp-for="Processor" class="form-control" />
+            <span asp-validation-for="Processor" class="text-danger"></span>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="Disk" class="form-label">Tipo de disco y capacidad</label>
+            <input asp-for="Disk" class="form-control" />
+            <span asp-validation-for="Disk" class="text-danger"></span>
+        </div>
+        <div class="col-md-4">
+            <label asp-for="OSVersionId" class="form-label">Sistema Operativo</label>
+            <select asp-for="OSVersionId" class="form-select" asp-items="ViewBag.OSVersions"></select>
+            <span asp-validation-for="OSVersionId" class="text-danger"></span>
+        </div>
+        <div class="col-md-4">
+            <label asp-for="RamId" class="form-label">RAM</label>
+            <select asp-for="RamId" class="form-select" asp-items="ViewBag.Rams"></select>
+            <span asp-validation-for="RamId" class="text-danger"></span>
+        </div>
+        <div class="col-md-4">
+            <label asp-for="RemoteId" class="form-label">Acceso remoto (opcional)</label>
+            <select asp-for="RemoteId" class="form-select" asp-items="ViewBag.Remotes">
+                <option value="">-- Ninguno --</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <button type="submit" class="btn btn-primary">Guardar cambios</button>
+        <a asp-controller="Desktop" asp-action="Details" asp-route-id="@desktopId" class="btn btn-link">Cancelar</a>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

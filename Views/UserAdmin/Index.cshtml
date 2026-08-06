@@ -1,0 +1,80 @@
+@model List<Users>
+@{
+    ViewData["Title"] = "Usuarios";
+    string? searchTerm = ViewBag.SearchTerm;
+}
+
+<div class="section-header">
+    <h1>Usuarios</h1>
+    <a asp-controller="UserAdmin" asp-action="Create" class="btn-app-primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+        Nuevo usuario
+    </a>
+</div>
+
+<div class="stat-card-row" style="grid-template-columns: minmax(220px, 320px);">
+    <div class="stat-card">
+        <div class="stat-card__header">
+            <span class="stat-card__icon stat-card__icon--blue">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+            </span>
+            <span class="stat-card__label">Total usuarios</span>
+        </div>
+        <div class="stat-card__value">@ViewBag.TotalCount</div>
+        <div class="stat-card__bar stat-card__bar--blue"></div>
+    </div>
+</div>
+
+<form method="get" class="app-toolbar">
+    <div class="app-toolbar__search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+        <input type="search" name="search" value="@searchTerm" class="form-control" placeholder="Buscar usuario..." />
+    </div>
+</form>
+
+<div class="app-card">
+    <table class="app-table">
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>Correo</th>
+                <th>Área</th>
+                <th>Regional</th>
+                <th>Usuario / Rol</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var u in Model)
+            {
+                <tr>
+                    <td>@u.Name @u.LastName</td>
+                    <td>@u.Email</td>
+                    <td>@u.Area?.Name</td>
+                    <td>@u.Regional?.Name</td>
+                    <td>
+                        @if (u.UserSystems.Any())
+                        {
+                            @foreach (var us in u.UserSystems)
+                            {
+                                <div>@us.Username (@us.Rol?.Name)</div>
+                            }
+                        }
+                        else
+                        {
+                            <span class="text-muted">Sin cuenta de acceso</span>
+                        }
+                    </td>
+                    <td>
+                        <a asp-controller="UserAdmin" asp-action="Details" asp-route-id="@u.Id">Ver hoja de vida</a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (!Model.Any())
+    {
+        <p class="text-muted p-3 mb-0">No hay usuarios registrados.</p>
+    }
+</div>

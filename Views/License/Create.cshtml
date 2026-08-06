@@ -1,0 +1,43 @@
+@model LicenseCreateViewModel
+@{
+    ViewData["Title"] = "Agregar licencia";
+}
+
+<h1>Agregar licencia</h1>
+
+<form asp-controller="License" asp-action="Create" method="post">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="DesktopId" />
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+    <div class="mb-3">
+        <label asp-for="SoftwareType" class="form-label">Software</label>
+        <input asp-for="SoftwareType" class="form-control" placeholder="Ej. Office 2016, Windows 10" />
+        <span asp-validation-for="SoftwareType" class="text-danger"></span>
+    </div>
+    <div class="mb-3">
+        <label asp-for="LicenseKey" class="form-label">Clave de licencia</label>
+        <input asp-for="LicenseKey" class="form-control" id="licenseKeyInput" />
+    </div>
+    <div class="form-check mb-3">
+        <input asp-for="NoLicense" class="form-check-input" id="noLicenseCheck" />
+        <label asp-for="NoLicense" class="form-check-label">Este software no tiene licencia</label>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Guardar</button>
+    <a asp-controller="Desktop" asp-action="Details" asp-route-id="@Model.DesktopId" class="btn btn-link">Cancelar</a>
+</form>
+
+@section Scripts {
+    <script>
+        const noLicenseCheck = document.getElementById('noLicenseCheck');
+        const licenseKeyInput = document.getElementById('licenseKeyInput');
+        function toggleLicenseKey() {
+            licenseKeyInput.disabled = noLicenseCheck.checked;
+            if (noLicenseCheck.checked) { licenseKeyInput.value = ''; }
+        }
+        noLicenseCheck.addEventListener('change', toggleLicenseKey);
+        toggleLicenseKey();
+    </script>
+    <partial name="_ValidationScriptsPartial" />
+}

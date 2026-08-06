@@ -1,25 +1,58 @@
-﻿using Gestor_Equipos.Services.Auth;
-using Microsoft.Data.SqlClient;
-using System.Data.SqlClient;
+using Gestor_Equipos.Data;
+using Gestor_Equipos.Services.Auth;
+using GestorEquipos.Models;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace Gestor_Equipos.Services.Implementations
 {
     public class AuthService : IAuthService
     {
-        private readonly string _connectionString;
+        private readonly MyDbContext _dbContext;
+        private readonly IPasswordHasher<UserSystem> _passwordHasher;
 
-        public AuthService(IConfiguration _configuration)
+        public AuthService(MyDbContext dbContext, IPasswordHasher<UserSystem> passwordHasher)
         {
-            _connectionString = _configuration.GetConnectionString("DefaultConnection");
+            _dbContext = dbContext;
+            _passwordHasher = passwordHasher;
         }
-        public async Task<bool> ValidateUserAsync(string email, string pwd)
+
+        public async Task<AuthenticatedUser?> ValidateUserAsync(string email, string password)
         {
-            using (SqlConnection connection = new SqlConnection (_connectionString))
+            var normalizedEmail = email.Trim().ToLowerInvariant();
+
+            var userSystem = await _dbContext.UserSystems
+                .Include(us => us.User)
+                .Include(us => us.Rol)
+                .SingleOrDefaultAsync(us => us.User.Email.ToLower() == normalizedEmail);
+
+            if (userSystem is null)
             {
-                await connection.OpenAsync();
-                string query = "SELECT * FROM AssestInventory WHERE email = @email AND passwordHash = @passwordHash";
+                return null;
             }
-            return false;
+
+            var verificationResult = _passwordHasher.VerifyHashedPassword(
+                userSystem,
+                userSystem.PasswordHash,
+                password);
+
+            if (verificationResult == PasswordVerificationResult.Failed)
+            {
+                return null;
+            }
+
+            if (verificationResult == PasswordVerificationResult.SuccessRehashNeeded)
+            {
+                userSystem.PasswordHash = _passwordHasher.HashPassword(userSystem, password);
+                await _dbContext.SaveChangesAsync();
+            }
+
+            return new AuthenticatedUser(
+                userSystem.UserId,
+                userSystem.Id,
+                userSystem.User.Email,
+                $"{userSystem.User.Name} {userSystem.User.LastName}".Trim(),
+                userSystem.Rol.Name);
         }
     }
 }

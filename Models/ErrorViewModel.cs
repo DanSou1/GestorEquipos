@@ -1,4 +1,4 @@
-namespace Gestor_Equipos.Models
+﻿namespace GestorEquipos.Models
 {
     public class ErrorViewModel
     {
@@ -6,4 +6,5 @@ namespace Gestor_Equipos.Models
 
         public bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
     }
+
 }

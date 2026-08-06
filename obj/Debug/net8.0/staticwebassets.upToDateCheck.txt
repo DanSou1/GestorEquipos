@@ -1,3 +1,4 @@
+wwwroot\css\dashboard.css
 wwwroot\css\site.css
 wwwroot\favicon.ico
 wwwroot\Images\cuenta.png
