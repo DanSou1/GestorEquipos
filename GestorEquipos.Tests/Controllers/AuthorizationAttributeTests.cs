@@ -41,6 +41,7 @@ namespace GestorEquipos.Tests.Controllers
         [InlineData(nameof(DesktopController.Create))]
         [InlineData(nameof(DesktopController.Edit))]
         [InlineData(nameof(DesktopController.Deactivate))]
+        [InlineData(nameof(DesktopController.Delete))]
         [InlineData(nameof(DesktopController.Assign))]
         public void DesktopController_WriteActions_RequireAdministrador(string methodName)
         {
@@ -58,16 +59,59 @@ namespace GestorEquipos.Tests.Controllers
         // --- Controladores 100% Admin-only: deben tener [Authorize(Roles = "Administrador")] a nivel de clase ---
 
         [Theory]
-        [InlineData(typeof(PeripheralController))]
         [InlineData(typeof(MaintenanceController))]
+        [InlineData(typeof(PeripheralMaintenanceController))]
         [InlineData(typeof(LicenseController))]
         [InlineData(typeof(PeripheralTypeController))]
         [InlineData(typeof(UserAdminController))]
+        [InlineData(typeof(LocationController))]
+        [InlineData(typeof(AccessAccountController))]
         public void AdminOnlyControllers_HaveClassLevelAdministradorAuthorize(Type controllerType)
         {
             var classAttr = GetClassAuthorize(controllerType);
             Assert.NotNull(classAttr);
             Assert.Equal(AuthBootstrapper.AdministradorRoleName, classAttr!.Roles);
+        }
+
+        // --- PeripheralController: lectura abierta a cualquier usuario autenticado, escritura solo Administrador ---
+
+        [Fact]
+        public void PeripheralController_ClassLevel_RequiresAuthenticatedUser_WithoutRoleRestriction()
+        {
+            var classAttr = GetClassAuthorize(typeof(PeripheralController));
+            Assert.NotNull(classAttr);
+            Assert.True(string.IsNullOrEmpty(classAttr!.Roles));
+        }
+
+        [Theory]
+        [InlineData(nameof(PeripheralController.Index))]
+        [InlineData(nameof(PeripheralController.Details))]
+        public void PeripheralController_ReadActions_HaveNoRoleRestriction(string methodName)
+        {
+            foreach (var method in GetActionOverloads(typeof(PeripheralController), methodName))
+            {
+                var methodAttr = method.GetCustomAttribute<AuthorizeAttribute>();
+                Assert.True(methodAttr is null || string.IsNullOrEmpty(methodAttr.Roles));
+            }
+        }
+
+        [Theory]
+        [InlineData(nameof(PeripheralController.Create))]
+        [InlineData(nameof(PeripheralController.Edit))]
+        [InlineData(nameof(PeripheralController.Delete))]
+        [InlineData(nameof(PeripheralController.Reassign))]
+        [InlineData(nameof(PeripheralController.RetireToRaes))]
+        public void PeripheralController_WriteActions_RequireAdministrador(string methodName)
+        {
+            var overloads = GetActionOverloads(typeof(PeripheralController), methodName).ToList();
+            Assert.NotEmpty(overloads);
+
+            foreach (var method in overloads)
+            {
+                var methodAttr = method.GetCustomAttribute<AuthorizeAttribute>();
+                Assert.NotNull(methodAttr);
+                Assert.Equal(AuthBootstrapper.AdministradorRoleName, methodAttr!.Roles);
+            }
         }
 
         // --- HomeController: sigue requiriendo autenticación, ya no expone Register ---

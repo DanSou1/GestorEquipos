@@ -1,0 +1,50 @@
+@model List<Users>
+@{
+    ViewData["Title"] = "Cuentas de acceso";
+}
+
+<div class="section-header">
+    <h1>Cuentas de acceso</h1>
+    <a asp-controller="AccessAccount" asp-action="Create" class="btn-app-primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+        Nueva cuenta
+    </a>
+</div>
+
+<div class="app-card">
+    <table class="app-table">
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>Correo</th>
+                <th>Usuario</th>
+                <th>Rol</th>
+                <th>Área</th>
+                <th>Regional</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var u in Model)
+            {
+                var us = u.UserSystems.First();
+                <tr>
+                    <td>@u.Name @u.LastName</td>
+                    <td>@u.Email</td>
+                    <td>@us.Username</td>
+                    <td>@us.Rol?.Name</td>
+                    <td>@u.Area?.Name</td>
+                    <td>@u.Regional?.Name</td>
+                    <td>
+                        <a asp-controller="AccessAccount" asp-action="Edit" asp-route-id="@u.Id">Editar</a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (!Model.Any())
+    {
+        <p class="text-muted p-3 mb-0">No hay cuentas de acceso registradas.</p>
+    }
+</div>

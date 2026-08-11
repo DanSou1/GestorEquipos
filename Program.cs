@@ -17,9 +17,13 @@ builder.Services.AddScoped<IDesktopService, DesktopService>();
 builder.Services.AddScoped<IDesktopPdfService, DesktopPdfService>();
 builder.Services.AddScoped<IAsignationService, AsignationService>();
 builder.Services.AddScoped<IPeripheralService, PeripheralService>();
+builder.Services.AddScoped<IPeripheralTypeService, PeripheralTypeService>();
+builder.Services.AddScoped<IPeripheralAssignmentService, PeripheralAssignmentService>();
+builder.Services.AddScoped<IPeripheralMaintenanceService, PeripheralMaintenanceService>();
 builder.Services.AddScoped<IMaintenanceService, MaintenanceService>();
 builder.Services.AddScoped<ILicenseService, LicenseService>();
 builder.Services.AddScoped<IUserAdminService, UserAdminService>();
+builder.Services.AddScoped<ILocationService, LocationService>();
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>

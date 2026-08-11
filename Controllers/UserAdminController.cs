@@ -21,12 +21,13 @@ namespace Gestor_Equipos.Controllers
             _dbContext = dbContext;
         }
 
-        public async Task<IActionResult> Index(string? search)
+        public async Task<IActionResult> Index(string? search, bool? showInactive)
         {
-            var users = await _userAdminService.GetAllAsync();
+            var users = await _userAdminService.GetAllAsync(includeInactive: showInactive == true);
 
             ViewBag.TotalCount = users.Count;
             ViewBag.SearchTerm = search;
+            ViewBag.ShowInactive = showInactive == true;
 
             if (!string.IsNullOrWhiteSpace(search))
             {
@@ -58,7 +59,7 @@ namespace Gestor_Equipos.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(UserAdminCreateViewModel vm)
+        public async Task<IActionResult> Create(UserCreateViewModel vm)
         {
             if (!ModelState.IsValid)
             {
@@ -68,17 +69,7 @@ namespace Gestor_Equipos.Controllers
 
             try
             {
-                var userId = await _userAdminService.CreateUserAsync(new UserCreateViewModel
-                {
-                    Name = vm.Name,
-                    LastName = vm.LastName,
-                    Email = vm.Email,
-                    EmailTeams = vm.EmailTeams,
-                    AreaId = vm.AreaId,
-                    RegionalId = vm.RegionalId
-                });
-
-                await _userAdminService.CreateLoginAsync(userId, vm.Username, vm.Password, vm.RolId);
+                await _userAdminService.CreateUserAsync(vm);
             }
             catch (InvalidOperationException ex)
             {
@@ -90,11 +81,65 @@ namespace Gestor_Equipos.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        public async Task<IActionResult> Edit(int id)
+        {
+            var user = await _userAdminService.GetByIdAsync(id);
+            if (user is null)
+            {
+                return NotFound();
+            }
+
+            var vm = new UserCreateViewModel
+            {
+                Id = user.Id,
+                Name = user.Name,
+                LastName = user.LastName,
+                Email = user.Email,
+                EmailTeams = user.EmailTeams,
+                AreaId = user.AreaId,
+                RegionalId = user.RegionalId
+            };
+
+            await PopulateDropdownsAsync();
+            return View(vm);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Edit(int id, UserCreateViewModel vm)
+        {
+            if (!ModelState.IsValid)
+            {
+                await PopulateDropdownsAsync();
+                return View(vm);
+            }
+
+            try
+            {
+                await _userAdminService.UpdateUserAsync(id, vm);
+            }
+            catch (InvalidOperationException ex)
+            {
+                ModelState.AddModelError(string.Empty, ex.Message);
+                await PopulateDropdownsAsync();
+                return View(vm);
+            }
+
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Deactivate(int id)
+        {
+            await _userAdminService.DeactivateAsync(id);
+            return RedirectToAction(nameof(Index));
+        }
+
         private async Task PopulateDropdownsAsync()
         {
             ViewBag.Areas = new SelectList(await _dbContext.Areas.OrderBy(a => a.Name).ToListAsync(), "Id", "Name");
             ViewBag.Regionals = new SelectList(await _dbContext.Regionals.OrderBy(r => r.Name).ToListAsync(), "Id", "Name");
-            ViewBag.Roles = new SelectList(await _dbContext.Rols.OrderBy(r => r.Name).ToListAsync(), "Id", "Name");
         }
     }
 }

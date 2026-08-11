@@ -2,6 +2,7 @@
 @{
     ViewData["Title"] = "Usuarios";
     string? searchTerm = ViewBag.SearchTerm;
+    bool showInactive = ViewBag.ShowInactive;
 }
 
 <div class="section-header">
@@ -30,6 +31,10 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
         <input type="search" name="search" value="@searchTerm" class="form-control" placeholder="Buscar usuario..." />
     </div>
+    <div class="form-check d-flex align-items-center">
+        <input type="checkbox" id="showInactive" name="showInactive" value="true" class="form-check-input" onchange="this.form.submit()" checked="@(showInactive ? "checked" : null)" />
+        <label class="form-check-label ms-2" for="showInactive">Mostrar inactivos</label>
+    </div>
 </form>
 
 <div class="app-card">
@@ -41,6 +46,7 @@
                 <th>Área</th>
                 <th>Regional</th>
                 <th>Usuario / Rol</th>
+                <th>Estado</th>
                 <th></th>
             </tr>
         </thead>
@@ -66,7 +72,19 @@
                         }
                     </td>
                     <td>
+                        <span class="badge-estado @(u.Activo ? "badge-estado--activo" : "badge-estado--inactivo")">@(u.Activo ? "Activo" : "Inactivo")</span>
+                    </td>
+                    <td>
                         <a asp-controller="UserAdmin" asp-action="Details" asp-route-id="@u.Id">Ver hoja de vida</a>
+                        <a asp-controller="UserAdmin" asp-action="Edit" asp-route-id="@u.Id" class="ms-2">Editar</a>
+                        @if (u.Activo)
+                        {
+                            <form asp-controller="UserAdmin" asp-action="Deactivate" asp-route-id="@u.Id" method="post" class="d-inline ms-2"
+                                  onsubmit="return confirm('¿Eliminar este usuario? El equipo a su cargo quedará como Disponible.');">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
+                            </form>
+                        }
                     </td>
                 </tr>
             }

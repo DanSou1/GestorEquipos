@@ -1,0 +1,20 @@
+@{
+    ViewData["Title"] = "Reasignar periférico";
+    int peripheralId = ViewBag.PeripheralId;
+}
+
+<h1>Reasignar periférico</h1>
+
+<form asp-controller="Peripheral" asp-action="Reassign" method="post">
+    @Html.AntiForgeryToken()
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+    <input type="hidden" name="peripheralId" value="@peripheralId" />
+    <div class="mb-3">
+        <label class="form-label">Usuario</label>
+        <select name="userId" class="form-select" asp-items="ViewBag.Users">
+            <option value="">-- Selecciona --</option>
+        </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Asignar</button>
+    <a asp-controller="Peripheral" asp-action="Details" asp-route-id="@peripheralId" class="btn btn-link">Cancelar</a>
+</form>

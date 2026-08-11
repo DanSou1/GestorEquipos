@@ -1,5 +1,6 @@
 using System.Text;
 using Gestor_Equipos.Services.Implementations;
+using GestorEquipos.Models;
 using GestorEquipos.Models.ViewModels.Desktop;
 using Xunit;
 
@@ -18,7 +19,14 @@ namespace GestorEquipos.Tests.Services
             Disk = "256GB SSD",
             OSVersionName = "Windows 11",
             RamSpecification = "8GB",
-            RemoteInfo = "10.0.0.1:3389",
+            RemoteAccess = new RemoteAccessItem
+            {
+                ConnectionType = RemoteConnectionType.EscritorioRemotoWindows,
+                IPAddress = "10.0.0.1",
+                Port = "3389",
+                Username = "PC01\\jperez",
+                Password = "clave123"
+            },
             Estado = true,
             CurrentUserName = "Juan Perez",
             CurrentAreaName = "Sistemas",
@@ -36,11 +44,7 @@ namespace GestorEquipos.Tests.Services
                     Brand = "Logitech",
                     Model = "M100",
                     Serial = "MS-1",
-                    Estado = "Activo",
-                    Observations = new List<PeripheralObservationItem>
-                    {
-                        new() { Date = new DateOnly(2025, 2, 1), Type = "Reparacion", Description = "Cambio de cable" }
-                    }
+                    Estado = "Activo"
                 }
             },
             Maintenances = new List<MaintenanceHistoryItem>
@@ -69,7 +73,7 @@ namespace GestorEquipos.Tests.Services
             Disk = "128GB SSD",
             OSVersionName = "Windows 10",
             RamSpecification = "4GB",
-            RemoteInfo = null,
+            RemoteAccess = null,
             Estado = false,
             CurrentUserName = "Sin asignar",
             CurrentAreaName = "-",
@@ -81,7 +85,7 @@ namespace GestorEquipos.Tests.Services
         {
             var service = new DesktopPdfService();
 
-            var bytes = service.GenerateHojaDeVidaPdf(BuildFullDetail());
+            var bytes = service.GenerateHojaDeVidaPdf(BuildFullDetail(), includeRemoteAccess: true);
 
             Assert.NotEmpty(bytes);
             Assert.Equal("%PDF", Encoding.ASCII.GetString(bytes, 0, 4));
@@ -92,7 +96,22 @@ namespace GestorEquipos.Tests.Services
         {
             var service = new DesktopPdfService();
 
-            var bytes = service.GenerateHojaDeVidaPdf(BuildEmptyDetail());
+            var bytes = service.GenerateHojaDeVidaPdf(BuildEmptyDetail(), includeRemoteAccess: true);
+
+            Assert.NotEmpty(bytes);
+            Assert.Equal("%PDF", Encoding.ASCII.GetString(bytes, 0, 4));
+        }
+
+        [Fact]
+        public void GenerateHojaDeVidaPdf_WithIncludeRemoteAccessFalse_ReturnsValidPdfBytes()
+        {
+            // No hay extracción de texto en estos tests (solo se valida el magic %PDF),
+            // así que esto no prueba que la sección "Acceso remoto" se omita del contenido
+            // visible — solo que el flag no rompe la generación. La verificación visual
+            // real queda para la prueba manual (ver MANUAL_TESTS.md).
+            var service = new DesktopPdfService();
+
+            var bytes = service.GenerateHojaDeVidaPdf(BuildFullDetail(), includeRemoteAccess: false);
 
             Assert.NotEmpty(bytes);
             Assert.Equal("%PDF", Encoding.ASCII.GetString(bytes, 0, 4));

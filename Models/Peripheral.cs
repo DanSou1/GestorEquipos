@@ -3,13 +3,6 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace GestorEquipos.Models
 {
-    public enum PeripheralEstado
-    {
-        Activo,
-        Inactivo,
-        Raes
-    }
-
     public class Peripheral
     {
         [Key]
@@ -35,10 +28,11 @@ namespace GestorEquipos.Models
         public string? Serial { get; set; }
 
         [Required]
-        public PeripheralEstado Estado { get; set; } = PeripheralEstado.Activo;
+        public bool Estado { get; set; } = true;
 
         public Desktop Desktop { get; set; } = null!;
         public PeripheralType PeripheralType { get; set; } = null!;
-        public ICollection<PeripheralObservation> Observations { get; set; } = new List<PeripheralObservation>();
+        public ICollection<PeripheralAssignment> Assignments { get; set; } = new List<PeripheralAssignment>();
+        public ICollection<PeripheralMaintenance> Maintenances { get; set; } = new List<PeripheralMaintenance>();
     }
 }

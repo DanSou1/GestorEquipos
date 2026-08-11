@@ -1,0 +1,98 @@
+@model AccessAccountEditViewModel
+@{
+    ViewData["Title"] = "Editar cuenta de acceso";
+}
+
+<div class="section-header">
+    <h1>Editar cuenta de acceso</h1>
+</div>
+
+<div class="app-card p-4">
+    <form asp-controller="AccessAccount" asp-action="Edit" asp-route-id="@Model.Id" method="post">
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+        <h5>Datos personales</h5>
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <label asp-for="Name" class="form-label"></label>
+                <input asp-for="Name" class="form-control" />
+                <span asp-validation-for="Name" class="text-danger"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="LastName" class="form-label"></label>
+                <input asp-for="LastName" class="form-control" />
+                <span asp-validation-for="LastName" class="text-danger"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="Email" class="form-label"></label>
+                <input asp-for="Email" class="form-control" />
+                <span asp-validation-for="Email" class="text-danger"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="EmailTeams" class="form-label">Correo Teams (opcional)</label>
+                <input asp-for="EmailTeams" class="form-control" />
+            </div>
+            <div class="col-md-6">
+                <label asp-for="AreaId" class="form-label">Área</label>
+                <select asp-for="AreaId" class="form-select" asp-items="ViewBag.Areas">
+                    <option value="">-- Selecciona --</option>
+                </select>
+                <span asp-validation-for="AreaId" class="text-danger"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="RegionalId" class="form-label">Regional</label>
+                <select asp-for="RegionalId" class="form-select" asp-items="ViewBag.Regionals">
+                    <option value="">-- Selecciona --</option>
+                </select>
+                <span asp-validation-for="RegionalId" class="text-danger"></span>
+            </div>
+        </div>
+
+        <h5>Cuenta de acceso</h5>
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <label asp-for="Username" class="form-label"></label>
+                <input asp-for="Username" class="form-control" autocomplete="off" />
+                <span asp-validation-for="Username" class="text-danger"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="RolId" class="form-label">Rol</label>
+                <select asp-for="RolId" class="form-select" asp-items="ViewBag.Roles">
+                    <option value="">-- Selecciona --</option>
+                </select>
+                <span asp-validation-for="RolId" class="text-danger"></span>
+            </div>
+        </div>
+
+        <h5>Cambiar contraseña (opcional)</h5>
+        <p class="text-muted">Deja estos campos vacíos si no deseas cambiar la contraseña.</p>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label asp-for="NewPassword" class="form-label">Nueva contraseña</label>
+                <input asp-for="NewPassword" class="form-control" autocomplete="new-password" />
+                <span asp-validation-for="NewPassword" class="text-danger"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="ConfirmPassword" class="form-label">Confirmar nueva contraseña</label>
+                <input asp-for="ConfirmPassword" class="form-control" autocomplete="new-password" />
+                <span asp-validation-for="ConfirmPassword" class="text-danger"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="AdminPassword" class="form-label">Tu contraseña de Administrador</label>
+                <input asp-for="AdminPassword" class="form-control" autocomplete="current-password" />
+                <span asp-validation-for="AdminPassword" class="text-danger"></span>
+                <div class="form-text">Requerida únicamente para confirmar el cambio de clave de este usuario.</div>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <button type="submit" class="btn-app-primary">Guardar cambios</button>
+            <a asp-controller="AccessAccount" asp-action="Index" class="btn btn-link">Cancelar</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

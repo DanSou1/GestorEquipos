@@ -252,8 +252,10 @@ namespace GestorEquipos.Migrations
                     b.Property<int>("DesktopId")
                         .HasColumnType("int");
 
-                    b.Property<int>("Estado")
-                        .HasColumnType("int");
+                    b.Property<bool>("Estado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
 
                     b.Property<string>("Model")
                         .IsRequired()
@@ -276,7 +278,33 @@ namespace GestorEquipos.Migrations
                     b.ToTable("Peripheral", (string)null);
                 });
 
-            modelBuilder.Entity("GestorEquipos.Models.PeripheralObservation", b =>
+            modelBuilder.Entity("GestorEquipos.Models.PeripheralAssignment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateOnly>("DateAsignation")
+                        .HasColumnType("date");
+
+                    b.Property<int>("PeripheralId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PeripheralId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("PeripheralAssignment", (string)null);
+                });
+
+            modelBuilder.Entity("GestorEquipos.Models.PeripheralMaintenance", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -292,17 +320,24 @@ namespace GestorEquipos.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<int>("MaintenanceTypeId")
+                        .HasColumnType("int");
+
                     b.Property<int>("PeripheralId")
                         .HasColumnType("int");
 
-                    b.Property<int>("Type")
+                    b.Property<int>("TechnicianUserSystemId")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("MaintenanceTypeId");
+
                     b.HasIndex("PeripheralId");
 
-                    b.ToTable("PeripheralObservation", (string)null);
+                    b.HasIndex("TechnicianUserSystemId");
+
+                    b.ToTable("PeripheralMaintenance", (string)null);
                 });
 
             modelBuilder.Entity("GestorEquipos.Models.PeripheralType", b =>
@@ -354,8 +389,8 @@ namespace GestorEquipos.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasMaxLength(15)
-                        .HasColumnType("nvarchar(15)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.HasKey("Id");
 
@@ -370,19 +405,35 @@ namespace GestorEquipos.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("AppDescription")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("ConnectionType")
+                        .HasColumnType("int");
+
                     b.Property<string>("IPAddress")
-                        .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<string>("Password")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<string>("Port")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("Username")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
 
                     b.HasKey("Id");
 
-                    b.ToTable("Remote", (string)null);
+                    b.ToTable("Remote", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Remote_ConnectionTypeFields", "(ConnectionType = 0 AND AppDescription IS NOT NULL) OR (ConnectionType = 1 AND IPAddress IS NOT NULL AND Port IS NOT NULL AND Username IS NOT NULL AND Password IS NOT NULL)");
+                        });
                 });
 
             modelBuilder.Entity("GestorEquipos.Models.Rol", b =>
@@ -490,8 +541,16 @@ namespace GestorEquipos.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<bool>("Activo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
                     b.Property<int>("AreaId")
                         .HasColumnType("int");
+
+                    b.Property<DateOnly?>("DeactivatedAt")
+                        .HasColumnType("date");
 
                     b.Property<string>("Email")
                         .IsRequired()
@@ -630,15 +689,50 @@ namespace GestorEquipos.Migrations
                     b.Navigation("PeripheralType");
                 });
 
-            modelBuilder.Entity("GestorEquipos.Models.PeripheralObservation", b =>
+            modelBuilder.Entity("GestorEquipos.Models.PeripheralAssignment", b =>
                 {
                     b.HasOne("GestorEquipos.Models.Peripheral", "Peripheral")
-                        .WithMany("Observations")
+                        .WithMany("Assignments")
                         .HasForeignKey("PeripheralId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("GestorEquipos.Models.Users", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.Navigation("Peripheral");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("GestorEquipos.Models.PeripheralMaintenance", b =>
+                {
+                    b.HasOne("GestorEquipos.Models.MaintenanceType", "MaintenanceType")
+                        .WithMany("PeripheralMaintenances")
+                        .HasForeignKey("MaintenanceTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GestorEquipos.Models.Peripheral", "Peripheral")
+                        .WithMany("Maintenances")
+                        .HasForeignKey("PeripheralId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GestorEquipos.Models.UserSystem", "Technician")
+                        .WithMany()
+                        .HasForeignKey("TechnicianUserSystemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("MaintenanceType");
+
+                    b.Navigation("Peripheral");
+
+                    b.Navigation("Technician");
                 });
 
             modelBuilder.Entity("GestorEquipos.Models.SpecChangeLog", b =>
@@ -714,11 +808,15 @@ namespace GestorEquipos.Migrations
             modelBuilder.Entity("GestorEquipos.Models.MaintenanceType", b =>
                 {
                     b.Navigation("Maintenances");
+
+                    b.Navigation("PeripheralMaintenances");
                 });
 
             modelBuilder.Entity("GestorEquipos.Models.Peripheral", b =>
                 {
-                    b.Navigation("Observations");
+                    b.Navigation("Assignments");
+
+                    b.Navigation("Maintenances");
                 });
 
             modelBuilder.Entity("GestorEquipos.Models.PeripheralType", b =>

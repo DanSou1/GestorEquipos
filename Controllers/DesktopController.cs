@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Gestor_Equipos.Data;
 using Gestor_Equipos.Services;
 using Gestor_Equipos.Services.Auth;
+using GestorEquipos.Models;
 using GestorEquipos.Models.ViewModels.Desktop;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -62,6 +63,7 @@ namespace Gestor_Equipos.Controllers
                 return NotFound();
             }
 
+            ViewBag.Error = TempData["Error"];
             return View(detail);
         }
 
@@ -73,7 +75,8 @@ namespace Gestor_Equipos.Controllers
                 return NotFound();
             }
 
-            var pdfBytes = _desktopPdfService.GenerateHojaDeVidaPdf(detail);
+            var includeRemoteAccess = User.IsInRole(AuthBootstrapper.AdministradorRoleName);
+            var pdfBytes = _desktopPdfService.GenerateHojaDeVidaPdf(detail, includeRemoteAccess);
             var fileName = $"HojaDeVida-{detail.SerialNumber}.pdf";
             return File(pdfBytes, "application/pdf", fileName);
         }
@@ -119,7 +122,7 @@ namespace Gestor_Equipos.Controllers
                 Disk = desktop.Disk,
                 OSVersionId = desktop.OSVersionId,
                 RamId = desktop.RamId,
-                RemoteId = desktop.RemoteId
+                RemoteSelection = desktop.RemoteId?.ToString() ?? ""
             };
 
             await PopulateDropdownsAsync();
@@ -153,17 +156,18 @@ namespace Gestor_Equipos.Controllers
         }
 
         [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Delete(int id)
+        {
+            await _desktopService.DeleteAsync(id);
+            return RedirectToAction(nameof(Index));
+        }
+
+        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
         public async Task<IActionResult> Assign(int desktopId)
         {
-            ViewBag.DesktopId = desktopId;
-            var users = await _dbContext.Users
-                .Where(u => u.Email != AuthBootstrapper.RaesUserEmail)
-                .OrderBy(u => u.Name)
-                .ToListAsync();
-            ViewBag.Users = new SelectList(
-                users.Select(u => new { u.Id, FullName = $"{u.Name} {u.LastName}" }),
-                "Id",
-                "FullName");
+            await PopulateAssignDropdownAsync(desktopId);
             return View();
         }
 
@@ -172,7 +176,17 @@ namespace Gestor_Equipos.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Assign(int desktopId, int userId)
         {
-            await _asignationService.AssignAsync(desktopId, userId);
+            try
+            {
+                await _asignationService.AssignAsync(desktopId, userId);
+            }
+            catch (InvalidOperationException ex)
+            {
+                ModelState.AddModelError(string.Empty, ex.Message);
+                await PopulateAssignDropdownAsync(desktopId, userId);
+                return View();
+            }
+
             return RedirectToAction(nameof(Details), new { id = desktopId });
         }
 
@@ -182,11 +196,39 @@ namespace Gestor_Equipos.Controllers
             return int.Parse(claim!);
         }
 
+        private async Task PopulateAssignDropdownAsync(int desktopId, int? selectedUserId = null)
+        {
+            ViewBag.DesktopId = desktopId;
+            var users = await _dbContext.Users
+                .Where(u => u.Email != AuthBootstrapper.RaesUserEmail && u.Activo)
+                .OrderBy(u => u.Name)
+                .ToListAsync();
+            ViewBag.Users = new SelectList(
+                users.Select(u => new { u.Id, FullName = $"{u.Name} {u.LastName}" }),
+                "Id",
+                "FullName",
+                selectedUserId);
+        }
+
         private async Task PopulateDropdownsAsync()
         {
             ViewBag.OSVersions = new SelectList(await _dbContext.OSVersions.ToListAsync(), "Id", "TypeSO");
             ViewBag.Rams = new SelectList(await _dbContext.Rams.ToListAsync(), "Id", "Especification");
-            ViewBag.Remotes = new SelectList(await _dbContext.Remotes.ToListAsync(), "Id", "IPAddress");
+
+            var remotes = await _dbContext.Remotes.ToListAsync();
+            var remoteItems = new List<SelectListItem>
+            {
+                new SelectListItem("+ Crear nuevo acceso remoto", "new")
+            };
+            remoteItems.AddRange(remotes.Select(r => new SelectListItem(BuildRemoteLabel(r), r.Id.ToString())));
+            ViewBag.Remotes = remoteItems;
+        }
+
+        private static string BuildRemoteLabel(Remote remote)
+        {
+            return remote.ConnectionType == RemoteConnectionType.Aplicativo
+                ? $"Aplicativo — {remote.AppDescription}"
+                : $"RDP — {remote.IPAddress}:{remote.Port} ({remote.Username})";
         }
     }
 }

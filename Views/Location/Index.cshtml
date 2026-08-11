@@ -1,0 +1,92 @@
+@using GestorEquipos.Models
+@{
+    ViewData["Title"] = "Áreas y Regionales";
+    var areas = (List<Area>)ViewBag.Areas;
+    var regionals = (List<Regional>)ViewBag.Regionals;
+    string? error = ViewBag.Error;
+}
+
+@if (!string.IsNullOrWhiteSpace(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
+
+<div class="section-header">
+    <h1>Áreas</h1>
+    <a asp-controller="Location" asp-action="CreateArea" class="btn-app-primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+        Nueva área
+    </a>
+</div>
+
+<div class="app-card mb-4">
+    <table class="app-table">
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var a in areas)
+            {
+                <tr>
+                    <td>@a.Name</td>
+                    <td>
+                        <a asp-controller="Location" asp-action="EditArea" asp-route-id="@a.Id">Editar</a>
+                        <form asp-controller="Location" asp-action="DeleteArea" asp-route-id="@a.Id" method="post" class="d-inline ms-2"
+                              onsubmit="return confirm('¿Eliminar esta área?');">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (!areas.Any())
+    {
+        <p class="text-muted p-3 mb-0">No hay áreas registradas.</p>
+    }
+</div>
+
+<div class="section-header">
+    <h1>Regionales</h1>
+    <a asp-controller="Location" asp-action="CreateRegional" class="btn-app-primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+        Nueva regional
+    </a>
+</div>
+
+<div class="app-card">
+    <table class="app-table">
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var r in regionals)
+            {
+                <tr>
+                    <td>@r.Name</td>
+                    <td>
+                        <a asp-controller="Location" asp-action="EditRegional" asp-route-id="@r.Id">Editar</a>
+                        <form asp-controller="Location" asp-action="DeleteRegional" asp-route-id="@r.Id" method="post" class="d-inline ms-2"
+                              onsubmit="return confirm('¿Eliminar esta regional?');">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (!regionals.Any())
+    {
+        <p class="text-muted p-3 mb-0">No hay regionales registradas.</p>
+    }
+</div>

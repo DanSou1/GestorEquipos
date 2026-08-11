@@ -1,0 +1,30 @@
+@model LocationFormViewModel
+@{
+    ViewData["Title"] = "Editar regional";
+}
+
+<div class="section-header">
+    <h1>Editar regional</h1>
+</div>
+
+<div class="app-card p-4">
+    <form asp-controller="Location" asp-action="EditRegional" asp-route-id="@Model.Id" method="post">
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+        <div class="mb-3">
+            <label asp-for="Name" class="form-label">Nombre</label>
+            <input asp-for="Name" class="form-control" />
+            <span asp-validation-for="Name" class="text-danger"></span>
+        </div>
+
+        <div class="mt-4">
+            <button type="submit" class="btn-app-primary">Guardar cambios</button>
+            <a asp-controller="Location" asp-action="Index" class="btn btn-link">Cancelar</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

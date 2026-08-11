@@ -1,0 +1,127 @@
+@using GestorEquipos.Models.ViewModels.Peripheral
+@model List<PeripheralInventoryItem>
+@{
+    ViewData["Title"] = "Periféricos";
+    var stats = (PeripheralInventoryStatsViewModel)ViewBag.Stats;
+    int? typeFiltro = ViewBag.PeripheralTypeFiltro;
+    string? estadoFiltro = ViewBag.EstadoFiltro;
+    string? searchTerm = ViewBag.SearchTerm;
+}
+
+<div class="section-header">
+    <h1>Periféricos</h1>
+</div>
+
+<div class="stat-card-row">
+    <div class="stat-card">
+        <div class="stat-card__header">
+            <span class="stat-card__icon stat-card__icon--blue">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8M12 16v4" /></svg>
+            </span>
+            <span class="stat-card__label">Total periféricos</span>
+        </div>
+        <div class="stat-card__value">@stats.Total</div>
+        <div class="stat-card__bar stat-card__bar--blue"></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card__header">
+            <span class="stat-card__icon stat-card__icon--green">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+            </span>
+            <span class="stat-card__label">Activos</span>
+        </div>
+        <div class="stat-card__value">@stats.Activos</div>
+        <div class="stat-card__bar stat-card__bar--green"></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card__header">
+            <span class="stat-card__icon stat-card__icon--violet">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8M12 16v4" /></svg>
+            </span>
+            <span class="stat-card__label">Disponibles</span>
+        </div>
+        <div class="stat-card__value">@stats.Disponibles</div>
+        <div class="stat-card__bar stat-card__bar--violet"></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card__header">
+            <span class="stat-card__icon stat-card__icon--amber">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z" /></svg>
+            </span>
+            <span class="stat-card__label">RAES</span>
+        </div>
+        <div class="stat-card__value">@stats.Raes</div>
+        <div class="stat-card__bar stat-card__bar--amber"></div>
+    </div>
+</div>
+
+@if (stats.ByType.Any())
+{
+    <div class="app-card mb-4">
+        <div class="card-header">Cantidad por tipo</div>
+        <ul class="list-group list-group-flush">
+            @foreach (var t in stats.ByType)
+            {
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>@t.TypeName</span>
+                    <span class="text-muted">@t.Count</span>
+                </li>
+            }
+        </ul>
+    </div>
+}
+
+<form method="get" class="app-toolbar">
+    <div class="app-toolbar__search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+        <input type="search" name="search" value="@searchTerm" class="form-control" placeholder="Buscar por marca, modelo o equipo..." />
+    </div>
+    <select name="peripheralTypeId" class="form-select" style="max-width: 220px;" asp-items="ViewBag.PeripheralTypes" onchange="this.form.submit()">
+        <option value="">Todos los tipos</option>
+    </select>
+    <select name="estado" class="form-select" style="max-width: 180px;" onchange="this.form.submit()">
+        <option value="" selected="@(string.IsNullOrEmpty(estadoFiltro))">Todos los estados</option>
+        <option value="Activo" selected="@(estadoFiltro == "Activo")">Activo</option>
+        <option value="Disponible" selected="@(estadoFiltro == "Disponible")">Disponible</option>
+        <option value="Raes" selected="@(estadoFiltro == "Raes")">RAES</option>
+    </select>
+</form>
+
+<div class="app-card">
+    <table class="app-table">
+        <thead>
+            <tr>
+                <th>Tipo</th>
+                <th>Marca / Modelo</th>
+                <th>Serial</th>
+                <th>Equipo</th>
+                <th>Tenedor actual</th>
+                <th>Estado</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model)
+            {
+                <tr>
+                    <td>@item.TypeName</td>
+                    <td>@item.Brand @item.Model</td>
+                    <td>@(item.Serial ?? "-")</td>
+                    <td><a asp-controller="Desktop" asp-action="Details" asp-route-id="@item.DesktopId">@item.DesktopName</a></td>
+                    <td>@item.CurrentHolderName</td>
+                    <td>
+                        <span class="badge @(item.Estado == "Activo" ? "bg-success" : item.Estado == "Raes" ? "bg-dark" : "bg-secondary")">@item.Estado</span>
+                    </td>
+                    <td>
+                        <a asp-controller="Peripheral" asp-action="Details" asp-route-id="@item.Id">Ver detalle</a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (!Model.Any())
+    {
+        <p class="text-muted p-3 mb-0">No hay periféricos registrados.</p>
+    }
+</div>

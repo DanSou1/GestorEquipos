@@ -37,5 +37,6 @@ namespace GestorEquipos.Models
         public string Type { get; set; }
 
         public ICollection<Maintenance> Maintenances { get; set; } = new List<Maintenance>();
+        public ICollection<PeripheralMaintenance> PeripheralMaintenances { get; set; } = new List<PeripheralMaintenance>();
     }
 }

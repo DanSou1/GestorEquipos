@@ -2,6 +2,7 @@ using Gestor_Equipos.Services.Auth;
 using Gestor_Equipos.Services.Implementations;
 using GestorEquipos.Models;
 using GestorEquipos.Models.ViewModels.Desktop;
+using Microsoft.EntityFrameworkCore;
 using Xunit;
 
 namespace GestorEquipos.Tests.Services
@@ -95,6 +96,174 @@ namespace GestorEquipos.Tests.Services
         }
 
         [Fact]
+        public async Task GetAllAsync_ShowsDisponibleWhenCurrentHolderIsInactive()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (area, regional, os, ram) = SeedLookups(db);
+            var user = SeedUser(db, area, regional);
+            var desktop = SeedDesktop(db, os, ram);
+
+            db.Asignations.Add(new Asignation { DesktopId = desktop.Id, UserId = user.Id, DateAsignation = new DateOnly(2026, 1, 1) });
+            db.SaveChanges();
+
+            user.Activo = false;
+            user.DeactivatedAt = new DateOnly(2026, 2, 1);
+            db.SaveChanges();
+
+            var service = new DesktopService(db, new AsignationService(db));
+            var result = await service.GetAllAsync();
+
+            var item = Assert.Single(result);
+            Assert.Equal("Disponible", item.UserName);
+            Assert.Equal(area.Name, item.AreaName);
+            Assert.Equal(regional.Name, item.RegionalName);
+        }
+
+        [Fact]
+        public async Task GetDetailAsync_ShowsDisponibleAndDeactivatedDate()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (area, regional, os, ram) = SeedLookups(db);
+            var user = SeedUser(db, area, regional);
+            var desktop = SeedDesktop(db, os, ram);
+
+            db.Asignations.Add(new Asignation { DesktopId = desktop.Id, UserId = user.Id, DateAsignation = new DateOnly(2026, 1, 1) });
+            db.SaveChanges();
+
+            user.Activo = false;
+            user.DeactivatedAt = new DateOnly(2026, 2, 1);
+            db.SaveChanges();
+
+            var service = new DesktopService(db, new AsignationService(db));
+            var result = await service.GetDetailAsync(desktop.Id);
+
+            Assert.NotNull(result);
+            Assert.Equal("Disponible", result!.CurrentUserName);
+            Assert.Equal(new DateOnly(2026, 2, 1), result.CurrentSinceDate);
+            Assert.Equal(area.Name, result.CurrentAreaName);
+            Assert.Equal(regional.Name, result.CurrentRegionalName);
+        }
+
+        [Fact]
+        public async Task GetEquipmentStatsAsync_CountsActivoWhenHolderIsActive()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (area, regional, os, ram) = SeedLookups(db);
+            var user = SeedUser(db, area, regional);
+            var desktop = SeedDesktop(db, os, ram);
+
+            db.Asignations.Add(new Asignation { DesktopId = desktop.Id, UserId = user.Id, DateAsignation = new DateOnly(2026, 1, 1) });
+            db.SaveChanges();
+
+            var service = new DesktopService(db, new AsignationService(db));
+            var stats = await service.GetEquipmentStatsAsync();
+
+            Assert.Equal(1, stats.Total);
+            Assert.Equal(1, stats.Activos);
+            Assert.Equal(0, stats.Disponibles);
+            Assert.Equal(0, stats.Raes);
+        }
+
+        [Fact]
+        public async Task GetEquipmentStatsAsync_CountsDisponibleWhenHolderIsInactive()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (area, regional, os, ram) = SeedLookups(db);
+            var user = SeedUser(db, area, regional);
+            var desktop = SeedDesktop(db, os, ram);
+
+            db.Asignations.Add(new Asignation { DesktopId = desktop.Id, UserId = user.Id, DateAsignation = new DateOnly(2026, 1, 1) });
+            db.SaveChanges();
+
+            user.Activo = false;
+            user.DeactivatedAt = new DateOnly(2026, 2, 1);
+            db.SaveChanges();
+
+            var service = new DesktopService(db, new AsignationService(db));
+            var stats = await service.GetEquipmentStatsAsync();
+
+            Assert.Equal(1, stats.Total);
+            Assert.Equal(0, stats.Activos);
+            Assert.Equal(1, stats.Disponibles);
+            Assert.Equal(0, stats.Raes);
+        }
+
+        [Fact]
+        public async Task GetEquipmentStatsAsync_CountsDisponibleWhenNeverAssigned()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (_, _, os, ram) = SeedLookups(db);
+            SeedDesktop(db, os, ram);
+
+            var service = new DesktopService(db, new AsignationService(db));
+            var stats = await service.GetEquipmentStatsAsync();
+
+            Assert.Equal(1, stats.Total);
+            Assert.Equal(0, stats.Activos);
+            Assert.Equal(1, stats.Disponibles);
+            Assert.Equal(0, stats.Raes);
+        }
+
+        [Fact]
+        public async Task GetEquipmentStatsAsync_CountsRaesRegardlessOfHolder()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (area, regional, os, ram) = SeedLookups(db);
+            var user = SeedUser(db, area, regional);
+            var desktop = SeedDesktop(db, os, ram, estado: false);
+
+            db.Asignations.Add(new Asignation { DesktopId = desktop.Id, UserId = user.Id, DateAsignation = new DateOnly(2026, 1, 1) });
+            db.SaveChanges();
+
+            var service = new DesktopService(db, new AsignationService(db));
+            var stats = await service.GetEquipmentStatsAsync();
+
+            Assert.Equal(1, stats.Total);
+            Assert.Equal(0, stats.Activos);
+            Assert.Equal(0, stats.Disponibles);
+            Assert.Equal(1, stats.Raes);
+        }
+
+        [Fact]
+        public async Task GetEquipmentStatsAsync_TotalsMatchSumOfCategories()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (area, regional, os, ram) = SeedLookups(db);
+            var activeUser = SeedUser(db, area, regional, "Active");
+            var inactiveUser = SeedUser(db, area, regional, "Inactive");
+
+            var activeDesktop = SeedDesktop(db, os, ram);
+            activeDesktop.NameDesktop = "PC-Active";
+            activeDesktop.SerialNumber = "SN-Active";
+
+            var disponibleDesktop = SeedDesktop(db, os, ram);
+            disponibleDesktop.NameDesktop = "PC-Disponible";
+            disponibleDesktop.SerialNumber = "SN-Disponible";
+
+            var raesDesktop = SeedDesktop(db, os, ram, estado: false);
+            raesDesktop.NameDesktop = "PC-Raes";
+            raesDesktop.SerialNumber = "SN-Raes";
+            db.SaveChanges();
+
+            db.Asignations.Add(new Asignation { DesktopId = activeDesktop.Id, UserId = activeUser.Id, DateAsignation = new DateOnly(2026, 1, 1) });
+            db.Asignations.Add(new Asignation { DesktopId = disponibleDesktop.Id, UserId = inactiveUser.Id, DateAsignation = new DateOnly(2026, 1, 1) });
+            db.SaveChanges();
+
+            inactiveUser.Activo = false;
+            inactiveUser.DeactivatedAt = new DateOnly(2026, 2, 1);
+            db.SaveChanges();
+
+            var service = new DesktopService(db, new AsignationService(db));
+            var stats = await service.GetEquipmentStatsAsync();
+
+            Assert.Equal(3, stats.Total);
+            Assert.Equal(1, stats.Activos);
+            Assert.Equal(1, stats.Disponibles);
+            Assert.Equal(1, stats.Raes);
+            Assert.Equal(stats.Total, stats.Activos + stats.Disponibles + stats.Raes);
+        }
+
+        [Fact]
         public async Task GetDetailAsync_ReturnsNull_WhenNotFound()
         {
             using var db = TestHelpers.CreateDbContext();
@@ -125,18 +294,10 @@ namespace GestorEquipos.Tests.Services
                 PeripheralTypeId = peripheralType.Id,
                 Brand = "Logitech",
                 Model = "M100",
-                Estado = PeripheralEstado.Activo
+                Estado = true
             };
             db.Peripherals.Add(peripheral);
             db.SaveChanges();
-
-            db.PeripheralObservations.Add(new PeripheralObservation
-            {
-                PeripheralId = peripheral.Id,
-                Date = new DateOnly(2026, 2, 1),
-                Type = PeripheralObservationType.Reparacion,
-                Description = "Se limpio el sensor"
-            });
 
             var maintenanceType = new MaintenanceType { Type = "Preventivo" };
             db.MaintenanceTypes.Add(maintenanceType);
@@ -179,7 +340,6 @@ namespace GestorEquipos.Tests.Services
             Assert.Equal("Juan Perez", result!.CurrentUserName);
             Assert.Single(result.AsignationHistory);
             Assert.Single(result.Peripherals);
-            Assert.Single(result.Peripherals[0].Observations);
             Assert.Single(result.Maintenances);
             Assert.Equal("Tecnico Perez", result.Maintenances[0].TechnicianName);
             Assert.Single(result.Licenses);
@@ -295,7 +455,7 @@ namespace GestorEquipos.Tests.Services
             using var db = TestHelpers.CreateDbContext();
             var (_, _, os, ram) = SeedLookups(db);
             var newOs = new OSVersion { TypeSO = "Windows", Version = "10" };
-            var remote = new Remote { IPAddress = "10.0.0.1", Port = "3389" };
+            var remote = new Remote { ConnectionType = RemoteConnectionType.EscritorioRemotoWindows, IPAddress = "10.0.0.1", Port = "3389", Username = "PC01\\jperez", Password = "clave123" };
             db.OSVersions.Add(newOs);
             db.Remotes.Add(remote);
             db.SaveChanges();
@@ -326,18 +486,50 @@ namespace GestorEquipos.Tests.Services
                 Disk = desktop.Disk,
                 OSVersionId = newOs.Id,
                 RamId = desktop.RamId,
-                RemoteId = remote.Id
+                RemoteSelection = remote.Id.ToString()
             };
 
             await service.UpdateSpecsAsync(desktop.Id, vm, adminSystem.Id);
 
             var logs = db.SpecChangeLogs.Where(l => l.DesktopId == desktop.Id).ToList();
             Assert.Contains(logs, l => l.FieldName == "Sistema Operativo" && l.NewValue == "Windows 10");
-            Assert.Contains(logs, l => l.FieldName == "Remote");
+            Assert.Contains(logs, l => l.FieldName == "Acceso remoto" && l.NewValue == "RDP 10.0.0.1:3389 (PC01\\jperez)");
 
             var updated = db.Desktops.Single(d => d.Id == desktop.Id);
             Assert.Equal(newOs.Id, updated.OSVersionId);
             Assert.Equal(remote.Id, updated.RemoteId);
+        }
+
+        [Fact]
+        public async Task DeactivateAsync_SucceedsWhenDesktopHasActiveCurrentHolder()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (area, regional, os, ram) = SeedLookups(db);
+            var currentHolder = SeedUser(db, area, regional, "Held");
+            var desktop = SeedDesktop(db, os, ram);
+            db.Asignations.Add(new Asignation { DesktopId = desktop.Id, UserId = currentHolder.Id, DateAsignation = new DateOnly(2026, 1, 1) });
+            db.SaveChanges();
+
+            var raesUser = new Users
+            {
+                Name = "RAES",
+                LastName = "Sistema",
+                Email = AuthBootstrapper.RaesUserEmail,
+                EmailTeams = AuthBootstrapper.RaesUserEmail,
+                AreaId = area.Id,
+                RegionalId = regional.Id
+            };
+            db.Users.Add(raesUser);
+            db.SaveChanges();
+
+            var service = new DesktopService(db, new AsignationService(db));
+            await service.DeactivateAsync(desktop.Id);
+
+            var updated = db.Desktops.Single(d => d.Id == desktop.Id);
+            Assert.False(updated.Estado);
+
+            var lastAsignation = db.Asignations.Where(a => a.DesktopId == desktop.Id).OrderByDescending(a => a.Id).First();
+            Assert.Equal(raesUser.Id, lastAsignation.UserId);
         }
 
         [Fact]
@@ -351,6 +543,233 @@ namespace GestorEquipos.Tests.Services
             await service.DeactivateAsync(desktop.Id);
 
             Assert.Empty(db.Asignations.Where(a => a.DesktopId == desktop.Id));
+        }
+
+        // Verifies the outcome only: rows for every dependent table are gone. It cannot
+        // catch a real FK-ordering bug, since the InMemory provider doesn't enforce
+        // Asignation.DesktopId's DeleteBehavior.Restrict the way SQL Server does.
+        [Fact]
+        public async Task DeleteAsync_RemovesDesktopAndAllDependentRows()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (area, regional, os, ram) = SeedLookups(db);
+            var user = SeedUser(db, area, regional);
+            var desktop = SeedDesktop(db, os, ram);
+
+            var role = new Rol { Name = AuthBootstrapper.AdministradorRoleName };
+            db.Rols.Add(role);
+            db.SaveChanges();
+            var adminUser = SeedUser(db, area, regional, "Admin3");
+            var adminSystem = new UserSystem { Username = "admin3", PasswordHash = "x", UserId = adminUser.Id, RolId = role.Id };
+            db.UserSystems.Add(adminSystem);
+            db.SaveChanges();
+
+            db.Asignations.Add(new Asignation { DesktopId = desktop.Id, UserId = user.Id, DateAsignation = new DateOnly(2026, 1, 1) });
+
+            var peripheralType = new PeripheralType { Name = "Mouse" };
+            db.PeripheralTypes.Add(peripheralType);
+            db.SaveChanges();
+            var peripheral = new Peripheral { DesktopId = desktop.Id, PeripheralTypeId = peripheralType.Id, Brand = "Logitech", Model = "M100" };
+            db.Peripherals.Add(peripheral);
+            db.SaveChanges();
+
+            var maintenanceType = new MaintenanceType { Type = "Preventivo" };
+            db.MaintenanceTypes.Add(maintenanceType);
+            db.SaveChanges();
+            db.Maintenances.Add(new Maintenance { DesktopId = desktop.Id, MaintenanceTypeId = maintenanceType.Id, Date = new DateOnly(2026, 1, 1), Description = "Test", TechnicianUserSystemId = adminSystem.Id });
+            db.PeripheralMaintenances.Add(new PeripheralMaintenance { PeripheralId = peripheral.Id, MaintenanceTypeId = maintenanceType.Id, Date = new DateOnly(2026, 1, 1), Description = "Test", TechnicianUserSystemId = adminSystem.Id });
+            db.PeripheralAssignments.Add(new PeripheralAssignment { PeripheralId = peripheral.Id, UserId = user.Id, DateAsignation = new DateOnly(2026, 1, 1) });
+
+            db.Licenses.Add(new License { DesktopId = desktop.Id, SoftwareType = "Office", LicenseKey = "AAAAA-BBBBB", NoLicense = false });
+            db.SpecChangeLogs.Add(new SpecChangeLog { DesktopId = desktop.Id, FieldName = "RAM", OldValue = "8GB", NewValue = "16GB", Date = new DateOnly(2026, 1, 1), ChangedByUserSystemId = adminSystem.Id });
+            db.SaveChanges();
+
+            var service = new DesktopService(db, new AsignationService(db));
+            await service.DeleteAsync(desktop.Id);
+
+            Assert.Empty(db.Desktops.Where(d => d.Id == desktop.Id));
+            Assert.Empty(db.Asignations.Where(a => a.DesktopId == desktop.Id));
+            Assert.Empty(db.Peripherals.Where(p => p.DesktopId == desktop.Id));
+            Assert.Empty(db.PeripheralMaintenances.Where(m => m.PeripheralId == peripheral.Id));
+            Assert.Empty(db.PeripheralAssignments.Where(a => a.PeripheralId == peripheral.Id));
+            Assert.Empty(db.Maintenances.Where(m => m.DesktopId == desktop.Id));
+            Assert.Empty(db.Licenses.Where(l => l.DesktopId == desktop.Id));
+            Assert.Empty(db.SpecChangeLogs.Where(l => l.DesktopId == desktop.Id));
+        }
+
+        [Fact]
+        public async Task DeleteAsync_ThrowsWhenDesktopNotFound()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var service = new DesktopService(db, new AsignationService(db));
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.DeleteAsync(999));
+        }
+
+        [Fact]
+        public async Task CreateAsync_WithRemoteSelectionNewRdp_CreatesRemoteAndLinksIt()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (_, _, os, ram) = SeedLookups(db);
+            var service = new DesktopService(db, new AsignationService(db));
+
+            var vm = new DesktopCreateViewModel
+            {
+                NameDesktop = "PC-002",
+                SerialNumber = "SN-002",
+                Brand = "Dell",
+                Model = "OptiPlex",
+                Processor = "i5",
+                Disk = "256GB SSD",
+                OSVersionId = os.Id,
+                RamId = ram.Id,
+                RemoteSelection = "new",
+                NewRemoteConnectionType = RemoteConnectionType.EscritorioRemotoWindows,
+                NewRemoteIPAddress = "10.0.0.5",
+                NewRemotePort = "3389",
+                NewRemoteUsername = "PC02\\jperez",
+                NewRemotePassword = "clave123"
+            };
+
+            var id = await service.CreateAsync(vm);
+
+            var desktop = db.Desktops.Include(d => d.Remote).Single(d => d.Id == id);
+            Assert.NotNull(desktop.Remote);
+            Assert.Equal(RemoteConnectionType.EscritorioRemotoWindows, desktop.Remote!.ConnectionType);
+            Assert.Equal("10.0.0.5", desktop.Remote.IPAddress);
+            Assert.Equal("3389", desktop.Remote.Port);
+            Assert.Equal("PC02\\jperez", desktop.Remote.Username);
+            Assert.Equal("clave123", desktop.Remote.Password);
+        }
+
+        [Fact]
+        public async Task CreateAsync_WithRemoteSelectionNewAplicativo_CreatesRemoteWithAppDescription()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (_, _, os, ram) = SeedLookups(db);
+            var service = new DesktopService(db, new AsignationService(db));
+
+            var vm = new DesktopCreateViewModel
+            {
+                NameDesktop = "PC-003",
+                SerialNumber = "SN-003",
+                Brand = "Dell",
+                Model = "OptiPlex",
+                Processor = "i5",
+                Disk = "256GB SSD",
+                OSVersionId = os.Id,
+                RamId = ram.Id,
+                RemoteSelection = "new",
+                NewRemoteConnectionType = RemoteConnectionType.Aplicativo,
+                NewRemoteAppDescription = "SAP GUI"
+            };
+
+            var id = await service.CreateAsync(vm);
+
+            var desktop = db.Desktops.Include(d => d.Remote).Single(d => d.Id == id);
+            Assert.NotNull(desktop.Remote);
+            Assert.Equal(RemoteConnectionType.Aplicativo, desktop.Remote!.ConnectionType);
+            Assert.Equal("SAP GUI", desktop.Remote.AppDescription);
+            Assert.Null(desktop.Remote.IPAddress);
+            Assert.Null(desktop.Remote.Password);
+        }
+
+        [Fact]
+        public async Task CreateAsync_WithExistingRemoteSelection_ReusesRemote()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (_, _, os, ram) = SeedLookups(db);
+            var remote = new Remote { ConnectionType = RemoteConnectionType.EscritorioRemotoWindows, IPAddress = "10.0.0.9", Port = "3389", Username = "PC09\\ana", Password = "clave9" };
+            db.Remotes.Add(remote);
+            db.SaveChanges();
+
+            var service = new DesktopService(db, new AsignationService(db));
+            var vm = new DesktopCreateViewModel
+            {
+                NameDesktop = "PC-004",
+                SerialNumber = "SN-004",
+                Brand = "Dell",
+                Model = "OptiPlex",
+                Processor = "i5",
+                Disk = "256GB SSD",
+                OSVersionId = os.Id,
+                RamId = ram.Id,
+                RemoteSelection = remote.Id.ToString()
+            };
+
+            var id = await service.CreateAsync(vm);
+
+            var desktop = db.Desktops.Single(d => d.Id == id);
+            Assert.Equal(remote.Id, desktop.RemoteId);
+            Assert.Single(db.Remotes);
+        }
+
+        [Fact]
+        public async Task CreateAsync_WithEmptyRemoteSelection_LeavesRemoteIdNull()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (_, _, os, ram) = SeedLookups(db);
+            var service = new DesktopService(db, new AsignationService(db));
+
+            var vm = new DesktopCreateViewModel
+            {
+                NameDesktop = "PC-005",
+                SerialNumber = "SN-005",
+                Brand = "Dell",
+                Model = "OptiPlex",
+                Processor = "i5",
+                Disk = "256GB SSD",
+                OSVersionId = os.Id,
+                RamId = ram.Id,
+                RemoteSelection = ""
+            };
+
+            var id = await service.CreateAsync(vm);
+
+            var desktop = db.Desktops.Single(d => d.Id == id);
+            Assert.Null(desktop.RemoteId);
+        }
+
+        [Fact]
+        public async Task UpdateSpecsAsync_SwitchingFromNoneToNewRemote_CreatesRemoteAndLogsFriendlySummary()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (area, regional, os, ram) = SeedLookups(db);
+            var role = new Rol { Name = AuthBootstrapper.AdministradorRoleName };
+            db.Rols.Add(role);
+            db.SaveChanges();
+            var adminUser = SeedUser(db, area, regional, "Admin4");
+            var adminSystem = new UserSystem { Username = "admin4", PasswordHash = "x", UserId = adminUser.Id, RolId = role.Id };
+            db.UserSystems.Add(adminSystem);
+            db.SaveChanges();
+
+            var desktop = SeedDesktop(db, os, ram);
+            var service = new DesktopService(db, new AsignationService(db));
+
+            var vm = new DesktopEditViewModel
+            {
+                NameDesktop = desktop.NameDesktop,
+                SerialNumber = desktop.SerialNumber,
+                Brand = desktop.Brand,
+                Model = desktop.Model,
+                Processor = desktop.Processor,
+                Disk = desktop.Disk,
+                OSVersionId = desktop.OSVersionId,
+                RamId = desktop.RamId,
+                RemoteSelection = "new",
+                NewRemoteConnectionType = RemoteConnectionType.Aplicativo,
+                NewRemoteAppDescription = "SAP GUI"
+            };
+
+            await service.UpdateSpecsAsync(desktop.Id, vm, adminSystem.Id);
+
+            var updated = db.Desktops.Include(d => d.Remote).Single(d => d.Id == desktop.Id);
+            Assert.NotNull(updated.Remote);
+            Assert.Equal("SAP GUI", updated.Remote!.AppDescription);
+
+            var log = db.SpecChangeLogs.Single(l => l.DesktopId == desktop.Id && l.FieldName == "Acceso remoto");
+            Assert.Null(log.OldValue);
+            Assert.Equal("Aplicativo: SAP GUI", log.NewValue);
         }
     }
 }

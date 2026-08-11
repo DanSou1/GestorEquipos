@@ -1,10 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace GestorEquipos.Models.ViewModels.UserAdmin
+namespace GestorEquipos.Models.ViewModels.AccessAccount
 {
-    // Formulario combinado: persona (Users) + cuenta de acceso (UserSystem) + rol.
-    // El controlador lo descompone en dos llamadas de servicio: CreateUserAsync + CreateLoginAsync.
-    public class UserAdminCreateViewModel
+    public class AccessAccountCreateViewModel
     {
         [Required(ErrorMessage = "El nombre es obligatorio.")]
         [MaxLength(50)]

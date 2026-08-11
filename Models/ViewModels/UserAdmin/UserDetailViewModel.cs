@@ -11,6 +11,8 @@ namespace GestorEquipos.Models.ViewModels.UserAdmin
         public string RegionalName { get; set; } = string.Empty;
         public string? Username { get; set; }
         public string? RolName { get; set; }
+        public bool Activo { get; set; } = true;
+        public DateOnly? DeactivatedAt { get; set; }
 
         public List<AssignedDesktopItem> CurrentDesktops { get; set; } = new();
         public List<UserAsignationHistoryItem> AsignationHistory { get; set; } = new();

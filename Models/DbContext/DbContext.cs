@@ -23,7 +23,8 @@ public class MyDbContext : DbContext
     public DbSet<Asignation> Asignations { get; set; }
     public DbSet<PeripheralType> PeripheralTypes { get; set; }
     public DbSet<Peripheral> Peripherals { get; set; }
-    public DbSet<PeripheralObservation> PeripheralObservations { get; set; }
+    public DbSet<PeripheralAssignment> PeripheralAssignments { get; set; }
+    public DbSet<PeripheralMaintenance> PeripheralMaintenances { get; set; }
     public DbSet<License> Licenses { get; set; }
     public DbSet<SpecChangeLog> SpecChangeLogs { get; set; }
 
@@ -40,13 +41,17 @@ public class MyDbContext : DbContext
         modelBuilder.Entity<Rol>().ToTable("Rol");
         modelBuilder.Entity<OSVersion>().ToTable("OSVersion");
         modelBuilder.Entity<Ram>().ToTable("Ram");
-        modelBuilder.Entity<Remote>().ToTable("Remote");
+        modelBuilder.Entity<Remote>().ToTable("Remote", t => t.HasCheckConstraint(
+            "CK_Remote_ConnectionTypeFields",
+            "(ConnectionType = 0 AND AppDescription IS NOT NULL) OR " +
+            "(ConnectionType = 1 AND IPAddress IS NOT NULL AND Port IS NOT NULL AND Username IS NOT NULL AND Password IS NOT NULL)"));
         modelBuilder.Entity<Maintenance>().ToTable("Maintenance");
         modelBuilder.Entity<MaintenanceType>().ToTable("MaintenanceType");
         modelBuilder.Entity<Asignation>().ToTable("Asignation");
         modelBuilder.Entity<PeripheralType>().ToTable("PeripheralType");
         modelBuilder.Entity<Peripheral>().ToTable("Peripheral");
-        modelBuilder.Entity<PeripheralObservation>().ToTable("PeripheralObservation");
+        modelBuilder.Entity<PeripheralAssignment>().ToTable("PeripheralAssignment");
+        modelBuilder.Entity<PeripheralMaintenance>().ToTable("PeripheralMaintenance");
         modelBuilder.Entity<License>().ToTable("License");
         modelBuilder.Entity<SpecChangeLog>().ToTable("SpecChangeLog");
 
@@ -72,6 +77,14 @@ public class MyDbContext : DbContext
 
         modelBuilder.Entity<Desktop>()
             .Property(d => d.Estado)
+            .HasDefaultValue(true);
+
+        modelBuilder.Entity<Users>()
+            .Property(u => u.Activo)
+            .HasDefaultValue(true);
+
+        modelBuilder.Entity<Peripheral>()
+            .Property(p => p.Estado)
             .HasDefaultValue(true);
 
         // Configure relationships
@@ -159,10 +172,34 @@ public class MyDbContext : DbContext
             .HasForeignKey(p => p.PeripheralTypeId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        modelBuilder.Entity<PeripheralObservation>()
-            .HasOne(o => o.Peripheral)
-            .WithMany(p => p.Observations)
-            .HasForeignKey(o => o.PeripheralId)
+        modelBuilder.Entity<PeripheralMaintenance>()
+            .HasOne(m => m.Peripheral)
+            .WithMany(p => p.Maintenances)
+            .HasForeignKey(m => m.PeripheralId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<PeripheralMaintenance>()
+            .HasOne(m => m.MaintenanceType)
+            .WithMany(mt => mt.PeripheralMaintenances)
+            .HasForeignKey(m => m.MaintenanceTypeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PeripheralMaintenance>()
+            .HasOne(m => m.Technician)
+            .WithMany()
+            .HasForeignKey(m => m.TechnicianUserSystemId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PeripheralAssignment>()
+            .HasOne(a => a.Peripheral)
+            .WithMany(p => p.Assignments)
+            .HasForeignKey(a => a.PeripheralId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<PeripheralAssignment>()
+            .HasOne(a => a.User)
+            .WithMany()
+            .HasForeignKey(a => a.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<License>()

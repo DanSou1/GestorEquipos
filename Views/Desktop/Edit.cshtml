@@ -53,10 +53,61 @@
             <span asp-validation-for="RamId" class="text-danger"></span>
         </div>
         <div class="col-md-4">
-            <label asp-for="RemoteId" class="form-label">Acceso remoto (opcional)</label>
-            <select asp-for="RemoteId" class="form-select" asp-items="ViewBag.Remotes">
+            <label asp-for="RemoteSelection" class="form-label">Acceso remoto (opcional)</label>
+            <select asp-for="RemoteSelection" id="remoteSelection" class="form-select" asp-items="ViewBag.Remotes">
                 <option value="">-- Ninguno --</option>
             </select>
+            <span asp-validation-for="RemoteSelection" class="text-danger"></span>
+        </div>
+    </div>
+
+    <div id="newRemoteFields" class="border rounded p-3 mt-3" style="display: none;">
+        <h6>Nuevo acceso remoto</h6>
+        <p class="text-muted small">Para cambiar los datos de un acceso remoto ya creado, selecciona "+ Crear nuevo acceso remoto" y captúralos de nuevo; no se editan en línea.</p>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label asp-for="NewRemoteConnectionType" class="form-label">Tipo de conexión</label>
+                <select asp-for="NewRemoteConnectionType" id="newRemoteConnectionType" class="form-select">
+                    <option value="">-- Selecciona --</option>
+                    <option value="Aplicativo">Aplicativo</option>
+                    <option value="EscritorioRemotoWindows">Escritorio remoto de Windows (RDP)</option>
+                </select>
+                <span asp-validation-for="NewRemoteConnectionType" class="text-danger"></span>
+            </div>
+        </div>
+
+        <div id="newRemoteAplicativoFields" class="row g-3 mt-1" style="display: none;">
+            <div class="col-md-8">
+                <label asp-for="NewRemoteAppDescription" class="form-label">Nombre del aplicativo o URL</label>
+                <input asp-for="NewRemoteAppDescription" class="form-control" />
+                <span asp-validation-for="NewRemoteAppDescription" class="text-danger"></span>
+            </div>
+        </div>
+
+        <div id="newRemoteRdpFields" class="row g-3 mt-1" style="display: none;">
+            <div class="col-md-3">
+                <label asp-for="NewRemoteIPAddress" class="form-label">IP</label>
+                <input asp-for="NewRemoteIPAddress" class="form-control" placeholder="10.0.0.5" />
+                <span asp-validation-for="NewRemoteIPAddress" class="text-danger"></span>
+            </div>
+            <div class="col-md-2">
+                <label asp-for="NewRemotePort" class="form-label">Puerto</label>
+                <input asp-for="NewRemotePort" class="form-control" placeholder="3389" />
+                <span asp-validation-for="NewRemotePort" class="text-danger"></span>
+            </div>
+            <div class="col-md-3">
+                <label asp-for="NewRemoteUsername" class="form-label">Usuario</label>
+                <input asp-for="NewRemoteUsername" class="form-control" placeholder="NOMBREEQUIPO\usuario" />
+                <span asp-validation-for="NewRemoteUsername" class="text-danger"></span>
+            </div>
+            <div class="col-md-4">
+                <label asp-for="NewRemotePassword" class="form-label">Clave</label>
+                <div class="input-group">
+                    <input asp-for="NewRemotePassword" type="password" id="newRemotePassword" class="form-control" />
+                    <button type="button" class="btn btn-outline-secondary" id="toggleNewRemotePassword">Mostrar</button>
+                </div>
+                <span asp-validation-for="NewRemotePassword" class="text-danger"></span>
+            </div>
         </div>
     </div>
 
@@ -68,4 +119,5 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <partial name="_RemoteFieldsScriptsPartial" />
 }

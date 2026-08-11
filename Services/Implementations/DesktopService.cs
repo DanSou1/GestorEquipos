@@ -32,7 +32,7 @@ namespace Gestor_Equipos.Services.Implementations
                     UserName = d.Asignations
                         .OrderByDescending(a => a.DateAsignation)
                         .ThenByDescending(a => a.Id)
-                        .Select(a => a.User.Name + " " + a.User.LastName)
+                        .Select(a => a.User.Activo ? a.User.Name + " " + a.User.LastName : "Disponible")
                         .FirstOrDefault() ?? "Sin asignar",
                     AreaName = d.Asignations
                         .OrderByDescending(a => a.DateAsignation)
@@ -57,7 +57,7 @@ namespace Gestor_Equipos.Services.Implementations
                 .Include(d => d.Ram)
                 .Include(d => d.Remote)
                 .Include(d => d.Peripherals).ThenInclude(p => p.PeripheralType)
-                .Include(d => d.Peripherals).ThenInclude(p => p.Observations)
+                .Include(d => d.Peripherals).ThenInclude(p => p.Assignments).ThenInclude(a => a.User)
                 .Include(d => d.Maintenances).ThenInclude(m => m.MaintenanceType)
                 .Include(d => d.Maintenances).ThenInclude(m => m.Technician).ThenInclude(t => t.User)
                 .Include(d => d.Licenses)
@@ -71,6 +71,7 @@ namespace Gestor_Equipos.Services.Implementations
 
             var asignationHistory = await _asignationService.GetHistoryAsync(desktopId);
             var currentAsignation = asignationHistory.FirstOrDefault();
+            var isDisponible = currentAsignation is not null && !currentAsignation.User.Activo;
 
             return new DesktopDetailViewModel
             {
@@ -83,9 +84,22 @@ namespace Gestor_Equipos.Services.Implementations
                 Disk = desktop.Disk,
                 OSVersionName = $"{desktop.OSVersion.TypeSO} {desktop.OSVersion.Version}",
                 RamSpecification = desktop.Ram.Especification,
-                RemoteInfo = desktop.Remote is null ? null : $"{desktop.Remote.IPAddress}:{desktop.Remote.Port}",
+                RemoteAccess = desktop.Remote is null ? null : new RemoteAccessItem
+                {
+                    ConnectionType = desktop.Remote.ConnectionType,
+                    IPAddress = desktop.Remote.IPAddress,
+                    Port = desktop.Remote.Port,
+                    Username = desktop.Remote.Username,
+                    Password = desktop.Remote.Password,
+                    AppDescription = desktop.Remote.AppDescription
+                },
                 Estado = desktop.Estado,
-                CurrentUserName = currentAsignation is null ? "Sin asignar" : $"{currentAsignation.User.Name} {currentAsignation.User.LastName}",
+                CurrentUserName = currentAsignation is null
+                    ? "Sin asignar"
+                    : isDisponible
+                        ? "Disponible"
+                        : $"{currentAsignation.User.Name} {currentAsignation.User.LastName}",
+                CurrentSinceDate = isDisponible ? currentAsignation!.User.DeactivatedAt : null,
                 CurrentAreaName = currentAsignation?.User.Area?.Name ?? "-",
                 CurrentRegionalName = currentAsignation?.User.Regional?.Name ?? "-",
                 AsignationHistory = asignationHistory
@@ -96,24 +110,27 @@ namespace Gestor_Equipos.Services.Implementations
                     })
                     .ToList(),
                 Peripherals = desktop.Peripherals
-                    .Select(p => new PeripheralDetailItem
+                    .Select(p =>
                     {
-                        Id = p.Id,
-                        TypeName = p.PeripheralType.Name,
-                        Brand = p.Brand,
-                        Model = p.Model,
-                        Serial = p.Serial,
-                        Estado = p.Estado.ToString(),
-                        Observations = p.Observations
-                            .OrderByDescending(o => o.Date)
-                            .ThenByDescending(o => o.Id)
-                            .Select(o => new PeripheralObservationItem
-                            {
-                                Date = o.Date,
-                                Type = o.Type.ToString(),
-                                Description = o.Description
-                            })
-                            .ToList()
+                        var latestAssignment = p.Assignments
+                            .OrderByDescending(a => a.DateAsignation)
+                            .ThenByDescending(a => a.Id)
+                            .FirstOrDefault();
+                        var estado = !p.Estado
+                            ? "Raes"
+                            : (latestAssignment is null || !latestAssignment.User.Activo)
+                                ? "Disponible"
+                                : "Activo";
+
+                        return new PeripheralDetailItem
+                        {
+                            Id = p.Id,
+                            TypeName = p.PeripheralType.Name,
+                            Brand = p.Brand,
+                            Model = p.Model,
+                            Serial = p.Serial,
+                            Estado = estado
+                        };
                     })
                     .ToList(),
                 Maintenances = desktop.Maintenances
@@ -151,6 +168,8 @@ namespace Gestor_Equipos.Services.Implementations
 
         public async Task<int> CreateAsync(DesktopCreateViewModel vm)
         {
+            var (remoteId, newRemote) = ResolveRemoteSelection(vm);
+
             var desktop = new Desktop
             {
                 NameDesktop = vm.NameDesktop,
@@ -161,7 +180,8 @@ namespace Gestor_Equipos.Services.Implementations
                 Disk = vm.Disk,
                 OSVersionId = vm.OSVersionId,
                 RamId = vm.RamId,
-                RemoteId = vm.RemoteId,
+                RemoteId = remoteId,
+                Remote = newRemote,
                 Estado = true
             };
 
@@ -198,9 +218,13 @@ namespace Gestor_Equipos.Services.Implementations
                 LogIfChanged(desktop.Id, "RAM", oldName, newName, changedByUserSystemId, date);
             }
 
-            if (desktop.RemoteId != vm.RemoteId)
+            var (remoteId, newRemote) = ResolveRemoteSelection(vm);
+
+            if (desktop.RemoteId != remoteId || newRemote is not null)
             {
-                LogIfChanged(desktop.Id, "Remote", desktop.RemoteId?.ToString(), vm.RemoteId?.ToString(), changedByUserSystemId, date);
+                var oldSummary = await GetRemoteSummaryAsync(desktop.RemoteId);
+                var newSummary = newRemote is not null ? BuildRemoteSummary(newRemote) : await GetRemoteSummaryAsync(remoteId);
+                LogIfChanged(desktop.Id, "Acceso remoto", oldSummary, newSummary, changedByUserSystemId, date);
             }
 
             desktop.NameDesktop = vm.NameDesktop;
@@ -211,7 +235,15 @@ namespace Gestor_Equipos.Services.Implementations
             desktop.Disk = vm.Disk;
             desktop.OSVersionId = vm.OSVersionId;
             desktop.RamId = vm.RamId;
-            desktop.RemoteId = vm.RemoteId;
+
+            if (newRemote is not null)
+            {
+                desktop.Remote = newRemote;
+            }
+            else
+            {
+                desktop.RemoteId = remoteId;
+            }
 
             await _dbContext.SaveChangesAsync();
         }
@@ -231,6 +263,45 @@ namespace Gestor_Equipos.Services.Implementations
 
             var raesUser = await _dbContext.Users.SingleAsync(u => u.Email == AuthBootstrapper.RaesUserEmail);
             await _asignationService.AssignAsync(desktopId, raesUser.Id);
+        }
+
+        public async Task DeleteAsync(int desktopId)
+        {
+            var desktop = await _dbContext.Desktops.SingleOrDefaultAsync(d => d.Id == desktopId)
+                ?? throw new InvalidOperationException("Equipo no encontrado.");
+
+            // Asignation.DesktopId is DeleteBehavior.Restrict at the DB level — must be
+            // removed before the Desktop, or SaveChangesAsync throws a DbUpdateException
+            // from a real SQL Server FK violation. Maintenance/Peripheral(+Observations)/
+            // License/SpecChangeLog are all Cascade — do not remove them manually.
+            var asignations = _dbContext.Asignations.Where(a => a.DesktopId == desktopId);
+            _dbContext.Asignations.RemoveRange(asignations);
+
+            _dbContext.Desktops.Remove(desktop);
+            await _dbContext.SaveChangesAsync();
+        }
+
+        public async Task<EquipmentStatsViewModel> GetEquipmentStatsAsync()
+        {
+            var rows = await _dbContext.Desktops.AsNoTracking()
+                .Select(d => new
+                {
+                    d.Estado,
+                    HolderActivo = d.Asignations
+                        .OrderByDescending(a => a.DateAsignation)
+                        .ThenByDescending(a => a.Id)
+                        .Select(a => (bool?)a.User.Activo)
+                        .FirstOrDefault()
+                })
+                .ToListAsync();
+
+            return new EquipmentStatsViewModel
+            {
+                Total = rows.Count,
+                Activos = rows.Count(r => r.Estado && r.HolderActivo == true),
+                Disponibles = rows.Count(r => r.Estado && r.HolderActivo != true),
+                Raes = rows.Count(r => !r.Estado)
+            };
         }
 
         private void LogIfChanged(int desktopId, string fieldName, string? oldValue, string? newValue, int changedByUserSystemId, DateOnly date)
@@ -261,6 +332,49 @@ namespace Gestor_Equipos.Services.Implementations
         {
             var ram = await _dbContext.Rams.FindAsync(ramId);
             return ram?.Especification;
+        }
+
+        private static (int? RemoteId, Remote? NewRemote) ResolveRemoteSelection(DesktopCreateViewModel vm)
+        {
+            if (string.IsNullOrEmpty(vm.RemoteSelection))
+            {
+                return (null, null);
+            }
+
+            if (vm.RemoteSelection == "new")
+            {
+                var isRdp = vm.NewRemoteConnectionType == RemoteConnectionType.EscritorioRemotoWindows;
+                var remote = new Remote
+                {
+                    ConnectionType = vm.NewRemoteConnectionType!.Value,
+                    IPAddress = isRdp ? vm.NewRemoteIPAddress : null,
+                    Port = isRdp ? vm.NewRemotePort : null,
+                    Username = isRdp ? vm.NewRemoteUsername : null,
+                    Password = isRdp ? vm.NewRemotePassword : null,
+                    AppDescription = isRdp ? null : vm.NewRemoteAppDescription
+                };
+                return (null, remote);
+            }
+
+            return (int.Parse(vm.RemoteSelection), null);
+        }
+
+        private static string BuildRemoteSummary(Remote remote)
+        {
+            return remote.ConnectionType == RemoteConnectionType.Aplicativo
+                ? $"Aplicativo: {remote.AppDescription}"
+                : $"RDP {remote.IPAddress}:{remote.Port} ({remote.Username})";
+        }
+
+        private async Task<string?> GetRemoteSummaryAsync(int? remoteId)
+        {
+            if (remoteId is null)
+            {
+                return null;
+            }
+
+            var remote = await _dbContext.Remotes.FindAsync(remoteId.Value);
+            return remote is null ? null : BuildRemoteSummary(remote);
         }
     }
 }

@@ -1,21 +1,73 @@
+@using GestorEquipos.Models
 @model List<PeripheralType>
 @{
     ViewData["Title"] = "Tipos de periférico";
+    string? error = ViewBag.Error;
 }
 
-<div class="d-flex justify-content-between align-items-center mb-3">
+@if (!string.IsNullOrWhiteSpace(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
+
+<div class="section-header">
     <h1>Tipos de periférico</h1>
-    <a asp-controller="PeripheralType" asp-action="Create" class="btn btn-primary">Nuevo tipo</a>
+    <a asp-controller="PeripheralType" asp-action="Create" class="btn-app-primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+        Nuevo tipo
+    </a>
 </div>
 
-<ul class="list-group">
-    @foreach (var t in Model)
-    {
-        <li class="list-group-item">@t.Name</li>
-    }
-</ul>
+<div class="app-card">
+    <table class="app-table">
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var t in Model)
+            {
+                <tr>
+                    <td>@t.Name</td>
+                    <td>
+                        <a asp-controller="PeripheralType" asp-action="Edit" asp-route-id="@t.Id">Editar</a>
+                        <button type="button" class="btn btn-sm btn-outline-danger ms-2" data-bs-toggle="modal" data-bs-target="#deletePeripheralTypeModal-@t.Id">Eliminar</button>
+                    </td>
+                </tr>
 
-@if (!Model.Any())
-{
-    <p class="text-muted">No hay tipos de periférico registrados.</p>
-}
+                <div class="modal fade" id="deletePeripheralTypeModal-@t.Id" tabindex="-1" aria-labelledby="deletePeripheralTypeModalLabel-@t.Id" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <form asp-controller="PeripheralType" asp-action="Delete" asp-route-id="@t.Id" method="post">
+                                @Html.AntiForgeryToken()
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="deletePeripheralTypeModalLabel-@t.Id">Eliminar tipo de periférico</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p>¿Desea eliminar el tipo <strong>@t.Name</strong>?</p>
+                                    <div class="mb-2">
+                                        <label class="form-label">Tu contraseña de Administrador</label>
+                                        <input type="password" name="adminPassword" class="form-control" autocomplete="current-password" required />
+                                        <div class="form-text">Requerida únicamente para confirmar la eliminación.</div>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                    <button type="submit" class="btn btn-danger">Eliminar</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            }
+        </tbody>
+    </table>
+
+    @if (!Model.Any())
+    {
+        <p class="text-muted p-3 mb-0">No hay tipos de periférico registrados.</p>
+    }
+</div>

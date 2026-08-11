@@ -1,3 +1,4 @@
+using GestorEquipos.Models;
 using GestorEquipos.Models.ViewModels.Desktop;
 using MigraDoc.DocumentObjectModel;
 using MigraDoc.DocumentObjectModel.Tables;
@@ -18,7 +19,7 @@ namespace Gestor_Equipos.Services.Implementations
             GlobalFontSettings.FontResolver ??= new LocalFontResolver();
         }
 
-        public byte[] GenerateHojaDeVidaPdf(DesktopDetailViewModel detail)
+        public byte[] GenerateHojaDeVidaPdf(DesktopDetailViewModel detail, bool includeRemoteAccess)
         {
             var document = new Document();
             DefineStyles(document);
@@ -38,7 +39,10 @@ namespace Gestor_Equipos.Services.Implementations
             AddLabelValue(section, "Disco", detail.Disk);
             AddLabelValue(section, "Sistema Operativo", detail.OSVersionName);
             AddLabelValue(section, "RAM", detail.RamSpecification);
-            AddLabelValue(section, "Acceso remoto", detail.RemoteInfo ?? "No configurado");
+            if (includeRemoteAccess)
+            {
+                AddLabelValue(section, "Acceso remoto", BuildRemoteAccessText(detail.RemoteAccess));
+            }
 
             AddSectionHeading(section, "Asignación actual");
             AddLabelValue(section, "Usuario", detail.CurrentUserName);
@@ -111,6 +115,18 @@ namespace Gestor_Equipos.Services.Implementations
             paragraph.AddText(value);
         }
 
+        private static string BuildRemoteAccessText(RemoteAccessItem? remoteAccess)
+        {
+            if (remoteAccess is null)
+            {
+                return "No configurado";
+            }
+
+            return remoteAccess.ConnectionType == RemoteConnectionType.Aplicativo
+                ? $"Aplicativo — {remoteAccess.AppDescription}"
+                : $"RDP — {remoteAccess.IPAddress}:{remoteAccess.Port} ({remoteAccess.Username}) — Clave: {remoteAccess.Password}";
+        }
+
         private static void AddEmptyNote(Section section, string text)
         {
             var paragraph = section.AddParagraph(text);
@@ -171,15 +187,6 @@ namespace Gestor_Equipos.Services.Implementations
                 }
 
                 line.AddText($"  [{p.Estado}]");
-
-                foreach (var o in p.Observations)
-                {
-                    var obsParagraph = section.AddParagraph();
-                    obsParagraph.Format.LeftIndent = Unit.FromCentimeter(0.5);
-                    obsParagraph.Format.Font.Size = 8;
-                    obsParagraph.Format.Font.Color = MutedColor;
-                    obsParagraph.AddText($"{o.Date:yyyy-MM-dd} — {o.Type}: {o.Description}");
-                }
             }
         }
 

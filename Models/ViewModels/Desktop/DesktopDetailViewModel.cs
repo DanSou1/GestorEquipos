@@ -11,10 +11,11 @@ namespace GestorEquipos.Models.ViewModels.Desktop
         public string Disk { get; set; } = string.Empty;
         public string OSVersionName { get; set; } = string.Empty;
         public string RamSpecification { get; set; } = string.Empty;
-        public string? RemoteInfo { get; set; }
+        public RemoteAccessItem? RemoteAccess { get; set; }
         public bool Estado { get; set; }
 
         public string CurrentUserName { get; set; } = "Sin asignar";
+        public DateOnly? CurrentSinceDate { get; set; }
         public string CurrentAreaName { get; set; } = "-";
         public string CurrentRegionalName { get; set; } = "-";
 
@@ -23,6 +24,16 @@ namespace GestorEquipos.Models.ViewModels.Desktop
         public List<MaintenanceHistoryItem> Maintenances { get; set; } = new();
         public List<LicenseItem> Licenses { get; set; } = new();
         public List<SpecChangeLogItem> SpecChangeLogs { get; set; } = new();
+    }
+
+    public class RemoteAccessItem
+    {
+        public RemoteConnectionType ConnectionType { get; set; }
+        public string? IPAddress { get; set; }
+        public string? Port { get; set; }
+        public string? Username { get; set; }
+        public string? Password { get; set; }
+        public string? AppDescription { get; set; }
     }
 
     public class AsignationHistoryItem
@@ -39,14 +50,6 @@ namespace GestorEquipos.Models.ViewModels.Desktop
         public string Model { get; set; } = string.Empty;
         public string? Serial { get; set; }
         public string Estado { get; set; } = string.Empty;
-        public List<PeripheralObservationItem> Observations { get; set; } = new();
-    }
-
-    public class PeripheralObservationItem
-    {
-        public DateOnly Date { get; set; }
-        public string Type { get; set; } = string.Empty;
-        public string Description { get; set; } = string.Empty;
     }
 
     public class MaintenanceHistoryItem

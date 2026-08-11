@@ -37,5 +37,8 @@ namespace GestorEquipos.Models
         public Regional Regional { get; set; } = null!;
         public ICollection<Asignation> Asignations { get; set; } = new List<Asignation>();
         public ICollection<UserSystem> UserSystems { get; set; } = new List<UserSystem>();
+
+        public bool Activo { get; set; } = true;
+        public DateOnly? DeactivatedAt { get; set; }
     }
 }

@@ -1,0 +1,138 @@
+@model GestorEquipos.Models.ViewModels.Peripheral.PeripheralDetailViewModel
+@{
+    ViewData["Title"] = $"{Model.TypeName} - {Model.Brand} {Model.Model}";
+    string? error = ViewBag.Error;
+}
+
+@if (!string.IsNullOrWhiteSpace(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>@Model.TypeName — @Model.Brand @Model.Model</h1>
+    <div class="d-flex align-items-center gap-2">
+        <span class="badge @(Model.Estado == "Activo" ? "bg-success" : Model.Estado == "Raes" ? "bg-dark" : "bg-secondary") fs-6">@Model.Estado</span>
+        @if (User.IsInRole("Administrador"))
+        {
+            <a asp-controller="Peripheral" asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-secondary">Editar</a>
+            <a asp-controller="Peripheral" asp-action="Reassign" asp-route-peripheralId="@Model.Id" class="btn btn-sm btn-outline-primary">Reasignar</a>
+            @if (Model.Estado != "Raes")
+            {
+                <form asp-controller="Peripheral" asp-action="RetireToRaes" asp-route-id="@Model.Id" method="post" class="d-inline" onsubmit="return confirm('¿Enviar este periférico a RAES? Esta acción no se puede deshacer.');">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-sm btn-outline-danger">Enviar a RAES</button>
+                </form>
+            }
+            <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deletePeripheralModal">Eliminar</button>
+        }
+    </div>
+</div>
+
+@if (User.IsInRole("Administrador"))
+{
+    <div class="modal fade" id="deletePeripheralModal" tabindex="-1" aria-labelledby="deletePeripheralModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form asp-controller="Peripheral" asp-action="Delete" asp-route-id="@Model.Id" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="desktopId" value="@Model.DesktopId" />
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="deletePeripheralModalLabel">Eliminar periférico</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>¿Desea eliminar <strong>@Model.TypeName — @Model.Brand @Model.Model</strong>?</p>
+                        <div class="mb-2">
+                            <label class="form-label">Tu contraseña de Administrador</label>
+                            <input type="password" name="adminPassword" class="form-control" autocomplete="current-password" required />
+                            <div class="form-text">Requerida únicamente para confirmar la eliminación.</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-danger">Eliminar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-3">
+            <div class="card-header">Datos</div>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item"><strong>Tipo:</strong> @Model.TypeName</li>
+                <li class="list-group-item"><strong>Marca / Modelo:</strong> @Model.Brand / @Model.Model</li>
+                <li class="list-group-item"><strong>Serial:</strong> @(Model.Serial ?? "-")</li>
+                <li class="list-group-item">
+                    <strong>Equipo:</strong>
+                    <a asp-controller="Desktop" asp-action="Details" asp-route-id="@Model.DesktopId">@Model.DesktopName</a>
+                </li>
+            </ul>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header">Asignación actual</div>
+            <div class="card-body">
+                <p class="mb-1"><strong>Usuario:</strong> @Model.CurrentUserName</p>
+                @if (Model.CurrentUserName == "Disponible" && Model.CurrentSinceDate is not null)
+                {
+                    <p class="mb-1 text-muted small">Disponible desde @Model.CurrentSinceDate.Value.ToString("yyyy-MM-dd")</p>
+                }
+                <p class="mb-1"><strong>Área:</strong> @Model.CurrentAreaName</p>
+                <p class="mb-0"><strong>Regional:</strong> @Model.CurrentRegionalName</p>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header">Historial de asignaciones</div>
+            <ul class="list-group list-group-flush">
+                @foreach (var a in Model.AssignmentHistory)
+                {
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>@a.UserName</span>
+                        <span class="text-muted">@a.DateAsignation.ToString("yyyy-MM-dd")</span>
+                    </li>
+                }
+                @if (!Model.AssignmentHistory.Any())
+                {
+                    <li class="list-group-item text-muted">Sin historial de asignaciones.</li>
+                }
+            </ul>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                Historial de mantenimiento
+                @if (User.IsInRole("Administrador"))
+                {
+                    <a asp-controller="PeripheralMaintenance" asp-action="Create" asp-route-peripheralId="@Model.Id" class="btn btn-sm btn-outline-primary">Registrar mantenimiento</a>
+                }
+            </div>
+            <ul class="list-group list-group-flush">
+                @foreach (var m in Model.Maintenances)
+                {
+                    <li class="list-group-item">
+                        <div class="d-flex justify-content-between">
+                            <strong>@m.MaintenanceTypeName</strong>
+                            <span class="text-muted">@m.Date.ToString("yyyy-MM-dd")</span>
+                        </div>
+                        <div>@m.Description</div>
+                        <div class="small text-muted">Técnico: @m.TechnicianName</div>
+                    </li>
+                }
+                @if (!Model.Maintenances.Any())
+                {
+                    <li class="list-group-item text-muted">Sin mantenimientos registrados.</li>
+                }
+            </ul>
+        </div>
+    </div>
+</div>
+
+<a asp-controller="Desktop" asp-action="Details" asp-route-id="@Model.DesktopId" class="btn btn-link">&larr; Volver a la hoja de vida del equipo</a>

@@ -1,5 +1,7 @@
 using System.Diagnostics;
+using Gestor_Equipos.Services;
 using GestorEquipos.Models;
+using GestorEquipos.Models.ViewModels.Home;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,15 +11,24 @@ namespace Gestor_Equipos.Controllers
     public class HomeController : Controller
     {
         private readonly ILogger<HomeController> _logger;
+        private readonly IDesktopService _desktopService;
+        private readonly IUserAdminService _userAdminService;
 
-        public HomeController(ILogger<HomeController> logger)
+        public HomeController(ILogger<HomeController> logger, IDesktopService desktopService, IUserAdminService userAdminService)
         {
             _logger = logger;
+            _desktopService = desktopService;
+            _userAdminService = userAdminService;
         }
 
-        public IActionResult Index()
+        public async Task<IActionResult> Index()
         {
-            return View();
+            var model = new DashboardViewModel
+            {
+                EquipmentStats = await _desktopService.GetEquipmentStatsAsync(),
+                UsersByRegional = await _userAdminService.GetUsersByRegionalAsync()
+            };
+            return View(model);
         }
 
         public IActionResult Privacy()

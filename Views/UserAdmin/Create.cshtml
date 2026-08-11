@@ -1,77 +1,60 @@
-@model UserAdminCreateViewModel
+@model UserCreateViewModel
 @{
     ViewData["Title"] = "Nuevo usuario";
 }
 
-<h1>Nuevo usuario</h1>
+<div class="section-header">
+    <h1>Nuevo usuario</h1>
+</div>
 
-<form asp-controller="UserAdmin" asp-action="Create" method="post">
-    @Html.AntiForgeryToken()
-    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+<div class="app-card p-4">
+    <form asp-controller="UserAdmin" asp-action="Create" method="post">
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
 
-    <h5>Datos personales</h5>
-    <div class="row g-3 mb-3">
-        <div class="col-md-6">
-            <label asp-for="Name" class="form-label"></label>
-            <input asp-for="Name" class="form-control" />
-            <span asp-validation-for="Name" class="text-danger"></span>
+        <h5>Datos personales</h5>
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <label asp-for="Name" class="form-label"></label>
+                <input asp-for="Name" class="form-control" />
+                <span asp-validation-for="Name" class="text-danger"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="LastName" class="form-label"></label>
+                <input asp-for="LastName" class="form-control" />
+                <span asp-validation-for="LastName" class="text-danger"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="Email" class="form-label"></label>
+                <input asp-for="Email" class="form-control" />
+                <span asp-validation-for="Email" class="text-danger"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="EmailTeams" class="form-label">Correo Teams (opcional)</label>
+                <input asp-for="EmailTeams" class="form-control" />
+            </div>
+            <div class="col-md-6">
+                <label asp-for="AreaId" class="form-label">Área</label>
+                <select asp-for="AreaId" class="form-select" asp-items="ViewBag.Areas">
+                    <option value="">-- Selecciona --</option>
+                </select>
+                <span asp-validation-for="AreaId" class="text-danger"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="RegionalId" class="form-label">Regional</label>
+                <select asp-for="RegionalId" class="form-select" asp-items="ViewBag.Regionals">
+                    <option value="">-- Selecciona --</option>
+                </select>
+                <span asp-validation-for="RegionalId" class="text-danger"></span>
+            </div>
         </div>
-        <div class="col-md-6">
-            <label asp-for="LastName" class="form-label"></label>
-            <input asp-for="LastName" class="form-control" />
-            <span asp-validation-for="LastName" class="text-danger"></span>
-        </div>
-        <div class="col-md-6">
-            <label asp-for="Email" class="form-label"></label>
-            <input asp-for="Email" class="form-control" />
-            <span asp-validation-for="Email" class="text-danger"></span>
-        </div>
-        <div class="col-md-6">
-            <label asp-for="EmailTeams" class="form-label">Correo Teams (opcional)</label>
-            <input asp-for="EmailTeams" class="form-control" />
-        </div>
-        <div class="col-md-6">
-            <label asp-for="AreaId" class="form-label">Área</label>
-            <select asp-for="AreaId" class="form-select" asp-items="ViewBag.Areas">
-                <option value="">-- Selecciona --</option>
-            </select>
-            <span asp-validation-for="AreaId" class="text-danger"></span>
-        </div>
-        <div class="col-md-6">
-            <label asp-for="RegionalId" class="form-label">Regional</label>
-            <select asp-for="RegionalId" class="form-select" asp-items="ViewBag.Regionals">
-                <option value="">-- Selecciona --</option>
-            </select>
-            <span asp-validation-for="RegionalId" class="text-danger"></span>
-        </div>
-    </div>
 
-    <h5>Cuenta de acceso</h5>
-    <div class="row g-3">
-        <div class="col-md-6">
-            <label asp-for="Username" class="form-label"></label>
-            <input asp-for="Username" class="form-control" autocomplete="off" />
-            <span asp-validation-for="Username" class="text-danger"></span>
+        <div class="mt-4">
+            <button type="submit" class="btn-app-primary">Crear usuario</button>
+            <a asp-controller="UserAdmin" asp-action="Index" class="btn btn-link">Cancelar</a>
         </div>
-        <div class="col-md-6">
-            <label asp-for="Password" class="form-label"></label>
-            <input asp-for="Password" class="form-control" autocomplete="new-password" />
-            <span asp-validation-for="Password" class="text-danger"></span>
-        </div>
-        <div class="col-md-6">
-            <label asp-for="RolId" class="form-label">Rol</label>
-            <select asp-for="RolId" class="form-select" asp-items="ViewBag.Roles">
-                <option value="">-- Selecciona --</option>
-            </select>
-            <span asp-validation-for="RolId" class="text-danger"></span>
-        </div>
-    </div>
-
-    <div class="mt-4">
-        <button type="submit" class="btn btn-primary">Crear usuario</button>
-        <a asp-controller="UserAdmin" asp-action="Index" class="btn btn-link">Cancelar</a>
-    </div>
-</form>
+    </form>
+</div>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />

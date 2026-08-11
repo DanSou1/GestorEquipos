@@ -1,0 +1,33 @@
+<script>
+    (function () {
+        var remoteSelect = document.getElementById('remoteSelection');
+        var newRemoteFields = document.getElementById('newRemoteFields');
+        var connectionTypeSelect = document.getElementById('newRemoteConnectionType');
+        var aplicativoFields = document.getElementById('newRemoteAplicativoFields');
+        var rdpFields = document.getElementById('newRemoteRdpFields');
+        var togglePasswordBtn = document.getElementById('toggleNewRemotePassword');
+        var passwordInput = document.getElementById('newRemotePassword');
+
+        function updateNewRemoteVisibility() {
+            newRemoteFields.style.display = remoteSelect.value === 'new' ? '' : 'none';
+        }
+
+        function updateConnectionTypeFields() {
+            var isAplicativo = connectionTypeSelect.value === 'Aplicativo';
+            var isRdp = connectionTypeSelect.value === 'EscritorioRemotoWindows';
+            aplicativoFields.style.display = isAplicativo ? '' : 'none';
+            rdpFields.style.display = isRdp ? '' : 'none';
+        }
+
+        remoteSelect.addEventListener('change', updateNewRemoteVisibility);
+        connectionTypeSelect.addEventListener('change', updateConnectionTypeFields);
+        togglePasswordBtn.addEventListener('click', function () {
+            var showing = passwordInput.type === 'text';
+            passwordInput.type = showing ? 'password' : 'text';
+            togglePasswordBtn.textContent = showing ? 'Mostrar' : 'Ocultar';
+        });
+
+        updateNewRemoteVisibility();
+        updateConnectionTypeFields();
+    })();
+</script>

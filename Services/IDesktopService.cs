@@ -9,5 +9,7 @@ namespace Gestor_Equipos.Services
         Task<int> CreateAsync(DesktopCreateViewModel vm);
         Task UpdateSpecsAsync(int desktopId, DesktopEditViewModel vm, int changedByUserSystemId);
         Task DeactivateAsync(int desktopId);
+        Task DeleteAsync(int desktopId);
+        Task<EquipmentStatsViewModel> GetEquipmentStatsAsync();
     }
 }
