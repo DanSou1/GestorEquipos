@@ -189,6 +189,13 @@ body.app-shell {
 
 /* ---------- Stat cards ---------- */
 
+.stat-card-row__heading {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 0.75rem;
+}
+
 .stat-card-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

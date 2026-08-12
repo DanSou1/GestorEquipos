@@ -22,11 +22,9 @@
         <input asp-for="Date" type="date" class="form-control" />
     </div>
     <div class="mb-3">
-        <label asp-for="TechnicianUserSystemId" class="form-label">Técnico</label>
-        <select asp-for="TechnicianUserSystemId" class="form-select" asp-items="ViewBag.Technicians">
-            <option value="">-- Selecciona --</option>
-        </select>
-        <span asp-validation-for="TechnicianUserSystemId" class="text-danger"></span>
+        <label asp-for="TechnicianName" class="form-label">Técnico</label>
+        <input asp-for="TechnicianName" type="text" class="form-control" />
+        <span asp-validation-for="TechnicianName" class="text-danger"></span>
     </div>
     <div class="mb-3">
         <label asp-for="Description" class="form-label">Observación</label>

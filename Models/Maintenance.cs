@@ -19,13 +19,12 @@ namespace GestorEquipos.Models
         [MaxLength(500)]
         public string Description { get; set; }
         [Required]
-        [ForeignKey("Technician")]
-        public int TechnicianUserSystemId { get; set; }
+        [MaxLength(200)]
+        public string TechnicianName { get; set; }
 
         // Navigation properties
         public MaintenanceType MaintenanceType { get; set; }
         public Desktop Desktop { get; set; }
-        public UserSystem Technician { get; set; }
     }
 
     public class MaintenanceType

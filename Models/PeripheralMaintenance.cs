@@ -24,12 +24,11 @@ namespace GestorEquipos.Models
         public string Description { get; set; } = string.Empty;
 
         [Required]
-        [ForeignKey("Technician")]
-        public int TechnicianUserSystemId { get; set; }
+        [MaxLength(200)]
+        public string TechnicianName { get; set; } = string.Empty;
 
         // Navigation properties
         public MaintenanceType MaintenanceType { get; set; } = null!;
         public Peripheral Peripheral { get; set; } = null!;
-        public UserSystem Technician { get; set; } = null!;
     }
 }

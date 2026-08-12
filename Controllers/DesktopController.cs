@@ -122,6 +122,7 @@ namespace Gestor_Equipos.Controllers
                 Disk = desktop.Disk,
                 OSVersionId = desktop.OSVersionId,
                 RamId = desktop.RamId,
+                RamType = desktop.RamType,
                 RemoteSelection = desktop.RemoteId?.ToString() ?? ""
             };
 
@@ -213,7 +214,12 @@ namespace Gestor_Equipos.Controllers
         private async Task PopulateDropdownsAsync()
         {
             ViewBag.OSVersions = new SelectList(await _dbContext.OSVersions.ToListAsync(), "Id", "TypeSO");
-            ViewBag.Rams = new SelectList(await _dbContext.Rams.ToListAsync(), "Id", "Especification");
+
+            var rams = await _dbContext.Rams.ToListAsync();
+            ViewBag.Rams = new SelectList(
+                rams.OrderBy(r => int.Parse(r.Especification.Replace("GB", ""))),
+                "Id",
+                "Especification");
 
             var remotes = await _dbContext.Remotes.ToListAsync();
             var remoteItems = new List<SelectListItem>

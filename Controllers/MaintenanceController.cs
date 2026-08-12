@@ -44,17 +44,6 @@ namespace Gestor_Equipos.Controllers
         private async Task PopulateDropdownsAsync()
         {
             ViewBag.MaintenanceTypes = new SelectList(await _dbContext.MaintenanceTypes.OrderBy(t => t.Type).ToListAsync(), "Id", "Type");
-
-            var technicians = await _dbContext.UserSystems
-                .Include(us => us.User)
-                .Include(us => us.Rol)
-                .Where(us => us.Rol.Name == AuthBootstrapper.AdministradorRoleName)
-                .ToListAsync();
-
-            ViewBag.Technicians = new SelectList(
-                technicians.Select(t => new { t.Id, FullName = $"{t.User.Name} {t.User.LastName}" }),
-                "Id",
-                "FullName");
         }
     }
 }

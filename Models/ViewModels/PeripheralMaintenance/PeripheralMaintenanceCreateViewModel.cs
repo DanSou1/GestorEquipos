@@ -17,7 +17,8 @@ namespace GestorEquipos.Models.ViewModels.PeripheralMaintenance
         [MaxLength(500)]
         public string Description { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Selecciona el técnico.")]
-        public int TechnicianUserSystemId { get; set; }
+        [Required(ErrorMessage = "Ingresa el nombre del técnico.")]
+        [MaxLength(200)]
+        public string TechnicianName { get; set; } = string.Empty;
     }
 }

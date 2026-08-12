@@ -32,6 +32,9 @@ namespace GestorEquipos.Models.ViewModels.Desktop
         [Required(ErrorMessage = "Selecciona el sistema operativo.")]
         public int OSVersionId { get; set; }
 
+        [Required(ErrorMessage = "Selecciona el tipo de RAM.")]
+        public RamType RamType { get; set; }
+
         [Required(ErrorMessage = "Selecciona la RAM.")]
         public int RamId { get; set; }
 

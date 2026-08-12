@@ -191,7 +191,7 @@ namespace Gestor_Equipos.Services.Implementations
         {
             return await _dbContext.Users
                 .Where(u => u.Activo && u.Email != AuthBootstrapper.RaesUserEmail)
-                .GroupBy(u => u.Regional.Name)
+                .GroupBy(u => u.Regional != null ? u.Regional.Name : "Sin regional")
                 .Select(g => new UsersByRegionalItem { RegionalName = g.Key, Count = g.Count() })
                 .OrderByDescending(item => item.Count)
                 .ThenBy(item => item.RegionalName)

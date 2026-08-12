@@ -36,7 +36,7 @@ Ejecutado de punta a punta 2026-08-04 vía `Invoke-WebRequest` con manejo de ant
 - [x] Agregar un periférico al equipo (Mouse, Logitech M100, con serial) → creado sin error, referenciado luego en la observación.
 - [x] Registrar una observación de "Reparación" sobre ese periférico → guardada sin error.
 - [ ] Registrar una observación de "Baja RAES" sobre el periférico → cubierto por prueba unitaria (`PeripheralServiceTests.AddObservationAsync_BajaRAES_SetsEstadoRaes`), no ejecutado manualmente vía HTTP en esta pasada.
-- [x] Registrar un mantenimiento (Preventivo) con un técnico (la propia cuenta Administrador, válida como técnico) y una observación → guardado sin error.
+- [x] Registrar un mantenimiento (Preventivo) escribiendo el nombre del técnico en texto libre y una observación → guardado sin error.
 - [x] Editar una especificación del equipo (RAM 8GB→16GB) → confirmado: la respuesta de `Desktop/Details` tras el `Edit` contiene "RAM" y "16GB" en el historial de cambios de especificaciones.
 - [x] Agregar una licencia con clave (Office 2016 / AAAAA-BBBBB-CCCCC) → guardada sin error.
 - [x] Agregar una licencia marcada "Sin licencia" (Windows 10) → guardada sin error.
@@ -190,8 +190,33 @@ Ejecutado vía navegador (Chrome, sesiones Administrador `administrador@exro.co`
 - [ ] Filtrar `Peripheral/Index` por tipo/estado/texto de búsqueda con datos reales → cubierto por pruebas unitarias de `GetInventoryAsync`/`GetInventoryStatsAsync`; no ejecutado manualmente con periféricos de prueba en esta pasada (la tabla estaba vacía al momento de probar).
 - [ ] `GET /Peripheral/Reassign`, `/Peripheral/Edit`, `/Peripheral/Delete`, `/Peripheral/RetireToRaes` con sesión Auditor → deberían redirigir igual a `AccessDenied`; cubierto por `AuthorizationAttributeTests.PeripheralController_WriteActions_RequireAdministrador`, no re-verificado manualmente ruta por ruta en esta pasada.
 
+## Fase 17 — Técnico de mantenimiento como texto libre (2026-08-12)
+
+`TechnicianUserSystemId` (FK requerida a `UserSystem`, dropdown restringido a rol Administrador) se reemplazó por `TechnicianName` (string libre) en `Maintenance` y `PeripheralMaintenance`, con migración `ReplaceTechnicianForeignKeyWithFreeText` (backfill de nombres existentes antes de eliminar la columna/FK vieja). Ejecutado vía navegador (Chrome, sesión Administrador `administrador@exro.co`) contra la instancia local con `AssetOps`.
+
+- [x] Migración `ReplaceTechnicianForeignKeyWithFreeText` aplicada contra `AssetOps` real → sin errores; el backfill copió el nombre completo del técnico existente en cada fila antes de soltar la FK/columna vieja.
+- [x] `Maintenance/Create` (equipo "GPena") → el campo "Técnico" ahora es un `<input>` de texto libre (ya no dropdown); se guardó con el nombre "Juan Torres (externo)", que no corresponde a ninguna cuenta `UserSystem` existente → visible de inmediato en `Desktop/Details` como "Técnico: Juan Torres (externo)".
+- [x] `PeripheralMaintenance/Create` (periférico "Mouse" del mismo equipo) → mismo comportamiento, campo de texto libre con la etiqueta original "Técnico que realizo el mantenimiento" preservada; guardado con "Maria Lopez" → visible en `Peripheral/Details` como "Técnico: Maria Lopez".
+- [x] Ya no existe ningún dropdown "restringido a rol Administrador" para el técnico en ninguno de los dos formularios (nota que corrige la Fase 15, línea de `PeripheralMaintenance/Create` de ese entonces).
+
+## Fase 18 — Área/Regional: contraseña de administrador al eliminar + desasignación libre (2026-08-12)
+
+`Users.AreaId`/`RegionalId` pasaron de FK requerida (bloqueaba el borrado de un `Area`/`Regional` si algún usuario aún la tenía asignada) a FK opcional (`int?`), migración `MakeUserAreaRegionalOptional`. `LocationService.DeleteAreaAsync`/`DeleteRegionalAsync` ahora exigen la contraseña del propio administrador (mismo patrón ya usado en `PeripheralTypeService.DeleteAsync`) y, si la contraseña es correcta, desasignan (`AreaId`/`RegionalId = null`) a los usuarios que aún apuntaban a esa fila en vez de bloquear el borrado. Motivado por datos reales: existían dos áreas casi idénticas ("Administracion" con 3 usuarios activos incluida la cuenta Administrador, y "Administrativo") y dos regionales casi idénticas ("Principal" y "Regional Centro") — se limpiaron los duplicados: se eliminó permanentemente la cuenta "Test Usuario" (sin dependencias en `Asignation`/`PeripheralAssignment`/`SpecChangeLog`), se reasignó a Gabriela Peña a "Administrativo" y a la cuenta Administrador a "Regional Centro", y las áreas/regionales duplicadas se retiraron con el nuevo modal.
+
+Ejecutado vía navegador (Chrome, sesión Administrador `administrador@exro.co`) contra la instancia local con `AssetOps`.
+
+- [x] Migración `MakeUserAreaRegionalOptional` aplicada contra `AssetOps` real → sin errores.
+- [x] `Location/Index` → el botón "Eliminar" de un Área/Regional ahora abre un modal (antes era un `confirm()` de JS) pidiendo la contraseña del Administrador, igual que el modal ya existente en `PeripheralType/Index`.
+- [x] Eliminar "Administracion" con contraseña incorrecta → rechazado con "Contraseña de administrador incorrecta.", el área sigue en la lista.
+- [x] Eliminar "Administracion" con contraseña correcta (con la cuenta Administrador todavía apuntándole) → eliminada sin error; verificado en SQL que `Users.AreaId` de la cuenta Administrador quedó en `NULL` en vez de bloquear el borrado.
+- [x] Eliminar "Principal" (regional) con contraseña correcta (con la cuenta Administrador y Carlos Ramirez —inactivo— todavía apuntándole) → eliminada sin error; ambos usuarios quedaron con `RegionalId = NULL`.
+- [x] `AccessAccount/Edit/9` (cuenta Administrador) tras las eliminaciones → el campo "Área (opcional)" muestra "-- Sin asignar --" en vez de fallar con un valor huérfano; se reasignó a "Administrativo" y guardó sin pedir contraseña de administrador (solo se exige al cambiar la clave del usuario, comportamiento preexistente sin cambios).
+- [x] Confirmado que "los usuarios queden con la opción libre para volver a asignarles un área o regional sin problema": la reasignación posterior a "Administrativo" se guardó sin ningún error de validación.
+
 ## Cobertura automatizada
 
 - [x] `dotnet test --collect:"XPlat Code Coverage"` corre sin fallos. (Verificado 2026-08-10: 94/94 tests correctos tras Fase 7.)
 - [x] El reporte de cobertura muestra ≥80% de líneas cubiertas en `Services/` (ver sección "Pruebas — estrategia" en `PLAN_DESARROLLO.md`). (Verificado 2026-08-10: 93.82% agregado tras Fase 7; `AuthService.cs`/`IAuthService.cs` pre-existentes y sin tocar siguen en 0% pero no bajan el agregado de la meta.)
 - [x] Tras la Fase 10 (acceso remoto): 133/133 pruebas correctas; `DesktopService`/`DesktopPdfService` (incluida toda la lógica nueva de `Remote`) en 100% de líneas cubiertas. (Verificado 2026-08-11 vía `dotnet test --collect:"XPlat Code Coverage"`.)
+- [x] Tras la Fase 17 (técnico como texto libre): 182/182 pruebas correctas; `Services/` en 95.1% de líneas cubiertas. (Verificado 2026-08-12 vía `dotnet test --collect:"XPlat Code Coverage"`.)
+- [x] Tras la Fase 18 (Área/Regional opcional + modal de contraseña): 186/186 pruebas correctas; `Services/` en 95.2% de líneas cubiertas. (Verificado 2026-08-12 vía `dotnet test --collect:"XPlat Code Coverage"`.)

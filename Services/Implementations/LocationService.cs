@@ -1,5 +1,6 @@
 using Gestor_Equipos.Data;
 using GestorEquipos.Models;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace Gestor_Equipos.Services.Implementations
@@ -7,10 +8,29 @@ namespace Gestor_Equipos.Services.Implementations
     public class LocationService : ILocationService
     {
         private readonly MyDbContext _dbContext;
+        private readonly IPasswordHasher<UserSystem> _passwordHasher;
 
-        public LocationService(MyDbContext dbContext)
+        public LocationService(MyDbContext dbContext, IPasswordHasher<UserSystem> passwordHasher)
         {
             _dbContext = dbContext;
+            _passwordHasher = passwordHasher;
+        }
+
+        private async Task VerifyAdminPasswordAsync(int actingAdminUserSystemId, string? adminPassword)
+        {
+            if (string.IsNullOrEmpty(adminPassword))
+            {
+                throw new InvalidOperationException("Debes ingresar tu contraseña de administrador para eliminar.");
+            }
+
+            var adminUserSystem = await _dbContext.UserSystems.SingleOrDefaultAsync(us => us.Id == actingAdminUserSystemId)
+                ?? throw new InvalidOperationException("No se pudo verificar la cuenta del administrador.");
+
+            var verificationResult = _passwordHasher.VerifyHashedPassword(adminUserSystem, adminUserSystem.PasswordHash, adminPassword);
+            if (verificationResult == PasswordVerificationResult.Failed)
+            {
+                throw new InvalidOperationException("Contraseña de administrador incorrecta.");
+            }
         }
 
         public async Task<List<Area>> GetAllAreasAsync()
@@ -54,14 +74,17 @@ namespace Gestor_Equipos.Services.Implementations
             await _dbContext.SaveChangesAsync();
         }
 
-        public async Task DeleteAreaAsync(int id)
+        public async Task DeleteAreaAsync(int id, int actingAdminUserSystemId, string? adminPassword)
         {
             var area = await _dbContext.Areas.SingleOrDefaultAsync(a => a.Id == id)
                 ?? throw new InvalidOperationException("Área no encontrada.");
 
-            if (await _dbContext.Users.AnyAsync(u => u.AreaId == id))
+            await VerifyAdminPasswordAsync(actingAdminUserSystemId, adminPassword);
+
+            var affectedUsers = await _dbContext.Users.Where(u => u.AreaId == id).ToListAsync();
+            foreach (var user in affectedUsers)
             {
-                throw new InvalidOperationException("No se puede eliminar: hay usuarios asignados a esta área.");
+                user.AreaId = null;
             }
 
             _dbContext.Areas.Remove(area);
@@ -109,14 +132,17 @@ namespace Gestor_Equipos.Services.Implementations
             await _dbContext.SaveChangesAsync();
         }
 
-        public async Task DeleteRegionalAsync(int id)
+        public async Task DeleteRegionalAsync(int id, int actingAdminUserSystemId, string? adminPassword)
         {
             var regional = await _dbContext.Regionals.SingleOrDefaultAsync(r => r.Id == id)
                 ?? throw new InvalidOperationException("Regional no encontrada.");
 
-            if (await _dbContext.Users.AnyAsync(u => u.RegionalId == id))
+            await VerifyAdminPasswordAsync(actingAdminUserSystemId, adminPassword);
+
+            var affectedUsers = await _dbContext.Users.Where(u => u.RegionalId == id).ToListAsync();
+            foreach (var user in affectedUsers)
             {
-                throw new InvalidOperationException("No se puede eliminar: hay usuarios asignados a esta regional.");
+                user.RegionalId = null;
             }
 
             _dbContext.Regionals.Remove(regional);

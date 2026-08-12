@@ -112,7 +112,7 @@ namespace Gestor_Equipos.Services.Implementations
                         Date = m.Date,
                         MaintenanceTypeName = m.MaintenanceType.Type,
                         Description = m.Description,
-                        TechnicianName = $"{m.Technician.User.Name} {m.Technician.User.LastName}"
+                        TechnicianName = m.TechnicianName
                     })
                     .ToList()
             };

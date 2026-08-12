@@ -75,6 +75,10 @@ public class MyDbContext : DbContext
             .HasIndex(pt => pt.Name)
             .IsUnique();
 
+        modelBuilder.Entity<Ram>()
+            .HasIndex(r => r.Especification)
+            .IsUnique();
+
         modelBuilder.Entity<Desktop>()
             .Property(d => d.Estado)
             .HasDefaultValue(true);
@@ -154,12 +158,6 @@ public class MyDbContext : DbContext
             .HasForeignKey(m => m.MaintenanceTypeId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        modelBuilder.Entity<Maintenance>()
-            .HasOne(m => m.Technician)
-            .WithMany()
-            .HasForeignKey(m => m.TechnicianUserSystemId)
-            .OnDelete(DeleteBehavior.Restrict);
-
         modelBuilder.Entity<Peripheral>()
             .HasOne(p => p.Desktop)
             .WithMany(d => d.Peripherals)
@@ -182,12 +180,6 @@ public class MyDbContext : DbContext
             .HasOne(m => m.MaintenanceType)
             .WithMany(mt => mt.PeripheralMaintenances)
             .HasForeignKey(m => m.MaintenanceTypeId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<PeripheralMaintenance>()
-            .HasOne(m => m.Technician)
-            .WithMany()
-            .HasForeignKey(m => m.TechnicianUserSystemId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<PeripheralAssignment>()

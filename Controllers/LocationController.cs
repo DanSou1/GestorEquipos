@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Gestor_Equipos.Services;
 using Gestor_Equipos.Services.Auth;
 using GestorEquipos.Models.ViewModels.Location;
@@ -86,11 +87,11 @@ namespace Gestor_Equipos.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> DeleteArea(int id)
+        public async Task<IActionResult> DeleteArea(int id, string adminPassword)
         {
             try
             {
-                await _locationService.DeleteAreaAsync(id);
+                await _locationService.DeleteAreaAsync(id, GetCurrentUserSystemId(), adminPassword);
             }
             catch (InvalidOperationException ex)
             {
@@ -162,11 +163,11 @@ namespace Gestor_Equipos.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> DeleteRegional(int id)
+        public async Task<IActionResult> DeleteRegional(int id, string adminPassword)
         {
             try
             {
-                await _locationService.DeleteRegionalAsync(id);
+                await _locationService.DeleteRegionalAsync(id, GetCurrentUserSystemId(), adminPassword);
             }
             catch (InvalidOperationException ex)
             {
@@ -174,6 +175,12 @@ namespace Gestor_Equipos.Controllers
             }
 
             return RedirectToAction(nameof(Index));
+        }
+
+        private int GetCurrentUserSystemId()
+        {
+            var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            return int.Parse(claim!);
         }
     }
 }

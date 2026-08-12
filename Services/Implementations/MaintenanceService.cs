@@ -22,7 +22,7 @@ namespace Gestor_Equipos.Services.Implementations
                 MaintenanceTypeId = vm.MaintenanceTypeId,
                 Date = vm.Date,
                 Description = vm.Description,
-                TechnicianUserSystemId = vm.TechnicianUserSystemId
+                TechnicianName = vm.TechnicianName
             };
 
             _dbContext.Maintenances.Add(maintenance);
@@ -35,7 +35,6 @@ namespace Gestor_Equipos.Services.Implementations
             return await _dbContext.Maintenances
                 .Where(m => m.DesktopId == desktopId)
                 .Include(m => m.MaintenanceType)
-                .Include(m => m.Technician).ThenInclude(t => t.User)
                 .OrderByDescending(m => m.Date)
                 .ToListAsync();
         }

@@ -15,17 +15,17 @@
         <h5>Datos personales</h5>
         <div class="row g-3 mb-3">
             <div class="col-md-6">
-                <label asp-for="Name" class="form-label"></label>
+                <label asp-for="Name" class="form-label">Nombre(s)</label>
                 <input asp-for="Name" class="form-control" />
                 <span asp-validation-for="Name" class="text-danger"></span>
             </div>
             <div class="col-md-6">
-                <label asp-for="LastName" class="form-label"></label>
+                <label asp-for="LastName" class="form-label">Apellidos</label>
                 <input asp-for="LastName" class="form-control" />
                 <span asp-validation-for="LastName" class="text-danger"></span>
             </div>
             <div class="col-md-6">
-                <label asp-for="Email" class="form-label"></label>
+                <label asp-for="Email" class="form-label">Correo corporativo</label>
                 <input asp-for="Email" class="form-control" />
                 <span asp-validation-for="Email" class="text-danger"></span>
             </div>
@@ -34,16 +34,16 @@
                 <input asp-for="EmailTeams" class="form-control" />
             </div>
             <div class="col-md-6">
-                <label asp-for="AreaId" class="form-label">Área</label>
+                <label asp-for="AreaId" class="form-label">Área (opcional)</label>
                 <select asp-for="AreaId" class="form-select" asp-items="ViewBag.Areas">
-                    <option value="">-- Selecciona --</option>
+                    <option value="">-- Sin asignar --</option>
                 </select>
                 <span asp-validation-for="AreaId" class="text-danger"></span>
             </div>
             <div class="col-md-6">
-                <label asp-for="RegionalId" class="form-label">Regional</label>
+                <label asp-for="RegionalId" class="form-label">Regional (opcional)</label>
                 <select asp-for="RegionalId" class="form-select" asp-items="ViewBag.Regionals">
-                    <option value="">-- Selecciona --</option>
+                    <option value="">-- Sin asignar --</option>
                 </select>
                 <span asp-validation-for="RegionalId" class="text-danger"></span>
             </div>

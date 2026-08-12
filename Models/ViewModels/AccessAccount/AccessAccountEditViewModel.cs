@@ -23,11 +23,9 @@ namespace GestorEquipos.Models.ViewModels.AccessAccount
         [MaxLength(200)]
         public string? EmailTeams { get; set; }
 
-        [Required(ErrorMessage = "Selecciona el área.")]
-        public int AreaId { get; set; }
+        public int? AreaId { get; set; }
 
-        [Required(ErrorMessage = "Selecciona la regional.")]
-        public int RegionalId { get; set; }
+        public int? RegionalId { get; set; }
 
         [Required(ErrorMessage = "El nombre de usuario es obligatorio.")]
         [MaxLength(200)]

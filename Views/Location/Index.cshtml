@@ -34,13 +34,36 @@
                     <td>@a.Name</td>
                     <td>
                         <a asp-controller="Location" asp-action="EditArea" asp-route-id="@a.Id">Editar</a>
-                        <form asp-controller="Location" asp-action="DeleteArea" asp-route-id="@a.Id" method="post" class="d-inline ms-2"
-                              onsubmit="return confirm('¿Eliminar esta área?');">
-                            @Html.AntiForgeryToken()
-                            <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
-                        </form>
+                        <button type="button" class="btn btn-sm btn-outline-danger ms-2" data-bs-toggle="modal" data-bs-target="#deleteAreaModal-@a.Id">Eliminar</button>
                     </td>
                 </tr>
+
+                <div class="modal fade" id="deleteAreaModal-@a.Id" tabindex="-1" aria-labelledby="deleteAreaModalLabel-@a.Id" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <form asp-controller="Location" asp-action="DeleteArea" asp-route-id="@a.Id" method="post">
+                                @Html.AntiForgeryToken()
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="deleteAreaModalLabel-@a.Id">Eliminar área</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p>¿Desea eliminar el área <strong>@a.Name</strong>?</p>
+                                    <p class="text-muted small">Los usuarios que aún tengan esta área asignada quedarán sin área (podrás reasignarlos después sin problema).</p>
+                                    <div class="mb-2">
+                                        <label class="form-label">Tu contraseña de Administrador</label>
+                                        <input type="password" name="adminPassword" class="form-control" autocomplete="current-password" required />
+                                        <div class="form-text">Requerida únicamente para confirmar la eliminación.</div>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                    <button type="submit" class="btn btn-danger">Eliminar</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
             }
         </tbody>
     </table>
@@ -74,13 +97,36 @@
                     <td>@r.Name</td>
                     <td>
                         <a asp-controller="Location" asp-action="EditRegional" asp-route-id="@r.Id">Editar</a>
-                        <form asp-controller="Location" asp-action="DeleteRegional" asp-route-id="@r.Id" method="post" class="d-inline ms-2"
-                              onsubmit="return confirm('¿Eliminar esta regional?');">
-                            @Html.AntiForgeryToken()
-                            <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
-                        </form>
+                        <button type="button" class="btn btn-sm btn-outline-danger ms-2" data-bs-toggle="modal" data-bs-target="#deleteRegionalModal-@r.Id">Eliminar</button>
                     </td>
                 </tr>
+
+                <div class="modal fade" id="deleteRegionalModal-@r.Id" tabindex="-1" aria-labelledby="deleteRegionalModalLabel-@r.Id" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <form asp-controller="Location" asp-action="DeleteRegional" asp-route-id="@r.Id" method="post">
+                                @Html.AntiForgeryToken()
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="deleteRegionalModalLabel-@r.Id">Eliminar regional</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p>¿Desea eliminar la regional <strong>@r.Name</strong>?</p>
+                                    <p class="text-muted small">Los usuarios que aún tengan esta regional asignada quedarán sin regional (podrás reasignarlos después sin problema).</p>
+                                    <div class="mb-2">
+                                        <label class="form-label">Tu contraseña de Administrador</label>
+                                        <input type="password" name="adminPassword" class="form-control" autocomplete="current-password" required />
+                                        <div class="form-text">Requerida únicamente para confirmar la eliminación.</div>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                    <button type="submit" class="btn btn-danger">Eliminar</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
             }
         </tbody>
     </table>

@@ -34,16 +34,16 @@
                 <input asp-for="EmailTeams" class="form-control" />
             </div>
             <div class="col-md-6">
-                <label asp-for="AreaId" class="form-label">Área</label>
+                <label asp-for="AreaId" class="form-label">Área (opcional)</label>
                 <select asp-for="AreaId" class="form-select" asp-items="ViewBag.Areas">
-                    <option value="">-- Selecciona --</option>
+                    <option value="">-- Sin asignar --</option>
                 </select>
                 <span asp-validation-for="AreaId" class="text-danger"></span>
             </div>
             <div class="col-md-6">
-                <label asp-for="RegionalId" class="form-label">Regional</label>
+                <label asp-for="RegionalId" class="form-label">Regional (opcional)</label>
                 <select asp-for="RegionalId" class="form-select" asp-items="ViewBag.Regionals">
-                    <option value="">-- Selecciona --</option>
+                    <option value="">-- Sin asignar --</option>
                 </select>
                 <span asp-validation-for="RegionalId" class="text-danger"></span>
             </div>

@@ -51,6 +51,7 @@ namespace GestorEquipos.Tests.Services
                 Disk = "256GB SSD",
                 OSVersionId = os.Id,
                 RamId = ram.Id,
+                RamType = RamType.DDR4,
                 Estado = estado
             };
             db.Desktops.Add(desktop);
@@ -317,7 +318,7 @@ namespace GestorEquipos.Tests.Services
                 MaintenanceTypeId = maintenanceType.Id,
                 Date = new DateOnly(2026, 3, 1),
                 Description = "Limpieza general",
-                TechnicianUserSystemId = technicianSystem.Id
+                TechnicianName = "Tecnico Perez"
             });
 
             db.Licenses.Add(new License { DesktopId = desktop.Id, SoftwareType = "Windows 10", NoLicense = true });
@@ -405,6 +406,7 @@ namespace GestorEquipos.Tests.Services
                 Processor = desktop.Processor,
                 Disk = desktop.Disk,
                 OSVersionId = desktop.OSVersionId,
+                RamType = desktop.RamType,
                 RamId = newRam.Id
             };
 
@@ -418,6 +420,47 @@ namespace GestorEquipos.Tests.Services
             var updated = db.Desktops.Single(d => d.Id == desktop.Id);
             Assert.Equal("NuevaMarca", updated.Brand);
             Assert.Equal(newRam.Id, updated.RamId);
+        }
+
+        [Fact]
+        public async Task UpdateSpecsAsync_LogsRamTypeChangeIndependentlyFromCapacity()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (area, regional, os, ram) = SeedLookups(db);
+
+            var role = new Rol { Name = AuthBootstrapper.AdministradorRoleName };
+            db.Rols.Add(role);
+            db.SaveChanges();
+
+            var adminUser = SeedUser(db, area, regional, "Admin");
+            var adminSystem = new UserSystem { Username = "admin", PasswordHash = "x", UserId = adminUser.Id, RolId = role.Id };
+            db.UserSystems.Add(adminSystem);
+            db.SaveChanges();
+
+            var desktop = SeedDesktop(db, os, ram);
+            var service = new DesktopService(db, new AsignationService(db));
+
+            var vm = new DesktopEditViewModel
+            {
+                NameDesktop = desktop.NameDesktop,
+                SerialNumber = desktop.SerialNumber,
+                Brand = desktop.Brand,
+                Model = desktop.Model,
+                Processor = desktop.Processor,
+                Disk = desktop.Disk,
+                OSVersionId = desktop.OSVersionId,
+                RamType = RamType.DDR5,
+                RamId = desktop.RamId
+            };
+
+            await service.UpdateSpecsAsync(desktop.Id, vm, adminSystem.Id);
+
+            var logs = db.SpecChangeLogs.Where(l => l.DesktopId == desktop.Id).ToList();
+            Assert.Single(logs);
+            Assert.Contains(logs, l => l.FieldName == "Tipo de RAM" && l.OldValue == "DDR4" && l.NewValue == "DDR5");
+
+            var updated = db.Desktops.Single(d => d.Id == desktop.Id);
+            Assert.Equal(RamType.DDR5, updated.RamType);
         }
 
         [Fact]
@@ -576,8 +619,8 @@ namespace GestorEquipos.Tests.Services
             var maintenanceType = new MaintenanceType { Type = "Preventivo" };
             db.MaintenanceTypes.Add(maintenanceType);
             db.SaveChanges();
-            db.Maintenances.Add(new Maintenance { DesktopId = desktop.Id, MaintenanceTypeId = maintenanceType.Id, Date = new DateOnly(2026, 1, 1), Description = "Test", TechnicianUserSystemId = adminSystem.Id });
-            db.PeripheralMaintenances.Add(new PeripheralMaintenance { PeripheralId = peripheral.Id, MaintenanceTypeId = maintenanceType.Id, Date = new DateOnly(2026, 1, 1), Description = "Test", TechnicianUserSystemId = adminSystem.Id });
+            db.Maintenances.Add(new Maintenance { DesktopId = desktop.Id, MaintenanceTypeId = maintenanceType.Id, Date = new DateOnly(2026, 1, 1), Description = "Test", TechnicianName = "Test" });
+            db.PeripheralMaintenances.Add(new PeripheralMaintenance { PeripheralId = peripheral.Id, MaintenanceTypeId = maintenanceType.Id, Date = new DateOnly(2026, 1, 1), Description = "Test", TechnicianName = "Test" });
             db.PeripheralAssignments.Add(new PeripheralAssignment { PeripheralId = peripheral.Id, UserId = user.Id, DateAsignation = new DateOnly(2026, 1, 1) });
 
             db.Licenses.Add(new License { DesktopId = desktop.Id, SoftwareType = "Office", LicenseKey = "AAAAA-BBBBB", NoLicense = false });

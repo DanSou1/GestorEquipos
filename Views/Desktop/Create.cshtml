@@ -40,21 +40,32 @@
             <input asp-for="Disk" class="form-control" />
             <span asp-validation-for="Disk" class="text-danger"></span>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
             <label asp-for="OSVersionId" class="form-label">Sistema Operativo</label>
             <select asp-for="OSVersionId" class="form-select" asp-items="ViewBag.OSVersions">
                 <option value="">-- Selecciona --</option>
             </select>
             <span asp-validation-for="OSVersionId" class="text-danger"></span>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
+            <label asp-for="RamType" class="form-label">Tipo de RAM</label>
+            <select asp-for="RamType" class="form-select">
+                <option value="">-- Selecciona --</option>
+                <option value="DDR2">DDR2</option>
+                <option value="DDR3">DDR3</option>
+                <option value="DDR4">DDR4</option>
+                <option value="DDR5">DDR5</option>
+            </select>
+            <span asp-validation-for="RamType" class="text-danger"></span>
+        </div>
+        <div class="col-md-3">
             <label asp-for="RamId" class="form-label">RAM</label>
             <select asp-for="RamId" class="form-select" asp-items="ViewBag.Rams">
                 <option value="">-- Selecciona --</option>
             </select>
             <span asp-validation-for="RamId" class="text-danger"></span>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
             <label asp-for="RemoteSelection" class="form-label">Acceso remoto (opcional)</label>
             <select asp-for="RemoteSelection" id="remoteSelection" class="form-select" asp-items="ViewBag.Remotes">
                 <option value="">-- Ninguno --</option>

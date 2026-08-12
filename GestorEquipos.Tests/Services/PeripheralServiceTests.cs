@@ -376,20 +376,8 @@ namespace GestorEquipos.Tests.Services
         {
             using var db = TestHelpers.CreateDbContext();
             var (desktop, type) = SeedDesktopAndType(db);
-            var area = new Area { Name = "A8" };
-            var regional = new Regional { Name = "R8" };
-            var role = new Rol { Name = "Administrador" };
             var maintenanceType = new MaintenanceType { Type = "Correctivo" };
-            db.Areas.Add(area);
-            db.Regionals.Add(regional);
-            db.Rols.Add(role);
             db.MaintenanceTypes.Add(maintenanceType);
-            db.SaveChanges();
-            var techUser = new Users { Name = "Carlos", LastName = "Ruiz", Email = "carlos-periph@x.com", EmailTeams = "carlos-periph@x.com", AreaId = area.Id, RegionalId = regional.Id };
-            db.Users.Add(techUser);
-            db.SaveChanges();
-            var technician = new UserSystem { Username = "carlos-periph", PasswordHash = "x", UserId = techUser.Id, RolId = role.Id };
-            db.UserSystems.Add(technician);
             db.SaveChanges();
 
             var peripheral = new Peripheral { DesktopId = desktop.Id, PeripheralTypeId = type.Id, Brand = "B", Model = "M" };
@@ -401,7 +389,7 @@ namespace GestorEquipos.Tests.Services
                 MaintenanceTypeId = maintenanceType.Id,
                 Date = new DateOnly(2026, 1, 1),
                 Description = "Cambio de teclas pegajosas",
-                TechnicianUserSystemId = technician.Id
+                TechnicianName = "Carlos Ruiz"
             });
             db.SaveChanges();
 

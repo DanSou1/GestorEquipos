@@ -59,7 +59,6 @@ namespace Gestor_Equipos.Services.Implementations
                 .Include(d => d.Peripherals).ThenInclude(p => p.PeripheralType)
                 .Include(d => d.Peripherals).ThenInclude(p => p.Assignments).ThenInclude(a => a.User)
                 .Include(d => d.Maintenances).ThenInclude(m => m.MaintenanceType)
-                .Include(d => d.Maintenances).ThenInclude(m => m.Technician).ThenInclude(t => t.User)
                 .Include(d => d.Licenses)
                 .Include(d => d.SpecChangeLogs).ThenInclude(s => s.ChangedByUserSystem).ThenInclude(u => u.User)
                 .SingleOrDefaultAsync(d => d.Id == desktopId);
@@ -83,7 +82,7 @@ namespace Gestor_Equipos.Services.Implementations
                 Processor = desktop.Processor,
                 Disk = desktop.Disk,
                 OSVersionName = $"{desktop.OSVersion.TypeSO} {desktop.OSVersion.Version}",
-                RamSpecification = desktop.Ram.Especification,
+                RamSpecification = $"{desktop.RamType} {desktop.Ram.Especification}",
                 RemoteAccess = desktop.Remote is null ? null : new RemoteAccessItem
                 {
                     ConnectionType = desktop.Remote.ConnectionType,
@@ -140,7 +139,7 @@ namespace Gestor_Equipos.Services.Implementations
                         Date = m.Date,
                         MaintenanceTypeName = m.MaintenanceType.Type,
                         Description = m.Description,
-                        TechnicianName = $"{m.Technician.User.Name} {m.Technician.User.LastName}"
+                        TechnicianName = m.TechnicianName
                     })
                     .ToList(),
                 Licenses = desktop.Licenses
@@ -180,6 +179,7 @@ namespace Gestor_Equipos.Services.Implementations
                 Disk = vm.Disk,
                 OSVersionId = vm.OSVersionId,
                 RamId = vm.RamId,
+                RamType = vm.RamType,
                 RemoteId = remoteId,
                 Remote = newRemote,
                 Estado = true
@@ -211,6 +211,11 @@ namespace Gestor_Equipos.Services.Implementations
                 LogIfChanged(desktop.Id, "Sistema Operativo", oldName, newName, changedByUserSystemId, date);
             }
 
+            if (desktop.RamType != vm.RamType)
+            {
+                LogIfChanged(desktop.Id, "Tipo de RAM", desktop.RamType.ToString(), vm.RamType.ToString(), changedByUserSystemId, date);
+            }
+
             if (desktop.RamId != vm.RamId)
             {
                 var oldName = await GetRamNameAsync(desktop.RamId);
@@ -235,6 +240,7 @@ namespace Gestor_Equipos.Services.Implementations
             desktop.Disk = vm.Disk;
             desktop.OSVersionId = vm.OSVersionId;
             desktop.RamId = vm.RamId;
+            desktop.RamType = vm.RamType;
 
             if (newRemote is not null)
             {

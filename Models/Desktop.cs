@@ -3,6 +3,14 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace GestorEquipos.Models
 {
+    public enum RamType
+    {
+        DDR2,
+        DDR3,
+        DDR4,
+        DDR5
+    }
+
     public class Desktop
     {
         [Key]
@@ -31,6 +39,8 @@ namespace GestorEquipos.Models
         [Required]
         [ForeignKey("Ram")]
         public int RamId { get; set; }
+        [Required]
+        public RamType RamType { get; set; }
         [ForeignKey("Remote")]
         public int? RemoteId { get; set; }
         [Required]

@@ -25,16 +25,14 @@ namespace GestorEquipos.Models
         [EmailAddress]
         public string EmailTeams { get; set; } = string.Empty;
 
-        [Required]
         [ForeignKey("Area")]
-        public int AreaId { get; set; }
+        public int? AreaId { get; set; }
 
-        [Required]
         [ForeignKey("Regional")]
-        public int RegionalId { get; set; }
+        public int? RegionalId { get; set; }
 
-        public Area Area { get; set; } = null!;
-        public Regional Regional { get; set; } = null!;
+        public Area? Area { get; set; }
+        public Regional? Regional { get; set; }
         public ICollection<Asignation> Asignations { get; set; } = new List<Asignation>();
         public ICollection<UserSystem> UserSystems { get; set; } = new List<UserSystem>();
 
