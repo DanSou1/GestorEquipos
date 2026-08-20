@@ -26,3 +26,6 @@ TestResults/
 # Archivos temporales del sistema operativo
 Thumbs.db
 .DS_Store
+
+# Variables de entorno de Docker (contraseñas)
+.env

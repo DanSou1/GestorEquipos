@@ -1,0 +1,16 @@
+**/bin/
+**/obj/
+.vs/
+.vscode/
+.git/
+.gitignore
+.dockerignore
+*.user
+GestorEquipos.Tests/
+Migrations/**/obj/
+PLAN_DESARROLLO.md
+MANUAL_TESTS.md
+CLAUDE.md
+docker-compose.yml
+Dockerfile
+.env
