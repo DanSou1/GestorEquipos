@@ -170,6 +170,9 @@ namespace GestorEquipos.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int>("Category")
+                        .HasColumnType("int");
+
                     b.Property<DateOnly>("Date")
                         .HasColumnType("date");
 
@@ -198,6 +201,49 @@ namespace GestorEquipos.Migrations
                     b.ToTable("Maintenance", (string)null);
                 });
 
+            modelBuilder.Entity("GestorEquipos.Models.MaintenanceChecklist", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("AjusteTornilleria")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("CambioAccesorios")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("LavadoInterno")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("Lubricacion")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("MaintenanceId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("SopladoInterno")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("VerificacionSistemaElectrico")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("VerificacionSistemaMecanico")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("VerificacionSistemaSeguridad")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MaintenanceId")
+                        .IsUnique();
+
+                    b.ToTable("MaintenanceChecklist", (string)null);
+                });
+
             modelBuilder.Entity("GestorEquipos.Models.MaintenanceType", b =>
                 {
                     b.Property<int>("Id")
@@ -212,6 +258,9 @@ namespace GestorEquipos.Migrations
                         .HasColumnType("nvarchar(100)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Type")
+                        .IsUnique();
 
                     b.ToTable("MaintenanceType", (string)null);
                 });
@@ -252,7 +301,7 @@ namespace GestorEquipos.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<int>("DesktopId")
+                    b.Property<int?>("DesktopId")
                         .HasColumnType("int");
 
                     b.Property<bool>("Estado")
@@ -668,13 +717,23 @@ namespace GestorEquipos.Migrations
                     b.Navigation("MaintenanceType");
                 });
 
+            modelBuilder.Entity("GestorEquipos.Models.MaintenanceChecklist", b =>
+                {
+                    b.HasOne("GestorEquipos.Models.Maintenance", "Maintenance")
+                        .WithOne("Checklist")
+                        .HasForeignKey("GestorEquipos.Models.MaintenanceChecklist", "MaintenanceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Maintenance");
+                });
+
             modelBuilder.Entity("GestorEquipos.Models.Peripheral", b =>
                 {
                     b.HasOne("GestorEquipos.Models.Desktop", "Desktop")
                         .WithMany("Peripherals")
                         .HasForeignKey("DesktopId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("GestorEquipos.Models.PeripheralType", "PeripheralType")
                         .WithMany("Peripherals")
@@ -791,6 +850,11 @@ namespace GestorEquipos.Migrations
                     b.Navigation("Peripherals");
 
                     b.Navigation("SpecChangeLogs");
+                });
+
+            modelBuilder.Entity("GestorEquipos.Models.Maintenance", b =>
+                {
+                    b.Navigation("Checklist");
                 });
 
             modelBuilder.Entity("GestorEquipos.Models.MaintenanceType", b =>

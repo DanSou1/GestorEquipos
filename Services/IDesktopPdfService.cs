@@ -4,6 +4,6 @@ namespace Gestor_Equipos.Services
 {
     public interface IDesktopPdfService
     {
-        byte[] GenerateHojaDeVidaPdf(DesktopDetailViewModel detail, bool includeRemoteAccess);
+        byte[] GenerateHojaDeVidaPdf(DesktopDetailViewModel detail, bool includeRemotePassword);
     }
 }

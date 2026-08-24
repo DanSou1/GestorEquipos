@@ -772,5 +772,137 @@ namespace GestorEquipos.Tests.Services
             Assert.Empty(result.CurrentDesktops);
             Assert.Single(result.AsignationHistory);
         }
+
+        [Fact]
+        public async Task DeleteAccountAsync_RemovesUserSystemButKeepsUsersRow()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (area, regional, role) = SeedLookups(db);
+            var otherRole = new Rol { Name = "Auditor" };
+            db.Rols.Add(otherRole);
+            db.SaveChanges();
+            var service = CreateService(db);
+
+            var adminId = await service.CreateUserAsync(new UserCreateViewModel { Name = "Admin", LastName = "Uno", Email = "admin-del@empresa.com", AreaId = area.Id, RegionalId = regional.Id });
+            await service.CreateLoginAsync(adminId, "admin-del", "AdminPass1!", role.Id);
+            var adminUserSystemId = db.UserSystems.Single(us => us.UserId == adminId).Id;
+
+            var targetId = await service.CreateUserAsync(new UserCreateViewModel { Name = "Auditor", LastName = "Uno", Email = "auditor-del@empresa.com", AreaId = area.Id, RegionalId = regional.Id });
+            await service.CreateLoginAsync(targetId, "auditor-del", "Password1!", otherRole.Id);
+
+            await service.DeleteAccountAsync(targetId, adminUserSystemId, "AdminPass1!");
+
+            Assert.False(db.UserSystems.Any(us => us.UserId == targetId));
+            Assert.True(db.Users.Any(u => u.Id == targetId));
+        }
+
+        [Fact]
+        public async Task DeleteAccountAsync_ThrowsWhenUserHasNoAccessAccount()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (area, regional, _) = SeedLookups(db);
+            var service = CreateService(db);
+
+            var userId = await service.CreateUserAsync(new UserCreateViewModel { Name = "Sin", LastName = "Cuenta", Email = "sincuenta-del@empresa.com", AreaId = area.Id, RegionalId = regional.Id });
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.DeleteAccountAsync(userId, -1, "cualquiera"));
+        }
+
+        [Fact]
+        public async Task DeleteAccountAsync_ThrowsWhenAdminPasswordMissing()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (area, regional, role) = SeedLookups(db);
+            var service = CreateService(db);
+
+            var userId = await service.CreateUserAsync(new UserCreateViewModel { Name = "Pedro", LastName = "Diaz", Email = "pedro-nopwd@empresa.com", AreaId = area.Id, RegionalId = regional.Id });
+            await service.CreateLoginAsync(userId, "pedro-nopwd", "Password1!", role.Id);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.DeleteAccountAsync(userId, -1, null));
+        }
+
+        [Fact]
+        public async Task DeleteAccountAsync_ThrowsWhenAdminPasswordIncorrect_AndPersistsNothing()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (area, regional, role) = SeedLookups(db);
+            var service = CreateService(db);
+
+            var adminId = await service.CreateUserAsync(new UserCreateViewModel { Name = "Admin", LastName = "Dos", Email = "admin-del2@empresa.com", AreaId = area.Id, RegionalId = regional.Id });
+            await service.CreateLoginAsync(adminId, "admin-del2", "AdminPass1!", role.Id);
+            var adminUserSystemId = db.UserSystems.Single(us => us.UserId == adminId).Id;
+
+            var targetId = await service.CreateUserAsync(new UserCreateViewModel { Name = "Pedro", LastName = "Diaz", Email = "pedro-wrongpwd@empresa.com", AreaId = area.Id, RegionalId = regional.Id });
+            await service.CreateLoginAsync(targetId, "pedro-wrongpwd", "Password1!", role.Id);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.DeleteAccountAsync(targetId, adminUserSystemId, "Incorrecta!"));
+
+            Assert.True(db.UserSystems.Any(us => us.UserId == targetId));
+        }
+
+        [Fact]
+        public async Task DeleteAccountAsync_ThrowsWhenDeletingOwnAccount()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (area, regional, role) = SeedLookups(db);
+            var otherRole = new Rol { Name = "Auditor" };
+            db.Rols.Add(otherRole);
+            db.SaveChanges();
+            var service = CreateService(db);
+
+            var adminId = await service.CreateUserAsync(new UserCreateViewModel { Name = "Admin", LastName = "Tres", Email = "admin-del3@empresa.com", AreaId = area.Id, RegionalId = regional.Id });
+            await service.CreateLoginAsync(adminId, "admin-del3", "AdminPass1!", role.Id);
+            var adminUserSystemId = db.UserSystems.Single(us => us.UserId == adminId).Id;
+
+            var otherAdminId = await service.CreateUserAsync(new UserCreateViewModel { Name = "Admin", LastName = "Cuatro", Email = "admin-del4@empresa.com", AreaId = area.Id, RegionalId = regional.Id });
+            await service.CreateLoginAsync(otherAdminId, "admin-del4", "Password1!", role.Id);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.DeleteAccountAsync(adminId, adminUserSystemId, "AdminPass1!"));
+
+            Assert.True(db.UserSystems.Any(us => us.UserId == adminId));
+        }
+
+        [Fact]
+        public async Task DeleteAccountAsync_ThrowsWhenTargetIsOnlyAdministradorAccount()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (area, regional, role) = SeedLookups(db);
+            var otherRole = new Rol { Name = "Auditor" };
+            db.Rols.Add(otherRole);
+            db.SaveChanges();
+            var service = CreateService(db);
+
+            var soleAdminId = await service.CreateUserAsync(new UserCreateViewModel { Name = "Admin", LastName = "Unico", Email = "admin-only@empresa.com", AreaId = area.Id, RegionalId = regional.Id });
+            await service.CreateLoginAsync(soleAdminId, "admin-only", "AdminPass1!", role.Id);
+
+            // Someone else (not the sole admin) is the one requesting the deletion, so this isolates
+            // the "last admin standing" rule from the self-delete guard.
+            var auditorId = await service.CreateUserAsync(new UserCreateViewModel { Name = "Auditor", LastName = "Uno", Email = "auditor-only@empresa.com", AreaId = area.Id, RegionalId = regional.Id });
+            await service.CreateLoginAsync(auditorId, "auditor-only", "AuditorPass1!", otherRole.Id);
+            var auditorUserSystemId = db.UserSystems.Single(us => us.UserId == auditorId).Id;
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.DeleteAccountAsync(soleAdminId, auditorUserSystemId, "AuditorPass1!"));
+
+            Assert.True(db.UserSystems.Any(us => us.UserId == soleAdminId));
+        }
+
+        [Fact]
+        public async Task DeleteAccountAsync_AllowsDeletingAdministradorWhenAnotherAdminExists()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (area, regional, role) = SeedLookups(db);
+            var service = CreateService(db);
+
+            var adminId = await service.CreateUserAsync(new UserCreateViewModel { Name = "Admin", LastName = "Cinco", Email = "admin-del5@empresa.com", AreaId = area.Id, RegionalId = regional.Id });
+            await service.CreateLoginAsync(adminId, "admin-del5", "AdminPass1!", role.Id);
+            var adminUserSystemId = db.UserSystems.Single(us => us.UserId == adminId).Id;
+
+            var otherAdminId = await service.CreateUserAsync(new UserCreateViewModel { Name = "Admin", LastName = "Seis", Email = "admin-del6@empresa.com", AreaId = area.Id, RegionalId = regional.Id });
+            await service.CreateLoginAsync(otherAdminId, "admin-del6", "Password1!", role.Id);
+
+            await service.DeleteAccountAsync(otherAdminId, adminUserSystemId, "AdminPass1!");
+
+            Assert.False(db.UserSystems.Any(us => us.UserId == otherAdminId));
+        }
     }
 }

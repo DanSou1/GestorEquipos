@@ -9,7 +9,7 @@ namespace GestorEquipos.Models.ViewModels.Peripheral
         public string? Serial { get; set; }
         public string Estado { get; set; } = string.Empty;
 
-        public int DesktopId { get; set; }
+        public int? DesktopId { get; set; }
         public string DesktopName { get; set; } = string.Empty;
 
         public string CurrentUserName { get; set; } = "Sin asignar";

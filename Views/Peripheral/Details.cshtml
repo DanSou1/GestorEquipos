@@ -19,10 +19,7 @@
             <a asp-controller="Peripheral" asp-action="Reassign" asp-route-peripheralId="@Model.Id" class="btn btn-sm btn-outline-primary">Reasignar</a>
             @if (Model.Estado != "Raes")
             {
-                <form asp-controller="Peripheral" asp-action="RetireToRaes" asp-route-id="@Model.Id" method="post" class="d-inline" onsubmit="return confirm('¿Enviar este periférico a RAES? Esta acción no se puede deshacer.');">
-                    @Html.AntiForgeryToken()
-                    <button type="submit" class="btn btn-sm btn-outline-danger">Enviar a RAES</button>
-                </form>
+                <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#retirePeripheralModal">Enviar a RAES</button>
             }
             <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deletePeripheralModal">Eliminar</button>
         }
@@ -31,6 +28,31 @@
 
 @if (User.IsInRole("Administrador"))
 {
+    @if (Model.Estado != "Raes")
+    {
+        <div class="modal fade" id="retirePeripheralModal" tabindex="-1" aria-labelledby="retirePeripheralModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="retirePeripheralModalLabel">Enviar periférico a RAES</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>¿Enviar este periférico a RAES?</p>
+                        <p class="text-muted small">Esta acción no se puede deshacer.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <form asp-controller="Peripheral" asp-action="RetireToRaes" asp-route-id="@Model.Id" method="post" class="d-inline">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-danger">Enviar a RAES</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
     <div class="modal fade" id="deletePeripheralModal" tabindex="-1" aria-labelledby="deletePeripheralModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -69,7 +91,14 @@
                 <li class="list-group-item"><strong>Serial:</strong> @(Model.Serial ?? "-")</li>
                 <li class="list-group-item">
                     <strong>Equipo:</strong>
-                    <a asp-controller="Desktop" asp-action="Details" asp-route-id="@Model.DesktopId">@Model.DesktopName</a>
+                    @if (Model.DesktopId.HasValue)
+                    {
+                        <a asp-controller="Desktop" asp-action="Details" asp-route-id="@Model.DesktopId">@Model.DesktopName</a>
+                    }
+                    else
+                    {
+                        @Model.DesktopName
+                    }
                 </li>
             </ul>
         </div>
@@ -135,4 +164,11 @@
     </div>
 </div>
 
-<a asp-controller="Desktop" asp-action="Details" asp-route-id="@Model.DesktopId" class="btn btn-link">&larr; Volver a la hoja de vida del equipo</a>
+@if (Model.DesktopId.HasValue)
+{
+    <a asp-controller="Desktop" asp-action="Details" asp-route-id="@Model.DesktopId" class="btn btn-link">&larr; Volver a la hoja de vida del equipo</a>
+}
+else
+{
+    <a asp-controller="Peripheral" asp-action="Index" class="btn btn-link">&larr; Volver a periféricos</a>
+}

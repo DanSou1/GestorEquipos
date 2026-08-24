@@ -75,8 +75,8 @@ namespace Gestor_Equipos.Controllers
                 return NotFound();
             }
 
-            var includeRemoteAccess = User.IsInRole(AuthBootstrapper.AdministradorRoleName);
-            var pdfBytes = _desktopPdfService.GenerateHojaDeVidaPdf(detail, includeRemoteAccess);
+            var includeRemotePassword = User.IsInRole(AuthBootstrapper.AdministradorRoleName);
+            var pdfBytes = _desktopPdfService.GenerateHojaDeVidaPdf(detail, includeRemotePassword);
             var fileName = $"HojaDeVida-{detail.SerialNumber}.pdf";
             return File(pdfBytes, "application/pdf", fileName);
         }
@@ -106,7 +106,9 @@ namespace Gestor_Equipos.Controllers
         [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
         public async Task<IActionResult> Edit(int id)
         {
-            var desktop = await _dbContext.Desktops.SingleOrDefaultAsync(d => d.Id == id);
+            var desktop = await _dbContext.Desktops
+                .Include(d => d.Remote)
+                .SingleOrDefaultAsync(d => d.Id == id);
             if (desktop is null)
             {
                 return NotFound();
@@ -123,11 +125,13 @@ namespace Gestor_Equipos.Controllers
                 OSVersionId = desktop.OSVersionId,
                 RamId = desktop.RamId,
                 RamType = desktop.RamType,
-                RemoteSelection = desktop.RemoteId?.ToString() ?? ""
+                RemoteSelection = desktop.RemoteId.HasValue ? "keep" : ""
             };
 
             await PopulateDropdownsAsync();
             ViewBag.DesktopId = id;
+            ViewBag.CurrentRemoteId = desktop.RemoteId;
+            ViewBag.CurrentRemoteSummary = desktop.Remote is null ? null : BuildRemoteLabel(desktop.Remote);
             return View(vm);
         }
 
@@ -140,6 +144,12 @@ namespace Gestor_Equipos.Controllers
             {
                 await PopulateDropdownsAsync();
                 ViewBag.DesktopId = id;
+                var currentRemote = await _dbContext.Desktops
+                    .Where(d => d.Id == id)
+                    .Select(d => d.Remote)
+                    .SingleOrDefaultAsync();
+                ViewBag.CurrentRemoteId = currentRemote?.Id;
+                ViewBag.CurrentRemoteSummary = currentRemote is null ? null : BuildRemoteLabel(currentRemote);
                 return View(vm);
             }
 
@@ -220,14 +230,6 @@ namespace Gestor_Equipos.Controllers
                 rams.OrderBy(r => int.Parse(r.Especification.Replace("GB", ""))),
                 "Id",
                 "Especification");
-
-            var remotes = await _dbContext.Remotes.ToListAsync();
-            var remoteItems = new List<SelectListItem>
-            {
-                new SelectListItem("+ Crear nuevo acceso remoto", "new")
-            };
-            remoteItems.AddRange(remotes.Select(r => new SelectListItem(BuildRemoteLabel(r), r.Id.ToString())));
-            ViewBag.Remotes = remoteItems;
         }
 
         private static string BuildRemoteLabel(Remote remote)

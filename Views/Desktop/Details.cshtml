@@ -19,10 +19,7 @@
             <a asp-controller="Desktop" asp-action="Assign" asp-route-desktopId="@Model.Id" class="btn btn-sm btn-outline-primary">Asignar</a>
             @if (Model.Estado)
             {
-                <form asp-controller="Desktop" asp-action="Deactivate" asp-route-id="@Model.Id" method="post" class="d-inline" onsubmit="return confirm('¿Enviar este equipo a RAES? Esta acción no se puede deshacer.');">
-                    @Html.AntiForgeryToken()
-                    <button type="submit" class="btn btn-sm btn-outline-danger">Enviar a RAES</button>
-                </form>
+                <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deactivateDesktopModal">Enviar a RAES</button>
             }
             <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteDesktopModal">Eliminar</button>
         }
@@ -31,6 +28,31 @@
 
 @if (User.IsInRole("Administrador"))
 {
+    @if (Model.Estado)
+    {
+        <div class="modal fade" id="deactivateDesktopModal" tabindex="-1" aria-labelledby="deactivateDesktopModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="deactivateDesktopModalLabel">Enviar equipo a RAES</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>¿Enviar este equipo a RAES?</p>
+                        <p class="text-muted small">Esta acción no se puede deshacer.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <form asp-controller="Desktop" asp-action="Deactivate" asp-route-id="@Model.Id" method="post" class="d-inline">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-danger">Enviar a RAES</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
     <div class="modal fade" id="deleteDesktopModal" tabindex="-1" aria-labelledby="deleteDesktopModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -64,26 +86,30 @@
                 <li class="list-group-item"><strong>Disco:</strong> @Model.Disk</li>
                 <li class="list-group-item"><strong>Sistema Operativo:</strong> @Model.OSVersionName</li>
                 <li class="list-group-item"><strong>RAM:</strong> @Model.RamSpecification</li>
-                @if (User.IsInRole("Administrador"))
-                {
-                    <li class="list-group-item">
-                        <strong>Acceso remoto:</strong>
-                        @if (Model.RemoteAccess is null)
+                <li class="list-group-item">
+                    <strong>Acceso remoto:</strong>
+                    @if (Model.RemoteAccess is null)
+                    {
+                        @:No configurado
+                    }
+                    else if (Model.RemoteAccess.ConnectionType == RemoteConnectionType.Aplicativo)
+                    {
+                        @:Aplicativo — @Model.RemoteAccess.AppDescription
+                    }
+                    else
+                    {
+                        @:RDP — @Model.RemoteAccess.IPAddress:@Model.RemoteAccess.Port (@Model.RemoteAccess.Username)
+                        @if (User.IsInRole("Administrador"))
                         {
-                            @:No configurado
-                        }
-                        else if (Model.RemoteAccess.ConnectionType == RemoteConnectionType.Aplicativo)
-                        {
-                            @:Aplicativo — @Model.RemoteAccess.AppDescription
-                        }
-                        else
-                        {
-                            @:RDP — @Model.RemoteAccess.IPAddress:@Model.RemoteAccess.Port (@Model.RemoteAccess.Username)
                             <button type="button" class="btn btn-sm btn-link p-0 ms-1" id="toggleRemotePassword" data-password="@Model.RemoteAccess.Password">mostrar clave</button>
                             <span id="remotePasswordValue" class="ms-1 text-muted"></span>
                         }
-                    </li>
-                }
+                    }
+                    @if (Model.RemoteAccess is not null)
+                    {
+                        <a class="ms-1" asp-controller="Remote" asp-action="Details" asp-route-id="@Model.RemoteAccess.Id">(ver en Accesos remotos)</a>
+                    }
+                </li>
             </ul>
         </div>
 
@@ -240,6 +266,9 @@
                         </div>
                         <div>@m.Description</div>
                         <div class="small text-muted">Técnico: @m.TechnicianName</div>
+                        <div class="small">
+                            <a asp-controller="Maintenance" asp-action="DownloadPdf" asp-route-id="@m.Id">Descargar PDF</a>
+                        </div>
                     </li>
                 }
                 @if (!Model.Maintenances.Any())

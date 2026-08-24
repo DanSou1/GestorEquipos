@@ -19,7 +19,7 @@ namespace Gestor_Equipos.Services.Implementations
             GlobalFontSettings.FontResolver ??= new LocalFontResolver();
         }
 
-        public byte[] GenerateHojaDeVidaPdf(DesktopDetailViewModel detail, bool includeRemoteAccess)
+        public byte[] GenerateHojaDeVidaPdf(DesktopDetailViewModel detail, bool includeRemotePassword)
         {
             var document = new Document();
             DefineStyles(document);
@@ -39,10 +39,7 @@ namespace Gestor_Equipos.Services.Implementations
             AddLabelValue(section, "Disco", detail.Disk);
             AddLabelValue(section, "Sistema Operativo", detail.OSVersionName);
             AddLabelValue(section, "RAM", detail.RamSpecification);
-            if (includeRemoteAccess)
-            {
-                AddLabelValue(section, "Acceso remoto", BuildRemoteAccessText(detail.RemoteAccess));
-            }
+            AddLabelValue(section, "Acceso remoto", BuildRemoteAccessText(detail.RemoteAccess, includeRemotePassword));
 
             AddSectionHeading(section, "Asignación actual");
             AddLabelValue(section, "Usuario", detail.CurrentUserName);
@@ -115,16 +112,20 @@ namespace Gestor_Equipos.Services.Implementations
             paragraph.AddText(value);
         }
 
-        private static string BuildRemoteAccessText(RemoteAccessItem? remoteAccess)
+        private static string BuildRemoteAccessText(RemoteAccessItem? remoteAccess, bool includePassword)
         {
             if (remoteAccess is null)
             {
                 return "No configurado";
             }
 
-            return remoteAccess.ConnectionType == RemoteConnectionType.Aplicativo
-                ? $"Aplicativo — {remoteAccess.AppDescription}"
-                : $"RDP — {remoteAccess.IPAddress}:{remoteAccess.Port} ({remoteAccess.Username}) — Clave: {remoteAccess.Password}";
+            if (remoteAccess.ConnectionType == RemoteConnectionType.Aplicativo)
+            {
+                return $"Aplicativo — {remoteAccess.AppDescription}";
+            }
+
+            var text = $"RDP — {remoteAccess.IPAddress}:{remoteAccess.Port} ({remoteAccess.Username})";
+            return includePassword ? $"{text} — Clave: {remoteAccess.Password}" : text;
         }
 
         private static void AddEmptyNote(Section section, string text)

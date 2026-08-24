@@ -86,11 +86,11 @@ namespace Gestor_Equipos.Services.Implementations
                 Serial = peripheral.Serial,
                 Estado = !peripheral.Estado
                     ? "Raes"
-                    : (currentAssignment is null || !currentAssignment.User.Activo)
+                    : (peripheral.Desktop is null || !peripheral.Desktop.Estado || currentAssignment is null || !currentAssignment.User.Activo)
                         ? "Disponible"
                         : "Activo",
                 DesktopId = peripheral.DesktopId,
-                DesktopName = peripheral.Desktop.NameDesktop,
+                DesktopName = peripheral.Desktop?.NameDesktop ?? "Sin equipo asignado",
                 CurrentUserName = currentAssignment is null
                     ? "Sin asignar"
                     : isDisponible
@@ -184,14 +184,15 @@ namespace Gestor_Equipos.Services.Implementations
                     Model = p.Model,
                     Serial = p.Serial,
                     DesktopId = p.DesktopId,
-                    DesktopName = p.Desktop.NameDesktop,
+                    DesktopName = p.Desktop != null ? p.Desktop.NameDesktop : "Sin equipo asignado",
                     Estado = !p.Estado
                         ? "Raes"
-                        : (p.Assignments
-                            .OrderByDescending(a => a.DateAsignation)
-                            .ThenByDescending(a => a.Id)
-                            .Select(a => (bool?)a.User.Activo)
-                            .FirstOrDefault() == true)
+                        : (p.Desktop != null && p.Desktop.Estado
+                            && p.Assignments
+                                .OrderByDescending(a => a.DateAsignation)
+                                .ThenByDescending(a => a.Id)
+                                .Select(a => (bool?)a.User.Activo)
+                                .FirstOrDefault() == true)
                             ? "Activo"
                             : "Disponible",
                     CurrentHolderName = p.Assignments
@@ -211,6 +212,7 @@ namespace Gestor_Equipos.Services.Implementations
                 {
                     p.Estado,
                     TypeName = p.PeripheralType.Name,
+                    DesktopActivo = p.Desktop != null && p.Desktop.Estado,
                     HolderActivo = p.Assignments
                         .OrderByDescending(a => a.DateAsignation)
                         .ThenByDescending(a => a.Id)
@@ -222,8 +224,8 @@ namespace Gestor_Equipos.Services.Implementations
             return new PeripheralInventoryStatsViewModel
             {
                 Total = rows.Count,
-                Activos = rows.Count(r => r.Estado && r.HolderActivo == true),
-                Disponibles = rows.Count(r => r.Estado && r.HolderActivo != true),
+                Activos = rows.Count(r => r.Estado && r.DesktopActivo && r.HolderActivo == true),
+                Disponibles = rows.Count(r => r.Estado && (!r.DesktopActivo || r.HolderActivo != true)),
                 Raes = rows.Count(r => !r.Estado),
                 ByType = rows
                     .GroupBy(r => r.TypeName)

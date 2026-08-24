@@ -6,7 +6,7 @@ namespace GestorEquipos.Models.ViewModels.Peripheral
     {
         public int Id { get; set; }
 
-        public int DesktopId { get; set; }
+        public int? DesktopId { get; set; }
 
         [Required(ErrorMessage = "Selecciona el tipo de periférico.")]
         public int PeripheralTypeId { get; set; }

@@ -8,9 +8,8 @@ namespace GestorEquipos.Models
         [Key]
         public int Id { get; set; }
 
-        [Required]
         [ForeignKey("Desktop")]
-        public int DesktopId { get; set; }
+        public int? DesktopId { get; set; }
 
         [Required]
         [ForeignKey("PeripheralType")]
@@ -30,7 +29,7 @@ namespace GestorEquipos.Models
         [Required]
         public bool Estado { get; set; } = true;
 
-        public Desktop Desktop { get; set; } = null!;
+        public Desktop? Desktop { get; set; }
         public PeripheralType PeripheralType { get; set; } = null!;
         public ICollection<PeripheralAssignment> Assignments { get; set; } = new List<PeripheralAssignment>();
         public ICollection<PeripheralMaintenance> Maintenances { get; set; } = new List<PeripheralMaintenance>();

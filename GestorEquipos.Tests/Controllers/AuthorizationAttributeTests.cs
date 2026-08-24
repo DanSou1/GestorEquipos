@@ -59,10 +59,10 @@ namespace GestorEquipos.Tests.Controllers
         // --- Controladores 100% Admin-only: deben tener [Authorize(Roles = "Administrador")] a nivel de clase ---
 
         [Theory]
-        [InlineData(typeof(MaintenanceController))]
         [InlineData(typeof(PeripheralMaintenanceController))]
         [InlineData(typeof(LicenseController))]
         [InlineData(typeof(PeripheralTypeController))]
+        [InlineData(typeof(MaintenanceTypeController))]
         [InlineData(typeof(UserAdminController))]
         [InlineData(typeof(LocationController))]
         [InlineData(typeof(AccessAccountController))]
@@ -71,6 +71,43 @@ namespace GestorEquipos.Tests.Controllers
             var classAttr = GetClassAuthorize(controllerType);
             Assert.NotNull(classAttr);
             Assert.Equal(AuthBootstrapper.AdministradorRoleName, classAttr!.Roles);
+        }
+
+        // --- MaintenanceController: sin restricción a nivel de clase; Create restringido a Administrador, DownloadPdf abierto a cualquier usuario autenticado ---
+
+        [Fact]
+        public void MaintenanceController_ClassLevel_HasNoAuthorizeAttribute()
+        {
+            var classAttr = GetClassAuthorize(typeof(MaintenanceController));
+            Assert.Null(classAttr);
+        }
+
+        [Theory]
+        [InlineData(nameof(MaintenanceController.Create))]
+        public void MaintenanceController_CreateActions_RequireAdministrador(string methodName)
+        {
+            var overloads = GetActionOverloads(typeof(MaintenanceController), methodName).ToList();
+            Assert.NotEmpty(overloads);
+
+            foreach (var method in overloads)
+            {
+                var methodAttr = method.GetCustomAttribute<AuthorizeAttribute>();
+                Assert.NotNull(methodAttr);
+                Assert.Equal(AuthBootstrapper.AdministradorRoleName, methodAttr!.Roles);
+            }
+        }
+
+        [Fact]
+        public void MaintenanceController_DownloadPdf_HasNoRoleRestriction()
+        {
+            var overloads = GetActionOverloads(typeof(MaintenanceController), nameof(MaintenanceController.DownloadPdf)).ToList();
+            Assert.NotEmpty(overloads);
+
+            foreach (var method in overloads)
+            {
+                var methodAttr = method.GetCustomAttribute<AuthorizeAttribute>();
+                Assert.True(methodAttr is null || string.IsNullOrEmpty(methodAttr.Roles));
+            }
         }
 
         // --- PeripheralController: lectura abierta a cualquier usuario autenticado, escritura solo Administrador ---
@@ -104,6 +141,45 @@ namespace GestorEquipos.Tests.Controllers
         public void PeripheralController_WriteActions_RequireAdministrador(string methodName)
         {
             var overloads = GetActionOverloads(typeof(PeripheralController), methodName).ToList();
+            Assert.NotEmpty(overloads);
+
+            foreach (var method in overloads)
+            {
+                var methodAttr = method.GetCustomAttribute<AuthorizeAttribute>();
+                Assert.NotNull(methodAttr);
+                Assert.Equal(AuthBootstrapper.AdministradorRoleName, methodAttr!.Roles);
+            }
+        }
+
+        // --- RemoteController: lectura abierta a cualquier usuario autenticado, escritura solo Administrador ---
+
+        [Fact]
+        public void RemoteController_ClassLevel_RequiresAuthenticatedUser_WithoutRoleRestriction()
+        {
+            var classAttr = GetClassAuthorize(typeof(RemoteController));
+            Assert.NotNull(classAttr);
+            Assert.True(string.IsNullOrEmpty(classAttr!.Roles));
+        }
+
+        [Theory]
+        [InlineData(nameof(RemoteController.Index))]
+        [InlineData(nameof(RemoteController.Details))]
+        public void RemoteController_ReadActions_HaveNoRoleRestriction(string methodName)
+        {
+            foreach (var method in GetActionOverloads(typeof(RemoteController), methodName))
+            {
+                var methodAttr = method.GetCustomAttribute<AuthorizeAttribute>();
+                Assert.True(methodAttr is null || string.IsNullOrEmpty(methodAttr.Roles));
+            }
+        }
+
+        [Theory]
+        [InlineData(nameof(RemoteController.Edit))]
+        [InlineData(nameof(RemoteController.Release))]
+        [InlineData(nameof(RemoteController.Assign))]
+        public void RemoteController_WriteActions_RequireAdministrador(string methodName)
+        {
+            var overloads = GetActionOverloads(typeof(RemoteController), methodName).ToList();
             Assert.NotEmpty(overloads);
 
             foreach (var method in overloads)

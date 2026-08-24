@@ -20,6 +20,7 @@ public class MyDbContext : DbContext
     public DbSet<Remote> Remotes { get; set; }
     public DbSet<Maintenance> Maintenances { get; set; }
     public DbSet<MaintenanceType> MaintenanceTypes { get; set; }
+    public DbSet<MaintenanceChecklist> MaintenanceChecklists { get; set; }
     public DbSet<Asignation> Asignations { get; set; }
     public DbSet<PeripheralType> PeripheralTypes { get; set; }
     public DbSet<Peripheral> Peripherals { get; set; }
@@ -52,6 +53,7 @@ public class MyDbContext : DbContext
         modelBuilder.Entity<Peripheral>().ToTable("Peripheral");
         modelBuilder.Entity<PeripheralAssignment>().ToTable("PeripheralAssignment");
         modelBuilder.Entity<PeripheralMaintenance>().ToTable("PeripheralMaintenance");
+        modelBuilder.Entity<MaintenanceChecklist>().ToTable("MaintenanceChecklist");
         modelBuilder.Entity<License>().ToTable("License");
         modelBuilder.Entity<SpecChangeLog>().ToTable("SpecChangeLog");
 
@@ -73,6 +75,14 @@ public class MyDbContext : DbContext
 
         modelBuilder.Entity<PeripheralType>()
             .HasIndex(pt => pt.Name)
+            .IsUnique();
+
+        modelBuilder.Entity<MaintenanceType>()
+            .HasIndex(mt => mt.Type)
+            .IsUnique();
+
+        modelBuilder.Entity<MaintenanceChecklist>()
+            .HasIndex(c => c.MaintenanceId)
             .IsUnique();
 
         modelBuilder.Entity<Ram>()
@@ -158,11 +168,17 @@ public class MyDbContext : DbContext
             .HasForeignKey(m => m.MaintenanceTypeId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        modelBuilder.Entity<MaintenanceChecklist>()
+            .HasOne(c => c.Maintenance)
+            .WithOne(m => m.Checklist)
+            .HasForeignKey<MaintenanceChecklist>(c => c.MaintenanceId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         modelBuilder.Entity<Peripheral>()
             .HasOne(p => p.Desktop)
             .WithMany(d => d.Peripherals)
             .HasForeignKey(p => p.DesktopId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.SetNull);
 
         modelBuilder.Entity<Peripheral>()
             .HasOne(p => p.PeripheralType)

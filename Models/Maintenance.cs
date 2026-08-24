@@ -21,10 +21,19 @@ namespace GestorEquipos.Models
         [Required]
         [MaxLength(200)]
         public string TechnicianName { get; set; }
+        [Required]
+        public MaintenanceCategory Category { get; set; }
 
         // Navigation properties
         public MaintenanceType MaintenanceType { get; set; }
         public Desktop Desktop { get; set; }
+        public MaintenanceChecklist? Checklist { get; set; }
+    }
+
+    public enum MaintenanceCategory
+    {
+        Correctivo = 0,
+        Preventivo = 1
     }
 
     public class MaintenanceType

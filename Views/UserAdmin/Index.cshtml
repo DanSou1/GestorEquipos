@@ -79,14 +79,35 @@
                         <a asp-controller="UserAdmin" asp-action="Edit" asp-route-id="@u.Id" class="ms-2">Editar</a>
                         @if (u.Activo)
                         {
-                            <form asp-controller="UserAdmin" asp-action="Deactivate" asp-route-id="@u.Id" method="post" class="d-inline ms-2"
-                                  onsubmit="return confirm('¿Eliminar este usuario? El equipo a su cargo quedará como Disponible.');">
-                                @Html.AntiForgeryToken()
-                                <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
-                            </form>
+                            <button type="button" class="btn btn-sm btn-outline-danger ms-2" data-bs-toggle="modal" data-bs-target="#deactivateUserModal-@u.Id">Eliminar</button>
                         }
                     </td>
                 </tr>
+
+                @if (u.Activo)
+                {
+                    <div class="modal fade" id="deactivateUserModal-@u.Id" tabindex="-1" aria-labelledby="deactivateUserModalLabel-@u.Id" aria-hidden="true">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="deactivateUserModalLabel-@u.Id">Eliminar usuario</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p>¿Eliminar a <strong>@u.Name @u.LastName</strong>?</p>
+                                    <p class="text-muted small">El equipo a su cargo quedará como Disponible.</p>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                    <form asp-controller="UserAdmin" asp-action="Deactivate" asp-route-id="@u.Id" method="post" class="d-inline">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="btn btn-danger">Eliminar</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
             }
         </tbody>
     </table>

@@ -142,14 +142,25 @@ namespace GestorEquipos.Tests.ViewModels
         }
 
         [Fact]
-        public void Validate_RemoteSelectionExistingId_HasNoRemoteRelatedErrors()
+        public void Validate_RemoteSelectionKeep_HasNoErrors()
+        {
+            var vm = BuildValidBase();
+            vm.RemoteSelection = "keep";
+
+            var results = Validate(vm);
+
+            Assert.Empty(results);
+        }
+
+        [Fact]
+        public void Validate_RemoteSelectionInvalidValue_ReturnsError()
         {
             var vm = BuildValidBase();
             vm.RemoteSelection = "7";
 
             var results = Validate(vm);
 
-            Assert.Empty(results);
+            Assert.Contains(results, r => r.MemberNames.Contains(nameof(DesktopCreateViewModel.RemoteSelection)));
         }
     }
 }

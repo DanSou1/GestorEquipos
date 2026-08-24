@@ -6,11 +6,16 @@ using GestorEquipos.Models;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllersWithViews();
+var mvcBuilder = builder.Services.AddControllersWithViews();
+if (builder.Environment.IsDevelopment())
+{
+    mvcBuilder.AddRazorRuntimeCompilation();
+}
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IPasswordHasher<UserSystem>, PasswordHasher<UserSystem>>();
 builder.Services.AddScoped<IDesktopService, DesktopService>();
@@ -21,9 +26,12 @@ builder.Services.AddScoped<IPeripheralTypeService, PeripheralTypeService>();
 builder.Services.AddScoped<IPeripheralAssignmentService, PeripheralAssignmentService>();
 builder.Services.AddScoped<IPeripheralMaintenanceService, PeripheralMaintenanceService>();
 builder.Services.AddScoped<IMaintenanceService, MaintenanceService>();
+builder.Services.AddScoped<IMaintenanceTypeService, MaintenanceTypeService>();
+builder.Services.AddScoped<IMaintenancePdfService, MaintenancePdfService>();
 builder.Services.AddScoped<ILicenseService, LicenseService>();
 builder.Services.AddScoped<IUserAdminService, UserAdminService>();
 builder.Services.AddScoped<ILocationService, LocationService>();
+builder.Services.AddScoped<IRemoteService, RemoteService>();
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
@@ -51,6 +59,13 @@ builder.Services.AddDbContext<MyDbContext>(options =>
             .EnableRetryOnFailure(maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(10), errorNumbersToAdd: null)
             .CommandTimeout(60)));
 
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+});
+
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())
@@ -59,8 +74,24 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+app.UseResponseCompression();
+
 app.UseHttpsRedirection();
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        // /lib (vendored, unversioned third-party assets) and /css, /js (carry a content-hash
+        // query string via asp-append-version) are safe to cache for a year: a real content
+        // change always yields a new URL. Everything else (favicon, /Images) is not
+        // version-stamped, so it gets a short cache instead of risking a year-long stale asset.
+        var path = ctx.Context.Request.Path;
+        var isLongLived = path.StartsWithSegments("/lib") || path.StartsWithSegments("/css") || path.StartsWithSegments("/js");
+        ctx.Context.Response.Headers.CacheControl = isLongLived
+            ? "public,max-age=31536000,immutable"
+            : "public,max-age=86400";
+    }
+});
 
 app.UseRouting();
 

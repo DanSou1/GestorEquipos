@@ -38,8 +38,13 @@ namespace GestorEquipos.Models.ViewModels.Desktop
         [Required(ErrorMessage = "Selecciona la RAM.")]
         public int RamId { get; set; }
 
-        // "", "new", o el Id de un Remote existente como string.
-        public string RemoteSelection { get; set; } = "";
+        // null/"" (ninguno), "new" (crear acceso remoto nuevo), o "keep" (mantener el
+        // acceso remoto actual del equipo — solo válido en edición).
+        // Nullable a propósito: un string no-nullable con NRT habilitado hace que
+        // ASP.NET Core infiera un [Required] implícito (client + server side), lo que
+        // bloquearía la opción "-- Ninguno --" (value=""). La validación real vive en
+        // Validate() más abajo, que trata null igual que "".
+        public string? RemoteSelection { get; set; } = "";
 
         public RemoteConnectionType? NewRemoteConnectionType { get; set; }
 
@@ -60,6 +65,14 @@ namespace GestorEquipos.Models.ViewModels.Desktop
 
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
+            if (!string.IsNullOrEmpty(RemoteSelection) && RemoteSelection != "new" && RemoteSelection != "keep")
+            {
+                yield return new ValidationResult(
+                    "Selección de acceso remoto inválida.",
+                    new[] { nameof(RemoteSelection) });
+                yield break;
+            }
+
             if (RemoteSelection != "new")
             {
                 yield break;

@@ -39,6 +39,23 @@ namespace GestorEquipos.Tests.Services
             return user;
         }
 
+        private static int SeedAdmin(Gestor_Equipos.Data.MyDbContext db)
+        {
+            var area = new Area { Name = "AdminArea" };
+            var regional = new Regional { Name = "AdminRegional" };
+            var role = new Rol { Name = AuthBootstrapper.AdministradorRoleName };
+            db.Areas.Add(area);
+            db.Regionals.Add(regional);
+            db.Rols.Add(role);
+            db.SaveChanges();
+
+            var adminUser = SeedUser(db, area, regional, $"Admin{Guid.NewGuid():N}");
+            var adminSystem = new UserSystem { Username = $"admin{Guid.NewGuid():N}", PasswordHash = "x", UserId = adminUser.Id, RolId = role.Id };
+            db.UserSystems.Add(adminSystem);
+            db.SaveChanges();
+            return adminSystem.Id;
+        }
+
         private static Desktop SeedDesktop(Gestor_Equipos.Data.MyDbContext db, OSVersion os, Ram ram, bool estado = true)
         {
             var desktop = new Desktop
@@ -498,9 +515,7 @@ namespace GestorEquipos.Tests.Services
             using var db = TestHelpers.CreateDbContext();
             var (_, _, os, ram) = SeedLookups(db);
             var newOs = new OSVersion { TypeSO = "Windows", Version = "10" };
-            var remote = new Remote { ConnectionType = RemoteConnectionType.EscritorioRemotoWindows, IPAddress = "10.0.0.1", Port = "3389", Username = "PC01\\jperez", Password = "clave123" };
             db.OSVersions.Add(newOs);
-            db.Remotes.Add(remote);
             db.SaveChanges();
 
             var area = new Area { Name = "A" };
@@ -529,7 +544,12 @@ namespace GestorEquipos.Tests.Services
                 Disk = desktop.Disk,
                 OSVersionId = newOs.Id,
                 RamId = desktop.RamId,
-                RemoteSelection = remote.Id.ToString()
+                RemoteSelection = "new",
+                NewRemoteConnectionType = RemoteConnectionType.EscritorioRemotoWindows,
+                NewRemoteIPAddress = "10.0.0.1",
+                NewRemotePort = "3389",
+                NewRemoteUsername = "PC01\\jperez",
+                NewRemotePassword = "clave123"
             };
 
             await service.UpdateSpecsAsync(desktop.Id, vm, adminSystem.Id);
@@ -540,7 +560,119 @@ namespace GestorEquipos.Tests.Services
 
             var updated = db.Desktops.Single(d => d.Id == desktop.Id);
             Assert.Equal(newOs.Id, updated.OSVersionId);
+            Assert.NotNull(updated.RemoteId);
+        }
+
+        [Fact]
+        public async Task UpdateSpecsAsync_RemoteSelectionKeep_LeavesRemoteUnchangedAndDoesNotLog()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (_, _, os, ram) = SeedLookups(db);
+            var remote = new Remote { ConnectionType = RemoteConnectionType.EscritorioRemotoWindows, IPAddress = "10.0.0.1", Port = "3389", Username = "PC01\\jperez", Password = "clave123" };
+            db.Remotes.Add(remote);
+            db.SaveChanges();
+
+            var desktop = SeedDesktop(db, os, ram);
+            desktop.RemoteId = remote.Id;
+            db.SaveChanges();
+
+            var adminSystemId = SeedAdmin(db);
+            var service = new DesktopService(db, new AsignationService(db));
+
+            var vm = new DesktopEditViewModel
+            {
+                NameDesktop = desktop.NameDesktop,
+                SerialNumber = desktop.SerialNumber,
+                Brand = desktop.Brand,
+                Model = desktop.Model,
+                Processor = desktop.Processor,
+                Disk = desktop.Disk,
+                OSVersionId = desktop.OSVersionId,
+                RamId = desktop.RamId,
+                RemoteSelection = "keep"
+            };
+
+            await service.UpdateSpecsAsync(desktop.Id, vm, adminSystemId);
+
+            var updated = db.Desktops.Single(d => d.Id == desktop.Id);
             Assert.Equal(remote.Id, updated.RemoteId);
+            Assert.DoesNotContain(db.SpecChangeLogs, l => l.DesktopId == desktop.Id && l.FieldName == "Acceso remoto");
+        }
+
+        [Fact]
+        public async Task UpdateSpecsAsync_RemoteSelectionEmpty_RemovesExistingRemoteAndLogsChange()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (_, _, os, ram) = SeedLookups(db);
+            var remote = new Remote { ConnectionType = RemoteConnectionType.Aplicativo, AppDescription = "SAP GUI" };
+            db.Remotes.Add(remote);
+            db.SaveChanges();
+
+            var desktop = SeedDesktop(db, os, ram);
+            desktop.RemoteId = remote.Id;
+            db.SaveChanges();
+
+            var adminSystemId = SeedAdmin(db);
+            var service = new DesktopService(db, new AsignationService(db));
+
+            var vm = new DesktopEditViewModel
+            {
+                NameDesktop = desktop.NameDesktop,
+                SerialNumber = desktop.SerialNumber,
+                Brand = desktop.Brand,
+                Model = desktop.Model,
+                Processor = desktop.Processor,
+                Disk = desktop.Disk,
+                OSVersionId = desktop.OSVersionId,
+                RamId = desktop.RamId,
+                RemoteSelection = ""
+            };
+
+            await service.UpdateSpecsAsync(desktop.Id, vm, adminSystemId);
+
+            var updated = db.Desktops.Single(d => d.Id == desktop.Id);
+            Assert.Null(updated.RemoteId);
+            Assert.Contains(db.SpecChangeLogs, l => l.DesktopId == desktop.Id && l.FieldName == "Acceso remoto" && l.NewValue == null);
+        }
+
+        [Fact]
+        public async Task UpdateSpecsAsync_RemoteSelectionNew_ReplacesExistingRemoteLeavingOldRowOrphaned()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (_, _, os, ram) = SeedLookups(db);
+            var oldRemote = new Remote { ConnectionType = RemoteConnectionType.Aplicativo, AppDescription = "SAP GUI" };
+            db.Remotes.Add(oldRemote);
+            db.SaveChanges();
+
+            var desktop = SeedDesktop(db, os, ram);
+            desktop.RemoteId = oldRemote.Id;
+            db.SaveChanges();
+
+            var adminSystemId = SeedAdmin(db);
+            var service = new DesktopService(db, new AsignationService(db));
+
+            var vm = new DesktopEditViewModel
+            {
+                NameDesktop = desktop.NameDesktop,
+                SerialNumber = desktop.SerialNumber,
+                Brand = desktop.Brand,
+                Model = desktop.Model,
+                Processor = desktop.Processor,
+                Disk = desktop.Disk,
+                OSVersionId = desktop.OSVersionId,
+                RamId = desktop.RamId,
+                RemoteSelection = "new",
+                NewRemoteConnectionType = RemoteConnectionType.Aplicativo,
+                NewRemoteAppDescription = "Anydesk"
+            };
+
+            await service.UpdateSpecsAsync(desktop.Id, vm, adminSystemId);
+
+            var updated = db.Desktops.Single(d => d.Id == desktop.Id);
+            Assert.NotEqual(oldRemote.Id, updated.RemoteId);
+            Assert.NotNull(updated.RemoteId);
+            Assert.Contains(db.Remotes, r => r.Id == oldRemote.Id);
+            Assert.DoesNotContain(db.Desktops, d => d.RemoteId == oldRemote.Id);
         }
 
         [Fact]
@@ -588,11 +720,50 @@ namespace GestorEquipos.Tests.Services
             Assert.Empty(db.Asignations.Where(a => a.DesktopId == desktop.Id));
         }
 
-        // Verifies the outcome only: rows for every dependent table are gone. It cannot
-        // catch a real FK-ordering bug, since the InMemory provider doesn't enforce
-        // Asignation.DesktopId's DeleteBehavior.Restrict the way SQL Server does.
         [Fact]
-        public async Task DeleteAsync_RemovesDesktopAndAllDependentRows()
+        public async Task DeactivateAsync_ExistingPeripheralsRemainLinkedToInactiveDesktop()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (area, regional, os, ram) = SeedLookups(db);
+            var holder = SeedUser(db, area, regional, "Holder");
+            var desktop = SeedDesktop(db, os, ram);
+            db.Asignations.Add(new Asignation { DesktopId = desktop.Id, UserId = holder.Id, DateAsignation = new DateOnly(2026, 1, 1) });
+
+            var raesUser = new Users
+            {
+                Name = "RAES",
+                LastName = "Sistema",
+                Email = AuthBootstrapper.RaesUserEmail,
+                EmailTeams = AuthBootstrapper.RaesUserEmail,
+                AreaId = area.Id,
+                RegionalId = regional.Id
+            };
+            db.Users.Add(raesUser);
+
+            var peripheralType = new PeripheralType { Name = "Mouse" };
+            db.PeripheralTypes.Add(peripheralType);
+            db.SaveChanges();
+
+            var peripheral = new Peripheral { DesktopId = desktop.Id, PeripheralTypeId = peripheralType.Id, Brand = "Logitech", Model = "M100" };
+            db.Peripherals.Add(peripheral);
+            db.SaveChanges();
+            db.PeripheralAssignments.Add(new PeripheralAssignment { PeripheralId = peripheral.Id, UserId = holder.Id, DateAsignation = new DateOnly(2026, 1, 1) });
+            db.SaveChanges();
+
+            var service = new DesktopService(db, new AsignationService(db));
+            await service.DeactivateAsync(desktop.Id);
+
+            var updatedPeripheral = db.Peripherals.Single(p => p.Id == peripheral.Id);
+            Assert.Equal(desktop.Id, updatedPeripheral.DesktopId);
+            Assert.True(updatedPeripheral.Estado);
+        }
+
+        // Verifies the outcome only: rows for every dependent table are gone (or, for
+        // Peripheral, orphaned rather than gone). It cannot catch a real FK-ordering bug,
+        // since the InMemory provider doesn't enforce Asignation.DesktopId's
+        // DeleteBehavior.Restrict the way SQL Server does.
+        [Fact]
+        public async Task DeleteAsync_RemovesDesktopAndCascadingRows_ButOrphansPeripherals()
         {
             using var db = TestHelpers.CreateDbContext();
             var (area, regional, os, ram) = SeedLookups(db);
@@ -632,9 +803,12 @@ namespace GestorEquipos.Tests.Services
 
             Assert.Empty(db.Desktops.Where(d => d.Id == desktop.Id));
             Assert.Empty(db.Asignations.Where(a => a.DesktopId == desktop.Id));
-            Assert.Empty(db.Peripherals.Where(p => p.DesktopId == desktop.Id));
-            Assert.Empty(db.PeripheralMaintenances.Where(m => m.PeripheralId == peripheral.Id));
-            Assert.Empty(db.PeripheralAssignments.Where(a => a.PeripheralId == peripheral.Id));
+
+            var survivingPeripheral = Assert.Single(db.Peripherals.Where(p => p.Id == peripheral.Id));
+            Assert.Null(survivingPeripheral.DesktopId);
+            Assert.Single(db.PeripheralMaintenances.Where(m => m.PeripheralId == peripheral.Id));
+            Assert.Single(db.PeripheralAssignments.Where(a => a.PeripheralId == peripheral.Id));
+
             Assert.Empty(db.Maintenances.Where(m => m.DesktopId == desktop.Id));
             Assert.Empty(db.Licenses.Where(l => l.DesktopId == desktop.Id));
             Assert.Empty(db.SpecChangeLogs.Where(l => l.DesktopId == desktop.Id));
@@ -718,13 +892,10 @@ namespace GestorEquipos.Tests.Services
         }
 
         [Fact]
-        public async Task CreateAsync_WithExistingRemoteSelection_ReusesRemote()
+        public async Task CreateAsync_WithRemoteSelectionKeep_ResolvesToNoRemote()
         {
             using var db = TestHelpers.CreateDbContext();
             var (_, _, os, ram) = SeedLookups(db);
-            var remote = new Remote { ConnectionType = RemoteConnectionType.EscritorioRemotoWindows, IPAddress = "10.0.0.9", Port = "3389", Username = "PC09\\ana", Password = "clave9" };
-            db.Remotes.Add(remote);
-            db.SaveChanges();
 
             var service = new DesktopService(db, new AsignationService(db));
             var vm = new DesktopCreateViewModel
@@ -737,14 +908,13 @@ namespace GestorEquipos.Tests.Services
                 Disk = "256GB SSD",
                 OSVersionId = os.Id,
                 RamId = ram.Id,
-                RemoteSelection = remote.Id.ToString()
+                RemoteSelection = "keep"
             };
 
             var id = await service.CreateAsync(vm);
 
             var desktop = db.Desktops.Single(d => d.Id == id);
-            Assert.Equal(remote.Id, desktop.RemoteId);
-            Assert.Single(db.Remotes);
+            Assert.Null(desktop.RemoteId);
         }
 
         [Fact]

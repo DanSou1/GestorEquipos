@@ -1,6 +1,12 @@
 @model List<Users>
 @{
     ViewData["Title"] = "Cuentas de acceso";
+    string? error = ViewBag.Error;
+}
+
+@if (!string.IsNullOrWhiteSpace(error))
+{
+    <div class="alert alert-danger">@error</div>
 }
 
 <div class="section-header">
@@ -37,8 +43,35 @@
                     <td>@u.Regional?.Name</td>
                     <td>
                         <a asp-controller="AccessAccount" asp-action="Edit" asp-route-id="@u.Id">Editar</a>
+                        <button type="button" class="btn btn-sm btn-outline-danger ms-2" data-bs-toggle="modal" data-bs-target="#deleteAccountModal-@u.Id">Eliminar</button>
                     </td>
                 </tr>
+
+                <div class="modal fade" id="deleteAccountModal-@u.Id" tabindex="-1" aria-labelledby="deleteAccountModalLabel-@u.Id" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <form asp-controller="AccessAccount" asp-action="Delete" asp-route-id="@u.Id" method="post">
+                                @Html.AntiForgeryToken()
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="deleteAccountModalLabel-@u.Id">Eliminar cuenta de acceso</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p>¿Desea eliminar definitivamente la cuenta de <strong>@u.Name @u.LastName</strong> (@us.Username)?</p>
+                                    <div class="mb-2">
+                                        <label class="form-label">Tu contraseña de Administrador</label>
+                                        <input type="password" name="adminPassword" class="form-control" autocomplete="current-password" required />
+                                        <div class="form-text">Requerida únicamente para confirmar la eliminación.</div>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                    <button type="submit" class="btn btn-danger">Eliminar</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
             }
         </tbody>
     </table>

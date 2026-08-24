@@ -28,6 +28,7 @@ namespace GestorEquipos.Models.ViewModels.Desktop
 
     public class RemoteAccessItem
     {
+        public int Id { get; set; }
         public RemoteConnectionType ConnectionType { get; set; }
         public string? IPAddress { get; set; }
         public string? Port { get; set; }
@@ -54,6 +55,7 @@ namespace GestorEquipos.Models.ViewModels.Desktop
 
     public class MaintenanceHistoryItem
     {
+        public int Id { get; set; }
         public DateOnly Date { get; set; }
         public string MaintenanceTypeName { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;

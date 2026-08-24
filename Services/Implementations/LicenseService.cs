@@ -1,7 +1,6 @@
 using Gestor_Equipos.Data;
 using GestorEquipos.Models;
 using GestorEquipos.Models.ViewModels.License;
-using Microsoft.EntityFrameworkCore;
 
 namespace Gestor_Equipos.Services.Implementations
 {
@@ -27,13 +26,6 @@ namespace Gestor_Equipos.Services.Implementations
             _dbContext.Licenses.Add(license);
             await _dbContext.SaveChangesAsync();
             return license.Id;
-        }
-
-        public async Task<List<License>> GetByDesktopAsync(int desktopId)
-        {
-            return await _dbContext.Licenses
-                .Where(l => l.DesktopId == desktopId)
-                .ToListAsync();
         }
     }
 }

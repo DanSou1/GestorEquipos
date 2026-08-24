@@ -1,3 +1,4 @@
+@using GestorEquipos.Models
 @model MaintenanceCreateViewModel
 @{
     ViewData["Title"] = "Registrar mantenimiento";
@@ -18,6 +19,11 @@
         <span asp-validation-for="MaintenanceTypeId" class="text-danger"></span>
     </div>
     <div class="mb-3">
+        <label asp-for="Category" class="form-label">Categoría</label>
+        <select asp-for="Category" id="categorySelect" class="form-select" asp-items="Html.GetEnumSelectList<MaintenanceCategory>()"></select>
+        <span asp-validation-for="Category" class="text-danger"></span>
+    </div>
+    <div class="mb-3">
         <label asp-for="Date" class="form-label"></label>
         <input asp-for="Date" type="date" class="form-control" />
     </div>
@@ -32,10 +38,60 @@
         <span asp-validation-for="Description" class="text-danger"></span>
     </div>
 
+    <fieldset id="checklistFieldset" class="mb-3">
+        <legend class="form-label h6">Checklist de mantenimiento preventivo</legend>
+        <div class="form-check">
+            <input asp-for="ChecklistVerificacionSistemaMecanico" class="form-check-input" />
+            <label asp-for="ChecklistVerificacionSistemaMecanico" class="form-check-label">Verificación de sistema mecánico</label>
+        </div>
+        <div class="form-check">
+            <input asp-for="ChecklistVerificacionSistemaElectrico" class="form-check-input" />
+            <label asp-for="ChecklistVerificacionSistemaElectrico" class="form-check-label">Verificación de sistema eléctrico</label>
+        </div>
+        <div class="form-check">
+            <input asp-for="ChecklistVerificacionSistemaSeguridad" class="form-check-input" />
+            <label asp-for="ChecklistVerificacionSistemaSeguridad" class="form-check-label">Verificación de sistema de seguridad</label>
+        </div>
+        <div class="form-check">
+            <input asp-for="ChecklistSopladoInterno" class="form-check-input" />
+            <label asp-for="ChecklistSopladoInterno" class="form-check-label">Soplado interno</label>
+        </div>
+        <div class="form-check">
+            <input asp-for="ChecklistLavadoInterno" class="form-check-input" />
+            <label asp-for="ChecklistLavadoInterno" class="form-check-label">Lavado interno</label>
+        </div>
+        <div class="form-check">
+            <input asp-for="ChecklistLubricacion" class="form-check-input" />
+            <label asp-for="ChecklistLubricacion" class="form-check-label">Lubricación</label>
+        </div>
+        <div class="form-check">
+            <input asp-for="ChecklistAjusteTornilleria" class="form-check-input" />
+            <label asp-for="ChecklistAjusteTornilleria" class="form-check-label">Ajuste de tornillería</label>
+        </div>
+        <div class="form-check">
+            <input asp-for="ChecklistCambioAccesorios" class="form-check-input" />
+            <label asp-for="ChecklistCambioAccesorios" class="form-check-label">Cambio de accesorios y repuestos por desgaste</label>
+        </div>
+    </fieldset>
+
     <button type="submit" class="btn btn-primary">Guardar</button>
     <a asp-controller="Desktop" asp-action="Details" asp-route-id="@Model.DesktopId" class="btn btn-link">Cancelar</a>
 </form>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script>
+        (function () {
+            var categorySelect = document.getElementById('categorySelect');
+            var checklistFieldset = document.getElementById('checklistFieldset');
+
+            function toggleChecklist() {
+                var isPreventivo = categorySelect.value === '@((int)MaintenanceCategory.Preventivo)';
+                checklistFieldset.style.display = isPreventivo ? '' : 'none';
+            }
+
+            categorySelect.addEventListener('change', toggleChecklist);
+            toggleChecklist();
+        })();
+    </script>
 }

@@ -528,5 +528,135 @@ namespace GestorEquipos.Tests.Services
             Assert.Equal("Ana Gomez", item.CurrentHolderName);
             Assert.Equal("Activo", item.Estado);
         }
+
+        [Fact]
+        public async Task GetDetailAsync_PeripheralWithNoDesktop_ComputesAsDisponible()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var type = new PeripheralType { Name = "Monitor" };
+            db.PeripheralTypes.Add(type);
+            db.SaveChanges();
+            var peripheral = new Peripheral { DesktopId = null, PeripheralTypeId = type.Id, Brand = "B", Model = "M" };
+            db.Peripherals.Add(peripheral);
+            db.SaveChanges();
+
+            var service = CreateService(db);
+            var detail = await service.GetDetailAsync(peripheral.Id);
+
+            Assert.Equal("Disponible", detail!.Estado);
+            Assert.Null(detail.DesktopId);
+            Assert.Equal("Sin equipo asignado", detail.DesktopName);
+        }
+
+        [Fact]
+        public async Task GetDetailAsync_PeripheralOnInactiveDesktop_ComputesAsDisponibleEvenWithActiveHolder()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (desktop, type) = SeedDesktopAndType(db);
+            desktop.Estado = false;
+            db.SaveChanges();
+
+            var area = new Area { Name = "A11" };
+            var regional = new Regional { Name = "R11" };
+            db.Areas.Add(area);
+            db.Regionals.Add(regional);
+            db.SaveChanges();
+            var user = new Users { Name = "Ana", LastName = "Gomez", Email = "ana-inactive-desktop@x.com", EmailTeams = "ana-inactive-desktop@x.com", AreaId = area.Id, RegionalId = regional.Id };
+            db.Users.Add(user);
+            db.SaveChanges();
+
+            var peripheral = new Peripheral { DesktopId = desktop.Id, PeripheralTypeId = type.Id, Brand = "B", Model = "M" };
+            db.Peripherals.Add(peripheral);
+            db.SaveChanges();
+            db.PeripheralAssignments.Add(new PeripheralAssignment { PeripheralId = peripheral.Id, UserId = user.Id, DateAsignation = new DateOnly(2026, 1, 1) });
+            db.SaveChanges();
+
+            var service = CreateService(db);
+            var detail = await service.GetDetailAsync(peripheral.Id);
+
+            Assert.Equal("Disponible", detail!.Estado);
+        }
+
+        [Fact]
+        public async Task GetInventoryAsync_PeripheralOnInactiveDesktop_ComputesAsDisponible()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (desktop, type) = SeedDesktopAndType(db);
+            desktop.Estado = false;
+            db.SaveChanges();
+
+            var area = new Area { Name = "A12" };
+            var regional = new Regional { Name = "R12" };
+            db.Areas.Add(area);
+            db.Regionals.Add(regional);
+            db.SaveChanges();
+            var user = new Users { Name = "Ana", LastName = "Gomez", Email = "ana-inv-inactive@x.com", EmailTeams = "ana-inv-inactive@x.com", AreaId = area.Id, RegionalId = regional.Id };
+            db.Users.Add(user);
+            db.SaveChanges();
+
+            var peripheral = new Peripheral { DesktopId = desktop.Id, PeripheralTypeId = type.Id, Brand = "B", Model = "M" };
+            db.Peripherals.Add(peripheral);
+            db.SaveChanges();
+            db.PeripheralAssignments.Add(new PeripheralAssignment { PeripheralId = peripheral.Id, UserId = user.Id, DateAsignation = new DateOnly(2026, 1, 1) });
+            db.SaveChanges();
+
+            var service = CreateService(db);
+            var result = await service.GetInventoryAsync();
+
+            var item = Assert.Single(result);
+            Assert.Equal("Disponible", item.Estado);
+        }
+
+        [Fact]
+        public async Task GetInventoryAsync_PeripheralWithNoDesktop_ComputesAsDisponibleWithFallbackName()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var type = new PeripheralType { Name = "Monitor" };
+            db.PeripheralTypes.Add(type);
+            db.SaveChanges();
+            var peripheral = new Peripheral { DesktopId = null, PeripheralTypeId = type.Id, Brand = "B", Model = "M" };
+            db.Peripherals.Add(peripheral);
+            db.SaveChanges();
+
+            var service = CreateService(db);
+            var result = await service.GetInventoryAsync();
+
+            var item = Assert.Single(result);
+            Assert.Equal("Disponible", item.Estado);
+            Assert.Equal("Sin equipo asignado", item.DesktopName);
+            Assert.Null(item.DesktopId);
+        }
+
+        [Fact]
+        public async Task GetInventoryStatsAsync_PeripheralOnInactiveDesktopWithActiveHolder_CountsAsDisponible()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (desktop, type) = SeedDesktopAndType(db);
+            desktop.Estado = false;
+            db.SaveChanges();
+
+            var area = new Area { Name = "A13" };
+            var regional = new Regional { Name = "R13" };
+            db.Areas.Add(area);
+            db.Regionals.Add(regional);
+            db.SaveChanges();
+            var user = new Users { Name = "Ana", LastName = "Gomez", Email = "ana-stats-inactive@x.com", EmailTeams = "ana-stats-inactive@x.com", AreaId = area.Id, RegionalId = regional.Id };
+            db.Users.Add(user);
+            db.SaveChanges();
+
+            var peripheral = new Peripheral { DesktopId = desktop.Id, PeripheralTypeId = type.Id, Brand = "B", Model = "M" };
+            db.Peripherals.Add(peripheral);
+            db.SaveChanges();
+            db.PeripheralAssignments.Add(new PeripheralAssignment { PeripheralId = peripheral.Id, UserId = user.Id, DateAsignation = new DateOnly(2026, 1, 1) });
+            db.SaveChanges();
+
+            var service = CreateService(db);
+            var stats = await service.GetInventoryStatsAsync();
+
+            Assert.Equal(1, stats.Total);
+            Assert.Equal(0, stats.Activos);
+            Assert.Equal(1, stats.Disponibles);
+            Assert.Equal(0, stats.Raes);
+        }
     }
 }

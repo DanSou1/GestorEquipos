@@ -85,7 +85,7 @@ namespace GestorEquipos.Tests.Services
         {
             var service = new DesktopPdfService();
 
-            var bytes = service.GenerateHojaDeVidaPdf(BuildFullDetail(), includeRemoteAccess: true);
+            var bytes = service.GenerateHojaDeVidaPdf(BuildFullDetail(), includeRemotePassword: true);
 
             Assert.NotEmpty(bytes);
             Assert.Equal("%PDF", Encoding.ASCII.GetString(bytes, 0, 4));
@@ -96,22 +96,22 @@ namespace GestorEquipos.Tests.Services
         {
             var service = new DesktopPdfService();
 
-            var bytes = service.GenerateHojaDeVidaPdf(BuildEmptyDetail(), includeRemoteAccess: true);
+            var bytes = service.GenerateHojaDeVidaPdf(BuildEmptyDetail(), includeRemotePassword: true);
 
             Assert.NotEmpty(bytes);
             Assert.Equal("%PDF", Encoding.ASCII.GetString(bytes, 0, 4));
         }
 
         [Fact]
-        public void GenerateHojaDeVidaPdf_WithIncludeRemoteAccessFalse_ReturnsValidPdfBytes()
+        public void GenerateHojaDeVidaPdf_WithIncludeRemotePasswordFalse_ReturnsValidPdfBytes()
         {
             // No hay extracción de texto en estos tests (solo se valida el magic %PDF),
-            // así que esto no prueba que la sección "Acceso remoto" se omita del contenido
-            // visible — solo que el flag no rompe la generación. La verificación visual
+            // así que esto no prueba que la clave se omita del contenido visible —
+            // solo que el flag no rompe la generación. La verificación visual
             // real queda para la prueba manual (ver MANUAL_TESTS.md).
             var service = new DesktopPdfService();
 
-            var bytes = service.GenerateHojaDeVidaPdf(BuildFullDetail(), includeRemoteAccess: false);
+            var bytes = service.GenerateHojaDeVidaPdf(BuildFullDetail(), includeRemotePassword: false);
 
             Assert.NotEmpty(bytes);
             Assert.Equal("%PDF", Encoding.ASCII.GetString(bytes, 0, 4));

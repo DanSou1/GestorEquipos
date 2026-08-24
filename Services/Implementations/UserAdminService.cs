@@ -150,6 +150,50 @@ namespace Gestor_Equipos.Services.Implementations
             await _dbContext.SaveChangesAsync();
         }
 
+        public async Task DeleteAccountAsync(int userId, int actingAdminUserSystemId, string? adminPassword)
+        {
+            var userSystem = await _dbContext.UserSystems.SingleOrDefaultAsync(us => us.UserId == userId)
+                ?? throw new InvalidOperationException("Este usuario no tiene una cuenta de acceso.");
+
+            if (string.IsNullOrEmpty(adminPassword))
+            {
+                throw new InvalidOperationException("Debes ingresar tu contraseña de administrador para eliminar.");
+            }
+
+            var adminUserSystem = await _dbContext.UserSystems.SingleOrDefaultAsync(us => us.Id == actingAdminUserSystemId)
+                ?? throw new InvalidOperationException("No se pudo verificar la cuenta del administrador.");
+
+            var verificationResult = _passwordHasher.VerifyHashedPassword(adminUserSystem, adminUserSystem.PasswordHash, adminPassword);
+            if (verificationResult == PasswordVerificationResult.Failed)
+            {
+                throw new InvalidOperationException("Contraseña de administrador incorrecta.");
+            }
+
+            if (userSystem.Id == actingAdminUserSystemId)
+            {
+                throw new InvalidOperationException("No puedes eliminar tu propia cuenta de acceso mientras tienes la sesión iniciada.");
+            }
+
+            var adminRoleId = await _dbContext.Rols
+                .Where(r => r.Name == AuthBootstrapper.AdministradorRoleName)
+                .Select(r => r.Id)
+                .SingleAsync();
+
+            if (userSystem.RolId == adminRoleId)
+            {
+                var hasOtherAdminAccount = await _dbContext.UserSystems
+                    .AnyAsync(us => us.Id != userSystem.Id && us.RolId == adminRoleId);
+
+                if (!hasOtherAdminAccount)
+                {
+                    throw new InvalidOperationException("No se puede eliminar: es la única cuenta de Administrador. Crea otra cuenta de Administrador antes de eliminar esta.");
+                }
+            }
+
+            _dbContext.UserSystems.Remove(userSystem);
+            await _dbContext.SaveChangesAsync();
+        }
+
         public async Task<List<Users>> GetAllAsync(bool includeInactive = false)
         {
             return await _dbContext.Users

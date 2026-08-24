@@ -61,6 +61,7 @@ namespace Gestor_Equipos.Services.Implementations
                 .Include(d => d.Maintenances).ThenInclude(m => m.MaintenanceType)
                 .Include(d => d.Licenses)
                 .Include(d => d.SpecChangeLogs).ThenInclude(s => s.ChangedByUserSystem).ThenInclude(u => u.User)
+                .AsSplitQuery()
                 .SingleOrDefaultAsync(d => d.Id == desktopId);
 
             if (desktop is null)
@@ -85,6 +86,7 @@ namespace Gestor_Equipos.Services.Implementations
                 RamSpecification = $"{desktop.RamType} {desktop.Ram.Especification}",
                 RemoteAccess = desktop.Remote is null ? null : new RemoteAccessItem
                 {
+                    Id = desktop.Remote.Id,
                     ConnectionType = desktop.Remote.ConnectionType,
                     IPAddress = desktop.Remote.IPAddress,
                     Port = desktop.Remote.Port,
@@ -117,7 +119,7 @@ namespace Gestor_Equipos.Services.Implementations
                             .FirstOrDefault();
                         var estado = !p.Estado
                             ? "Raes"
-                            : (latestAssignment is null || !latestAssignment.User.Activo)
+                            : (!desktop.Estado || latestAssignment is null || !latestAssignment.User.Activo)
                                 ? "Disponible"
                                 : "Activo";
 
@@ -136,6 +138,7 @@ namespace Gestor_Equipos.Services.Implementations
                     .OrderByDescending(m => m.Date)
                     .Select(m => new MaintenanceHistoryItem
                     {
+                        Id = m.Id,
                         Date = m.Date,
                         MaintenanceTypeName = m.MaintenanceType.Type,
                         Description = m.Description,
@@ -167,7 +170,7 @@ namespace Gestor_Equipos.Services.Implementations
 
         public async Task<int> CreateAsync(DesktopCreateViewModel vm)
         {
-            var (remoteId, newRemote) = ResolveRemoteSelection(vm);
+            var (remoteId, newRemote) = ResolveRemoteSelection(vm, currentRemoteId: null);
 
             var desktop = new Desktop
             {
@@ -223,7 +226,7 @@ namespace Gestor_Equipos.Services.Implementations
                 LogIfChanged(desktop.Id, "RAM", oldName, newName, changedByUserSystemId, date);
             }
 
-            var (remoteId, newRemote) = ResolveRemoteSelection(vm);
+            var (remoteId, newRemote) = ResolveRemoteSelection(vm, desktop.RemoteId);
 
             if (desktop.RemoteId != remoteId || newRemote is not null)
             {
@@ -278,8 +281,10 @@ namespace Gestor_Equipos.Services.Implementations
 
             // Asignation.DesktopId is DeleteBehavior.Restrict at the DB level — must be
             // removed before the Desktop, or SaveChangesAsync throws a DbUpdateException
-            // from a real SQL Server FK violation. Maintenance/Peripheral(+Observations)/
-            // License/SpecChangeLog are all Cascade — do not remove them manually.
+            // from a real SQL Server FK violation. Maintenance/License/SpecChangeLog are
+            // Cascade — removed automatically. Peripheral.DesktopId is SetNull — peripherals
+            // survive the delete (orphaned, DesktopId becomes null) — do not remove them
+            // manually either way.
             var asignations = _dbContext.Asignations.Where(a => a.DesktopId == desktopId);
             _dbContext.Asignations.RemoveRange(asignations);
 
@@ -340,11 +345,11 @@ namespace Gestor_Equipos.Services.Implementations
             return ram?.Especification;
         }
 
-        private static (int? RemoteId, Remote? NewRemote) ResolveRemoteSelection(DesktopCreateViewModel vm)
+        private static (int? RemoteId, Remote? NewRemote) ResolveRemoteSelection(DesktopCreateViewModel vm, int? currentRemoteId)
         {
-            if (string.IsNullOrEmpty(vm.RemoteSelection))
+            if (vm.RemoteSelection == "keep")
             {
-                return (null, null);
+                return (currentRemoteId, null);
             }
 
             if (vm.RemoteSelection == "new")
@@ -362,7 +367,7 @@ namespace Gestor_Equipos.Services.Implementations
                 return (null, remote);
             }
 
-            return (int.Parse(vm.RemoteSelection), null);
+            return (null, null);
         }
 
         private static string BuildRemoteSummary(Remote remote)

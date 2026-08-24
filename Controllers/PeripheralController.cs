@@ -136,13 +136,15 @@ namespace Gestor_Equipos.Controllers
                 return View(vm);
             }
 
-            return RedirectToAction("Details", "Desktop", new { id = vm.DesktopId });
+            return vm.DesktopId.HasValue
+                ? RedirectToAction("Details", "Desktop", new { id = vm.DesktopId.Value })
+                : RedirectToAction(nameof(Details), new { id });
         }
 
         [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Delete(int id, int desktopId, string adminPassword)
+        public async Task<IActionResult> Delete(int id, int? desktopId, string adminPassword)
         {
             try
             {
@@ -153,7 +155,9 @@ namespace Gestor_Equipos.Controllers
                 TempData["Error"] = ex.Message;
             }
 
-            return RedirectToAction("Details", "Desktop", new { id = desktopId });
+            return desktopId.HasValue
+                ? RedirectToAction("Details", "Desktop", new { id = desktopId.Value })
+                : RedirectToAction(nameof(Index));
         }
 
         [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]

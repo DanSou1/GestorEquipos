@@ -67,8 +67,9 @@
         </div>
         <div class="col-md-3">
             <label asp-for="RemoteSelection" class="form-label">Acceso remoto (opcional)</label>
-            <select asp-for="RemoteSelection" id="remoteSelection" class="form-select" asp-items="ViewBag.Remotes">
+            <select asp-for="RemoteSelection" id="remoteSelection" class="form-select">
                 <option value="">-- Ninguno --</option>
+                <option value="new">+ Crear acceso remoto</option>
             </select>
             <span asp-validation-for="RemoteSelection" class="text-danger"></span>
         </div>

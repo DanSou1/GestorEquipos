@@ -25,6 +25,7 @@ namespace Gestor_Equipos.Controllers
 
         public async Task<IActionResult> Index()
         {
+            ViewBag.Error = TempData["Error"];
             var accounts = await _userAdminService.GetAccountsAsync();
             return View(accounts);
         }
@@ -114,6 +115,22 @@ namespace Gestor_Equipos.Controllers
                 ModelState.AddModelError(string.Empty, ex.Message);
                 await PopulateDropdownsAsync();
                 return View(vm);
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Delete(int id, string adminPassword)
+        {
+            try
+            {
+                await _userAdminService.DeleteAccountAsync(id, GetCurrentUserSystemId(), adminPassword);
+            }
+            catch (InvalidOperationException ex)
+            {
+                TempData["Error"] = ex.Message;
             }
 
             return RedirectToAction(nameof(Index));

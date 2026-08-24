@@ -34,7 +34,14 @@
     </div>
 
     <button type="submit" class="btn btn-primary">Guardar</button>
-    <a asp-controller="Desktop" asp-action="Details" asp-route-id="@Model.DesktopId" class="btn btn-link">Cancelar</a>
+    @if (Model.DesktopId.HasValue)
+    {
+        <a asp-controller="Desktop" asp-action="Details" asp-route-id="@Model.DesktopId" class="btn btn-link">Cancelar</a>
+    }
+    else
+    {
+        <a asp-controller="Peripheral" asp-action="Details" asp-route-id="@Model.Id" class="btn btn-link">Cancelar</a>
+    }
 </form>
 
 @section Scripts {

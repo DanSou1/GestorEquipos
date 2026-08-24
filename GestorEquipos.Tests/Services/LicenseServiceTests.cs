@@ -59,22 +59,5 @@ namespace GestorEquipos.Tests.Services
             var license = db.Licenses.Single(l => l.Id == id);
             Assert.Equal("CCCC-DDDD", license.LicenseKey);
         }
-
-        [Fact]
-        public async Task GetByDesktopAsync_ReturnsOnlyForThatDesktop()
-        {
-            using var db = TestHelpers.CreateDbContext();
-            var desktop1 = SeedDesktop(db);
-            var desktop2 = SeedDesktop(db);
-            db.Licenses.Add(new License { DesktopId = desktop1.Id, SoftwareType = "A", NoLicense = false });
-            db.Licenses.Add(new License { DesktopId = desktop2.Id, SoftwareType = "B", NoLicense = false });
-            db.SaveChanges();
-
-            var service = new LicenseService(db);
-            var result = await service.GetByDesktopAsync(desktop1.Id);
-
-            var item = Assert.Single(result);
-            Assert.Equal("A", item.SoftwareType);
-        }
     }
 }

@@ -50,20 +50,62 @@ namespace GestorEquipos.Tests.Services
         }
 
         [Fact]
-        public async Task GetByDesktopAsync_ReturnsOrderedByDateDescending()
+        public async Task CreateAsync_Preventivo_ConChecklistParcial_CreaFilaChecklistConValoresCorrectos()
         {
             using var db = TestHelpers.CreateDbContext();
             var (desktop, type) = SeedBase(db);
-            db.Maintenances.Add(new Maintenance { DesktopId = desktop.Id, MaintenanceTypeId = type.Id, Date = new DateOnly(2026, 1, 1), Description = "Primero", TechnicianName = "Carlos Ruiz" });
-            db.Maintenances.Add(new Maintenance { DesktopId = desktop.Id, MaintenanceTypeId = type.Id, Date = new DateOnly(2026, 6, 1), Description = "Segundo", TechnicianName = "Carlos Ruiz" });
-            db.SaveChanges();
-
             var service = new MaintenanceService(db);
-            var result = await service.GetByDesktopAsync(desktop.Id);
 
-            Assert.Equal(2, result.Count);
-            Assert.Equal("Segundo", result[0].Description);
-            Assert.Equal("Correctivo", result[0].MaintenanceType.Type);
+            var id = await service.CreateAsync(new MaintenanceCreateViewModel
+            {
+                DesktopId = desktop.Id,
+                MaintenanceTypeId = type.Id,
+                Category = MaintenanceCategory.Preventivo,
+                Date = new DateOnly(2026, 1, 1),
+                Description = "Mantenimiento preventivo",
+                TechnicianName = "Carlos Ruiz",
+                ChecklistVerificacionSistemaMecanico = true,
+                ChecklistSopladoInterno = true,
+                ChecklistLubricacion = true
+            });
+
+            var maintenance = db.Maintenances.Single(m => m.Id == id);
+            Assert.Equal(MaintenanceCategory.Preventivo, maintenance.Category);
+
+            var checklist = db.MaintenanceChecklists.Single(c => c.MaintenanceId == id);
+            Assert.True(checklist.VerificacionSistemaMecanico);
+            Assert.True(checklist.SopladoInterno);
+            Assert.True(checklist.Lubricacion);
+            Assert.False(checklist.VerificacionSistemaElectrico);
+            Assert.False(checklist.VerificacionSistemaSeguridad);
+            Assert.False(checklist.LavadoInterno);
+            Assert.False(checklist.AjusteTornilleria);
+            Assert.False(checklist.CambioAccesorios);
+        }
+
+        [Fact]
+        public async Task CreateAsync_Correctivo_IgnoraChecklistPosteado_NoCreaFilaChecklist()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (desktop, type) = SeedBase(db);
+            var service = new MaintenanceService(db);
+
+            var id = await service.CreateAsync(new MaintenanceCreateViewModel
+            {
+                DesktopId = desktop.Id,
+                MaintenanceTypeId = type.Id,
+                Category = MaintenanceCategory.Correctivo,
+                Date = new DateOnly(2026, 1, 1),
+                Description = "Cambio de fuente",
+                TechnicianName = "Carlos Ruiz",
+                ChecklistVerificacionSistemaMecanico = true,
+                ChecklistSopladoInterno = true,
+                ChecklistLubricacion = true
+            });
+
+            var maintenance = db.Maintenances.Single(m => m.Id == id);
+            Assert.Equal(MaintenanceCategory.Correctivo, maintenance.Category);
+            Assert.False(db.MaintenanceChecklists.Any(c => c.MaintenanceId == id));
         }
     }
 }

@@ -64,16 +64,33 @@
         </div>
         <div class="col-md-3">
             <label asp-for="RemoteSelection" class="form-label">Acceso remoto (opcional)</label>
-            <select asp-for="RemoteSelection" id="remoteSelection" class="form-select" asp-items="ViewBag.Remotes">
-                <option value="">-- Ninguno --</option>
+            <select asp-for="RemoteSelection" id="remoteSelection" class="form-select">
+                @if (ViewBag.CurrentRemoteId != null)
+                {
+                    <option value="keep">Mantener el actual</option>
+                    <option value="">Quitar acceso remoto</option>
+                    <option value="new">Reemplazar por uno nuevo</option>
+                }
+                else
+                {
+                    <option value="">-- Ninguno --</option>
+                    <option value="new">+ Crear acceso remoto</option>
+                }
             </select>
+            @if (ViewBag.CurrentRemoteSummary != null)
+            {
+                <div class="form-text">
+                    Actual: @ViewBag.CurrentRemoteSummary
+                    (ver o liberar en <a asp-controller="Remote" asp-action="Details" asp-route-id="@ViewBag.CurrentRemoteId">Accesos remotos</a>)
+                </div>
+            }
             <span asp-validation-for="RemoteSelection" class="text-danger"></span>
         </div>
     </div>
 
     <div id="newRemoteFields" class="border rounded p-3 mt-3" style="display: none;">
         <h6>Nuevo acceso remoto</h6>
-        <p class="text-muted small">Para cambiar los datos de un acceso remoto ya creado, selecciona "+ Crear nuevo acceso remoto" y captúralos de nuevo; no se editan en línea.</p>
+        <p class="text-muted small">Esto reemplaza el acceso remoto actual del equipo por uno nuevo. Para modificar en línea los datos de un acceso remoto ya creado o liberarlo, hazlo desde el módulo de Accesos remotos.</p>
         <div class="row g-3">
             <div class="col-md-4">
                 <label asp-for="NewRemoteConnectionType" class="form-label">Tipo de conexión</label>
