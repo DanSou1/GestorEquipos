@@ -1,0 +1,21 @@
+@{
+    ViewData["Title"] = "Asignar acceso remoto";
+    int remoteId = ViewBag.RemoteId;
+}
+
+<h1>Asignar acceso remoto</h1>
+
+<form asp-controller="Remote" asp-action="Assign" method="post">
+    @Html.AntiForgeryToken()
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+    <input type="hidden" name="remoteId" value="@remoteId" />
+    <div class="mb-3">
+        <label class="form-label">Equipo</label>
+        <select name="desktopId" class="form-select" asp-items="ViewBag.Desktops">
+            <option value="">-- Selecciona --</option>
+        </select>
+        <div class="form-text">Solo se muestran equipos activos que aún no tienen un acceso remoto asignado.</div>
+    </div>
+    <button type="submit" class="btn btn-primary">Asignar</button>
+    <a asp-controller="Remote" asp-action="Details" asp-route-id="@remoteId" class="btn btn-link">Cancelar</a>
+</form>

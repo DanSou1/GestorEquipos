@@ -1,0 +1,115 @@
+@model List<RemoteInventoryItem>
+@{
+    ViewData["Title"] = "Accesos remotos";
+    var stats = (RemoteInventoryStatsViewModel)ViewBag.Stats;
+    string? estadoFiltro = ViewBag.EstadoFiltro;
+    string? searchTerm = ViewBag.SearchTerm;
+}
+
+<div class="section-header">
+    <h1>Accesos remotos</h1>
+</div>
+
+<div class="stat-card-row">
+    <div class="stat-card">
+        <div class="stat-card__header">
+            <span class="stat-card__icon stat-card__icon--blue">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+            </span>
+            <span class="stat-card__label">Total</span>
+        </div>
+        <div class="stat-card__value">@stats.Total</div>
+        <div class="stat-card__bar stat-card__bar--blue"></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card__header">
+            <span class="stat-card__icon stat-card__icon--green">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+            </span>
+            <span class="stat-card__label">Asignados</span>
+        </div>
+        <div class="stat-card__value">@stats.Asignados</div>
+        <div class="stat-card__bar stat-card__bar--green"></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card__header">
+            <span class="stat-card__icon stat-card__icon--violet">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+            </span>
+            <span class="stat-card__label">Disponibles</span>
+        </div>
+        <div class="stat-card__value">@stats.Disponibles</div>
+        <div class="stat-card__bar stat-card__bar--violet"></div>
+    </div>
+</div>
+
+<form method="get" class="app-toolbar">
+    <div class="app-toolbar__search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+        <input type="search" name="search" value="@searchTerm" class="form-control" placeholder="Buscar por IP, usuario, aplicativo o equipo..." />
+    </div>
+    <select name="estado" class="form-select" style="max-width: 180px;" onchange="this.form.submit()">
+        <option value="" selected="@(string.IsNullOrEmpty(estadoFiltro))">Todos los estados</option>
+        <option value="Asignado" selected="@(estadoFiltro == "Asignado")">Asignado</option>
+        <option value="Disponible" selected="@(estadoFiltro == "Disponible")">Disponible</option>
+    </select>
+</form>
+
+<div class="app-card">
+    <table class="app-table">
+        <thead>
+            <tr>
+                <th>Tipo</th>
+                <th>Detalle</th>
+                <th>Usuario</th>
+                <th>Equipo(s)</th>
+                <th>Estado</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model)
+            {
+                <tr>
+                    <td>@(item.ConnectionType == RemoteConnectionType.Aplicativo ? "Aplicativo" : "RDP")</td>
+                    <td>
+                        @if (item.ConnectionType == RemoteConnectionType.Aplicativo)
+                        {
+                            @item.AppDescription
+                        }
+                        else
+                        {
+                            @($"{item.IPAddress}:{item.Port}")
+                        }
+                    </td>
+                    <td>@(item.Username ?? "-")</td>
+                    <td>
+                        @if (item.AssignedDesktops.Any())
+                        {
+                            for (int i = 0; i < item.AssignedDesktops.Count; i++)
+                            {
+                                var d = item.AssignedDesktops[i];
+                                <a asp-controller="Desktop" asp-action="Details" asp-route-id="@d.Id">@d.Name</a>@(i < item.AssignedDesktops.Count - 1 ? ", " : "")
+                            }
+                        }
+                        else
+                        {
+                            @:Sin asignar
+                        }
+                    </td>
+                    <td>
+                        <span class="badge @(item.Estado == "Asignado" ? "bg-success" : "bg-secondary")">@item.Estado</span>
+                    </td>
+                    <td>
+                        <a asp-controller="Remote" asp-action="Details" asp-route-id="@item.Id">Ver detalle</a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (!Model.Any())
+    {
+        <p class="text-muted p-3 mb-0">No hay accesos remotos registrados.</p>
+    }
+</div>

@@ -1,0 +1,122 @@
+@model RemoteDetailViewModel
+@{
+    ViewData["Title"] = "Detalle de acceso remoto";
+    var error = ViewBag.Error as string;
+}
+
+<div class="section-header">
+    <h1>Acceso remoto #@Model.Id</h1>
+    <a asp-controller="Remote" asp-action="Index" class="btn btn-link">Volver al listado</a>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
+
+<div class="app-card mb-4">
+    <div class="card-header">Datos de conexión</div>
+    <ul class="list-group list-group-flush">
+        <li class="list-group-item">
+            <strong>Tipo de conexión:</strong> @(Model.ConnectionType == RemoteConnectionType.Aplicativo ? "Aplicativo" : "Escritorio remoto de Windows (RDP)")
+        </li>
+        <li class="list-group-item">
+            <strong>Estado:</strong>
+            <span class="badge @(Model.Estado == "Asignado" ? "bg-success" : "bg-secondary")">@Model.Estado</span>
+        </li>
+        @if (Model.ConnectionType == RemoteConnectionType.Aplicativo)
+        {
+            <li class="list-group-item"><strong>Aplicativo / URL:</strong> @Model.AppDescription</li>
+        }
+        else
+        {
+            <li class="list-group-item"><strong>IP:</strong> @Model.IPAddress</li>
+            <li class="list-group-item"><strong>Puerto:</strong> @Model.Port</li>
+            <li class="list-group-item"><strong>Usuario:</strong> @Model.Username</li>
+            @if (User.IsInRole("Administrador"))
+            {
+                <li class="list-group-item">
+                    <strong>Clave:</strong>
+                    <button type="button" class="btn btn-sm btn-link p-0 ms-1" id="toggleRemotePassword" data-password="@Model.Password">mostrar clave</button>
+                    <span id="remotePasswordValue" class="ms-1 text-muted"></span>
+                </li>
+            }
+        }
+    </ul>
+</div>
+
+<div class="app-card">
+    <div class="card-header">Equipos asignados</div>
+    @if (Model.AssignedDesktops.Any())
+    {
+        <ul class="list-group list-group-flush">
+            @foreach (var d in Model.AssignedDesktops)
+            {
+                <li class="list-group-item">
+                    <a asp-controller="Desktop" asp-action="Details" asp-route-id="@d.Id">@d.Name</a>
+                </li>
+            }
+        </ul>
+    }
+    else
+    {
+        <p class="text-muted p-3 mb-0">Este acceso remoto no está asignado a ningún equipo.</p>
+    }
+</div>
+
+@if (User.IsInRole("Administrador"))
+{
+    <div class="mt-3">
+        <a asp-controller="Remote" asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Editar</a>
+        @if (Model.AssignedDesktops.Any())
+        {
+            <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#releaseRemoteModal">Liberar</button>
+        }
+        else
+        {
+            <a asp-controller="Remote" asp-action="Assign" asp-route-remoteId="@Model.Id" class="btn btn-outline-secondary">Asignar a equipo</a>
+        }
+    </div>
+
+    @if (Model.AssignedDesktops.Any())
+    {
+        <div class="modal fade" id="releaseRemoteModal" tabindex="-1" aria-labelledby="releaseRemoteModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="releaseRemoteModalLabel">Liberar acceso remoto</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>¿Liberar este acceso remoto?</p>
+                        <p class="text-muted small">Quedará desasignado de todos los equipos que lo usan actualmente (@Model.AssignedDesktops.Count) y pasará a estado Disponible.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <form asp-controller="Remote" asp-action="Release" asp-route-id="@Model.Id" method="post" class="d-inline">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-danger">Liberar</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@if (User.IsInRole("Administrador") && Model.ConnectionType == RemoteConnectionType.EscritorioRemotoWindows)
+{
+    @section Scripts {
+        <script>
+            (function () {
+                var toggleBtn = document.getElementById('toggleRemotePassword');
+                var valueSpan = document.getElementById('remotePasswordValue');
+                toggleBtn.addEventListener('click', function () {
+                    var showing = valueSpan.textContent.length > 0;
+                    valueSpan.textContent = showing ? '' : toggleBtn.getAttribute('data-password');
+                    toggleBtn.textContent = showing ? 'mostrar clave' : 'ocultar clave';
+                });
+            })();
+        </script>
+    }
+}

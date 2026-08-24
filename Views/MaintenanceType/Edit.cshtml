@@ -1,0 +1,25 @@
+@model GestorEquipos.Models.ViewModels.MaintenanceType.MaintenanceTypeEditViewModel
+@{
+    ViewData["Title"] = "Editar tipo de mantenimiento";
+}
+
+<h1>Editar tipo de mantenimiento</h1>
+
+<form asp-controller="MaintenanceType" asp-action="Edit" asp-route-id="@Model.Id" method="post">
+    @Html.AntiForgeryToken()
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+    <input type="hidden" asp-for="Id" />
+
+    <div class="mb-3">
+        <label asp-for="Type" class="form-label">Nombre (ej. Preventivo, Correctivo)</label>
+        <input asp-for="Type" class="form-control" />
+        <span asp-validation-for="Type" class="text-danger"></span>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Guardar</button>
+    <a asp-controller="MaintenanceType" asp-action="Index" class="btn btn-link">Cancelar</a>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
