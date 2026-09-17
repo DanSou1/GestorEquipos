@@ -16,6 +16,8 @@ namespace GestorEquipos.Models
         [MaxLength(500)]
         public string PasswordHash { get; set; } = string.Empty;
 
+        public Guid SecurityStamp { get; set; } = Guid.NewGuid();
+
         [Required]
         [ForeignKey("Rol")]
         public int RolId { get; set; }

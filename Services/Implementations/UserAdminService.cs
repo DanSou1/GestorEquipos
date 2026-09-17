@@ -50,6 +50,15 @@ namespace Gestor_Equipos.Services.Implementations
             var user = await _dbContext.Users.SingleOrDefaultAsync(u => u.Id == id)
                 ?? throw new InvalidOperationException("Usuario no encontrado.");
 
+            // LOG-03: the RAES pseudo-user has no UserSystem, so it never appears in the normal
+            // Usuarios listing — but it's still a plain Users row, reachable by ID through this
+            // generic edit route. The RAES retirement flow depends on its email staying constant.
+            // UX-06's "sin asignar" pseudo-user is reserved the same way.
+            if (user.Email is AuthBootstrapper.RaesUserEmail or AuthBootstrapper.UnassignedUserEmail)
+            {
+                throw new InvalidOperationException("Este usuario reservado del sistema no se puede editar.");
+            }
+
             var normalizedEmail = vm.Email.Trim().ToLowerInvariant();
 
             if (await _dbContext.Users.AnyAsync(u => u.Id != id && u.Email.ToLower() == normalizedEmail))
@@ -67,6 +76,51 @@ namespace Gestor_Equipos.Services.Implementations
             user.RegionalId = vm.RegionalId;
 
             await _dbContext.SaveChangesAsync();
+        }
+
+        // LOG-01: CreateUserAsync + CreateLoginAsync run as two separate SaveChangesAsync calls;
+        // if the login step fails (duplicate username), the just-saved Users row is orphaned —
+        // it exists in the inventory with no access account and no way to retry cleanly. This
+        // adds both in a single SaveChangesAsync so a failure leaves nothing behind.
+        public async Task<int> CreateAccountAsync(UserCreateViewModel personVm, string username, string password, int rolId)
+        {
+            var normalizedEmail = personVm.Email.Trim().ToLowerInvariant();
+            if (await _dbContext.Users.AnyAsync(u => u.Email.ToLower() == normalizedEmail))
+            {
+                throw new InvalidOperationException("Ya existe un usuario con ese correo.");
+            }
+
+            var normalizedUsername = username.Trim().ToLowerInvariant();
+            if (await _dbContext.UserSystems.AnyAsync(us => us.Username.ToLower() == normalizedUsername))
+            {
+                throw new InvalidOperationException("Ya existe una cuenta con ese nombre de usuario.");
+            }
+
+            var user = new Users
+            {
+                Name = personVm.Name,
+                LastName = personVm.LastName,
+                Email = normalizedEmail,
+                EmailTeams = string.IsNullOrWhiteSpace(personVm.EmailTeams)
+                    ? normalizedEmail
+                    : personVm.EmailTeams.Trim().ToLowerInvariant(),
+                AreaId = personVm.AreaId,
+                RegionalId = personVm.RegionalId
+            };
+            _dbContext.Users.Add(user);
+
+            var userSystem = new UserSystem
+            {
+                Username = normalizedUsername,
+                User = user,
+                RolId = rolId,
+                PasswordHash = string.Empty
+            };
+            userSystem.PasswordHash = _passwordHasher.HashPassword(userSystem, password);
+            _dbContext.UserSystems.Add(userSystem);
+
+            await _dbContext.SaveChangesAsync();
+            return user.Id;
         }
 
         public async Task CreateLoginAsync(int userId, string username, string password, int rolId)
@@ -145,9 +199,30 @@ namespace Gestor_Equipos.Services.Implementations
             user.RegionalId = vm.RegionalId;
 
             userSystem.Username = normalizedUsername;
-            userSystem.RolId = vm.RolId;
+            var roleChanged = userSystem.RolId != vm.RolId;
+            if (roleChanged || !string.IsNullOrEmpty(vm.NewPassword))
+            {
+                userSystem.SecurityStamp = Guid.NewGuid();
+            }
 
-            await _dbContext.SaveChangesAsync();
+            await RunWithAdminInvariantAsync(async adminRoleId =>
+            {
+                if (roleChanged && userSystem.RolId == adminRoleId && vm.RolId != adminRoleId
+                    && !await HasOtherEnabledAdminAsync(adminRoleId, userSystem.Id))
+                {
+                    throw new InvalidOperationException("No se puede quitar el rol de Administrador: es la única cuenta habilitada con ese rol. Crea o habilita otra cuenta de Administrador antes de continuar.");
+                }
+
+                if (roleChanged)
+                {
+                    var oldRoleName = await _dbContext.Rols.Where(r => r.Id == userSystem.RolId).Select(r => r.Name).SingleAsync();
+                    var newRoleName = await _dbContext.Rols.Where(r => r.Id == vm.RolId).Select(r => r.Name).SingleAsync();
+                    await LogAuditAsync(actingAdminUserSystemId, "RoleChanged", $"Cuenta {userSystem.Username}: {oldRoleName} -> {newRoleName}");
+                }
+
+                userSystem.RolId = vm.RolId;
+                await _dbContext.SaveChangesAsync();
+            });
         }
 
         public async Task DeleteAccountAsync(int userId, int actingAdminUserSystemId, string? adminPassword)
@@ -174,30 +249,67 @@ namespace Gestor_Equipos.Services.Implementations
                 throw new InvalidOperationException("No puedes eliminar tu propia cuenta de acceso mientras tienes la sesión iniciada.");
             }
 
+            // LOG-07: SpecChangeLog.ChangedByUserSystemId is DeleteBehavior.Restrict, so deleting
+            // an account with edit history used to bubble up as a raw DbUpdateException (500).
+            // Surface it as a normal validation error and point at the non-destructive option.
+            if (await _dbContext.SpecChangeLogs.AnyAsync(s => s.ChangedByUserSystemId == userSystem.Id))
+            {
+                throw new InvalidOperationException("No se puede eliminar: esta cuenta es autora de cambios registrados en el historial de equipos. Desactívala en vez de eliminarla para conservar esa autoría.");
+            }
+
+            await RunWithAdminInvariantAsync(async adminRoleId =>
+            {
+                if (userSystem.RolId == adminRoleId && !await HasOtherEnabledAdminAsync(adminRoleId, userSystem.Id))
+                {
+                    throw new InvalidOperationException("No se puede eliminar: es la única cuenta de Administrador habilitada. Crea otra cuenta de Administrador antes de eliminar esta.");
+                }
+
+                await LogAuditAsync(actingAdminUserSystemId, "AccountDeleted", $"Cuenta {userSystem.Username}");
+                _dbContext.UserSystems.Remove(userSystem);
+                await _dbContext.SaveChangesAsync();
+            });
+        }
+
+        private async Task RunWithAdminInvariantAsync(Func<int, Task> mutateAndSaveAsync)
+        {
             var adminRoleId = await _dbContext.Rols
                 .Where(r => r.Name == AuthBootstrapper.AdministradorRoleName)
                 .Select(r => r.Id)
                 .SingleAsync();
 
-            if (userSystem.RolId == adminRoleId)
+            await mutateAndSaveAsync(adminRoleId);
+        }
+
+        private Task<bool> HasOtherEnabledAdminAsync(int adminRoleId, int excludingUserSystemId)
+        {
+            return _dbContext.UserSystems
+                .AnyAsync(us => us.Id != excludingUserSystemId && us.RolId == adminRoleId && us.User.Activo);
+        }
+
+        // SEG-09: not a FK to UserSystem on purpose — the actor row can be deleted later and the
+        // audit trail must still read correctly, so it snapshots a description instead.
+        private async Task LogAuditAsync(int actorUserSystemId, string action, string targetDescription)
+        {
+            var actorUsername = await _dbContext.UserSystems
+                .Where(us => us.Id == actorUserSystemId)
+                .Select(us => us.Username)
+                .SingleOrDefaultAsync() ?? $"UserSystem#{actorUserSystemId}";
+
+            _dbContext.AuditLogEntries.Add(new AuditLogEntry
             {
-                var hasOtherAdminAccount = await _dbContext.UserSystems
-                    .AnyAsync(us => us.Id != userSystem.Id && us.RolId == adminRoleId);
-
-                if (!hasOtherAdminAccount)
-                {
-                    throw new InvalidOperationException("No se puede eliminar: es la única cuenta de Administrador. Crea otra cuenta de Administrador antes de eliminar esta.");
-                }
-            }
-
-            _dbContext.UserSystems.Remove(userSystem);
-            await _dbContext.SaveChangesAsync();
+                TimestampUtc = DateTime.UtcNow,
+                ActorUserSystemId = actorUserSystemId,
+                ActorDescription = actorUsername,
+                Action = action,
+                TargetDescription = targetDescription
+            });
         }
 
         public async Task<List<Users>> GetAllAsync(bool includeInactive = false)
         {
             return await _dbContext.Users
                 .Where(u => u.Email != AuthBootstrapper.RaesUserEmail
+                    && u.Email != AuthBootstrapper.UnassignedUserEmail
                     && !u.UserSystems.Any()
                     && (includeInactive || u.Activo))
                 .Include(u => u.Area)
@@ -218,17 +330,44 @@ namespace Gestor_Equipos.Services.Implementations
 
         public async Task DeactivateAsync(int id)
         {
-            var user = await _dbContext.Users.SingleOrDefaultAsync(u => u.Id == id)
+            var user = await _dbContext.Users.Include(u => u.UserSystems).SingleOrDefaultAsync(u => u.Id == id)
                 ?? throw new InvalidOperationException("Usuario no encontrado.");
+
+            // LOG-03: see UpdateUserAsync above — reachable by ID through this generic route too,
+            // and deactivating either reserved pseudo-user would corrupt its bookkeeping (it's
+            // already Activo=false by design in the "sin asignar" case).
+            if (user.Email is AuthBootstrapper.RaesUserEmail or AuthBootstrapper.UnassignedUserEmail)
+            {
+                throw new InvalidOperationException("Este usuario reservado del sistema no se puede desactivar.");
+            }
 
             if (!user.Activo)
             {
                 return;
             }
 
-            user.Activo = false;
-            user.DeactivatedAt = DateOnly.FromDateTime(DateTime.Now);
-            await _dbContext.SaveChangesAsync();
+            await RunWithAdminInvariantAsync(async adminRoleId =>
+            {
+                var deactivatesAnAdmin = user.UserSystems.Any(account => account.RolId == adminRoleId);
+                if (deactivatesAnAdmin)
+                {
+                    var ownAccountIds = user.UserSystems.Select(account => account.Id).ToHashSet();
+                    var hasOtherEnabledAdmin = await _dbContext.UserSystems
+                        .AnyAsync(us => !ownAccountIds.Contains(us.Id) && us.RolId == adminRoleId && us.User.Activo);
+                    if (!hasOtherEnabledAdmin)
+                    {
+                        throw new InvalidOperationException("No se puede desactivar: es el único Administrador habilitado. Habilita otra cuenta de Administrador antes de continuar.");
+                    }
+                }
+
+                user.Activo = false;
+                user.DeactivatedAt = DateOnly.FromDateTime(DateTime.Now);
+                foreach (var account in user.UserSystems)
+                {
+                    account.SecurityStamp = Guid.NewGuid();
+                }
+                await _dbContext.SaveChangesAsync();
+            });
         }
 
         public async Task<List<UsersByRegionalItem>> GetUsersByRegionalAsync()

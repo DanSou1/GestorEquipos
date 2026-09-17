@@ -1,6 +1,7 @@
 using Gestor_Equipos.Services.Implementations;
 using GestorEquipos.Models;
 using GestorEquipos.Models.ViewModels.Remote;
+using Microsoft.AspNetCore.Identity;
 using Xunit;
 
 namespace GestorEquipos.Tests.Services
@@ -15,6 +16,29 @@ namespace GestorEquipos.Tests.Services
             db.Rams.Add(ram);
             db.SaveChanges();
             return (os, ram);
+        }
+
+        private static int SeedAdminUserSystem(Gestor_Equipos.Data.MyDbContext db, string username, string password)
+        {
+            var area = new Area { Name = $"A-{username}" };
+            var regional = new Regional { Name = $"R-{username}" };
+            var role = new Rol { Name = "Administrador" };
+            db.Areas.Add(area);
+            db.Regionals.Add(regional);
+            db.Rols.Add(role);
+            db.SaveChanges();
+
+            var user = new Users { Name = "Admin", LastName = "User", Email = $"{username}@empresa.com", EmailTeams = $"{username}@empresa.com", AreaId = area.Id, RegionalId = regional.Id };
+            db.Users.Add(user);
+            db.SaveChanges();
+
+            var hasher = new PasswordHasher<UserSystem>();
+            var userSystem = new UserSystem { Username = username, UserId = user.Id, RolId = role.Id, PasswordHash = string.Empty };
+            userSystem.PasswordHash = hasher.HashPassword(userSystem, password);
+            db.UserSystems.Add(userSystem);
+            db.SaveChanges();
+
+            return userSystem.Id;
         }
 
         private static Desktop SeedDesktop(Gestor_Equipos.Data.MyDbContext db, OSVersion os, Ram ram, string name, int? remoteId = null)
@@ -38,7 +62,7 @@ namespace GestorEquipos.Tests.Services
             return desktop;
         }
 
-        private static RemoteService CreateService(Gestor_Equipos.Data.MyDbContext db) => new(db);
+        private static RemoteService CreateService(Gestor_Equipos.Data.MyDbContext db) => new(db, new PasswordHasher<UserSystem>());
 
         [Fact]
         public async Task GetInventoryAsync_RemoteWithNoDesktop_IsDisponible()
@@ -164,7 +188,7 @@ namespace GestorEquipos.Tests.Services
                 Password = "clave9"
             };
 
-            await service.UpdateAsync(remote.Id, vm);
+            await service.UpdateAsync(remote.Id, vm, -1);
 
             var updated = db.Remotes.Single(r => r.Id == remote.Id);
             Assert.Equal(RemoteConnectionType.EscritorioRemotoWindows, updated.ConnectionType);
@@ -190,7 +214,7 @@ namespace GestorEquipos.Tests.Services
                 AppDescription = "Anydesk"
             };
 
-            await service.UpdateAsync(remote.Id, vm);
+            await service.UpdateAsync(remote.Id, vm, -1);
 
             var updated = db.Remotes.Single(r => r.Id == remote.Id);
             Assert.Equal(RemoteConnectionType.Aplicativo, updated.ConnectionType);
@@ -208,7 +232,117 @@ namespace GestorEquipos.Tests.Services
             var service = CreateService(db);
             var vm = new RemoteEditViewModel { ConnectionType = RemoteConnectionType.Aplicativo, AppDescription = "Zoom" };
 
-            await Assert.ThrowsAsync<InvalidOperationException>(() => service.UpdateAsync(999, vm));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.UpdateAsync(999, vm, -1));
+        }
+
+        [Fact]
+        public async Task UpdateAsync_WithDesktopId_AssignsRemoteToDesktop()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (os, ram) = SeedLookups(db);
+            var remote = new Remote { ConnectionType = RemoteConnectionType.Aplicativo, AppDescription = "SAP GUI" };
+            db.Remotes.Add(remote);
+            db.SaveChanges();
+            var desktop = SeedDesktop(db, os, ram, "PC-001");
+
+            var service = CreateService(db);
+            var vm = new RemoteEditViewModel { ConnectionType = RemoteConnectionType.Aplicativo, AppDescription = "SAP GUI", DesktopId = desktop.Id };
+
+            await service.UpdateAsync(remote.Id, vm, -1);
+
+            Assert.Equal(remote.Id, db.Desktops.Single(d => d.Id == desktop.Id).RemoteId);
+        }
+
+        [Fact]
+        public async Task UpdateAsync_TargetDesktopRetired_ThrowsAndDoesNotLink()
+        {
+            // LOG-04: assigning a Remote to a RAES-retired desktop should be rejected server-side.
+            using var db = TestHelpers.CreateDbContext();
+            var (os, ram) = SeedLookups(db);
+            var remote = new Remote { ConnectionType = RemoteConnectionType.Aplicativo, AppDescription = "SAP GUI" };
+            db.Remotes.Add(remote);
+            db.SaveChanges();
+            var desktop = SeedDesktop(db, os, ram, "PC-Retired");
+            desktop.Estado = false;
+            db.SaveChanges();
+
+            var service = CreateService(db);
+            var vm = new RemoteEditViewModel { ConnectionType = RemoteConnectionType.Aplicativo, AppDescription = "SAP GUI", DesktopId = desktop.Id };
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.UpdateAsync(remote.Id, vm, -1));
+            Assert.Null(db.Desktops.Single(d => d.Id == desktop.Id).RemoteId);
+        }
+
+        [Fact]
+        public async Task UpdateAsync_WithNullDesktopId_ReleasesCurrentlyLinkedDesktops()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (os, ram) = SeedLookups(db);
+            var remote = new Remote { ConnectionType = RemoteConnectionType.Aplicativo, AppDescription = "SAP GUI" };
+            db.Remotes.Add(remote);
+            db.SaveChanges();
+            var desktop = SeedDesktop(db, os, ram, "PC-001", remote.Id);
+
+            var service = CreateService(db);
+            var vm = new RemoteEditViewModel { ConnectionType = RemoteConnectionType.Aplicativo, AppDescription = "SAP GUI", DesktopId = null };
+
+            await service.UpdateAsync(remote.Id, vm, -1);
+
+            Assert.Null(db.Desktops.Single(d => d.Id == desktop.Id).RemoteId);
+        }
+
+        [Fact]
+        public async Task UpdateAsync_SwitchingDesktopId_ReleasesPreviousAndAssignsNew()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (os, ram) = SeedLookups(db);
+            var remote = new Remote { ConnectionType = RemoteConnectionType.Aplicativo, AppDescription = "SAP GUI" };
+            db.Remotes.Add(remote);
+            db.SaveChanges();
+            var oldDesktop = SeedDesktop(db, os, ram, "PC-001", remote.Id);
+            var newDesktop = SeedDesktop(db, os, ram, "PC-002");
+
+            var service = CreateService(db);
+            var vm = new RemoteEditViewModel { ConnectionType = RemoteConnectionType.Aplicativo, AppDescription = "SAP GUI", DesktopId = newDesktop.Id };
+
+            await service.UpdateAsync(remote.Id, vm, -1);
+
+            Assert.Null(db.Desktops.Single(d => d.Id == oldDesktop.Id).RemoteId);
+            Assert.Equal(remote.Id, db.Desktops.Single(d => d.Id == newDesktop.Id).RemoteId);
+        }
+
+        [Fact]
+        public async Task UpdateAsync_DesktopAlreadyLinkedToAnotherRemote_ThrowsAndPersistsNoChanges()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (os, ram) = SeedLookups(db);
+            var otherRemote = new Remote { ConnectionType = RemoteConnectionType.Aplicativo, AppDescription = "Zoom" };
+            var remote = new Remote { ConnectionType = RemoteConnectionType.Aplicativo, AppDescription = "SAP GUI" };
+            db.Remotes.AddRange(otherRemote, remote);
+            db.SaveChanges();
+            var desktop = SeedDesktop(db, os, ram, "PC-001", otherRemote.Id);
+
+            var service = CreateService(db);
+            var vm = new RemoteEditViewModel { ConnectionType = RemoteConnectionType.Aplicativo, AppDescription = "SAP GUI", DesktopId = desktop.Id };
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.UpdateAsync(remote.Id, vm, -1));
+
+            Assert.Equal(otherRemote.Id, db.Desktops.Single(d => d.Id == desktop.Id).RemoteId);
+            Assert.Equal("SAP GUI", db.Remotes.Single(r => r.Id == remote.Id).AppDescription);
+        }
+
+        [Fact]
+        public async Task UpdateAsync_DesktopIdNotFound_ThrowsInvalidOperationException()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var remote = new Remote { ConnectionType = RemoteConnectionType.Aplicativo, AppDescription = "SAP GUI" };
+            db.Remotes.Add(remote);
+            db.SaveChanges();
+
+            var service = CreateService(db);
+            var vm = new RemoteEditViewModel { ConnectionType = RemoteConnectionType.Aplicativo, AppDescription = "SAP GUI", DesktopId = 999 };
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.UpdateAsync(remote.Id, vm, -1));
         }
 
         [Fact]
@@ -223,11 +357,13 @@ namespace GestorEquipos.Tests.Services
             var d2 = SeedDesktop(db, os, ram, "PC-002", remote.Id);
 
             var service = CreateService(db);
-            await service.ReleaseAsync(remote.Id);
+            await service.ReleaseAsync(remote.Id, -1);
 
             Assert.Null(db.Desktops.Single(d => d.Id == d1.Id).RemoteId);
             Assert.Null(db.Desktops.Single(d => d.Id == d2.Id).RemoteId);
             Assert.Contains(db.Remotes, r => r.Id == remote.Id);
+            // SEG-09: releasing a remote must leave an audit trail entry.
+            Assert.Contains(db.AuditLogEntries, e => e.Action == "RemoteReleased");
         }
 
         [Fact]
@@ -239,7 +375,7 @@ namespace GestorEquipos.Tests.Services
             db.SaveChanges();
 
             var service = CreateService(db);
-            await service.ReleaseAsync(remote.Id);
+            await service.ReleaseAsync(remote.Id, -1);
 
             Assert.Contains(db.Remotes, r => r.Id == remote.Id);
         }
@@ -250,7 +386,7 @@ namespace GestorEquipos.Tests.Services
             using var db = TestHelpers.CreateDbContext();
             var service = CreateService(db);
 
-            await Assert.ThrowsAsync<InvalidOperationException>(() => service.ReleaseAsync(999));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.ReleaseAsync(999, -1));
         }
 
         [Fact]
@@ -264,9 +400,27 @@ namespace GestorEquipos.Tests.Services
             var desktop = SeedDesktop(db, os, ram, "PC-001");
 
             var service = CreateService(db);
-            await service.AssignToDesktopAsync(remote.Id, desktop.Id);
+            await service.AssignToDesktopAsync(remote.Id, desktop.Id, -1);
 
             Assert.Equal(remote.Id, db.Desktops.Single(d => d.Id == desktop.Id).RemoteId);
+        }
+
+        [Fact]
+        public async Task AssignToDesktopAsync_TargetDesktopRetired_ThrowsAndDoesNotLink()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (os, ram) = SeedLookups(db);
+            var remote = new Remote { ConnectionType = RemoteConnectionType.Aplicativo, AppDescription = "SAP GUI" };
+            db.Remotes.Add(remote);
+            db.SaveChanges();
+            var desktop = SeedDesktop(db, os, ram, "PC-Retired");
+            desktop.Estado = false;
+            db.SaveChanges();
+
+            var service = CreateService(db);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.AssignToDesktopAsync(remote.Id, desktop.Id, -1));
+            Assert.Null(db.Desktops.Single(d => d.Id == desktop.Id).RemoteId);
         }
 
         [Fact]
@@ -282,7 +436,7 @@ namespace GestorEquipos.Tests.Services
 
             var service = CreateService(db);
 
-            await Assert.ThrowsAsync<InvalidOperationException>(() => service.AssignToDesktopAsync(newRemote.Id, desktop.Id));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.AssignToDesktopAsync(newRemote.Id, desktop.Id, -1));
         }
 
         [Fact]
@@ -295,7 +449,7 @@ namespace GestorEquipos.Tests.Services
 
             var service = CreateService(db);
 
-            await Assert.ThrowsAsync<InvalidOperationException>(() => service.AssignToDesktopAsync(remote.Id, 999));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.AssignToDesktopAsync(remote.Id, 999, -1));
         }
 
         [Fact]
@@ -307,7 +461,84 @@ namespace GestorEquipos.Tests.Services
 
             var service = CreateService(db);
 
-            await Assert.ThrowsAsync<InvalidOperationException>(() => service.AssignToDesktopAsync(999, desktop.Id));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.AssignToDesktopAsync(999, desktop.Id, -1));
+        }
+
+        [Fact]
+        public async Task DeleteAsync_RemovesRemote_WhenPasswordCorrectAndUnassigned()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var remote = new Remote { ConnectionType = RemoteConnectionType.Aplicativo, AppDescription = "SAP GUI" };
+            db.Remotes.Add(remote);
+            db.SaveChanges();
+            var adminUserSystemId = SeedAdminUserSystem(db, "admin-ok", "AdminPass1!");
+
+            var service = CreateService(db);
+            await service.DeleteAsync(remote.Id, adminUserSystemId, "AdminPass1!");
+
+            Assert.Empty(db.Remotes.Where(r => r.Id == remote.Id));
+        }
+
+        [Fact]
+        public async Task DeleteAsync_ThrowsWhenAssignedToDesktop_AndPersistsRemote()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (os, ram) = SeedLookups(db);
+            var remote = new Remote { ConnectionType = RemoteConnectionType.Aplicativo, AppDescription = "SAP GUI" };
+            db.Remotes.Add(remote);
+            db.SaveChanges();
+            SeedDesktop(db, os, ram, "PC-001", remote.Id);
+            var adminUserSystemId = SeedAdminUserSystem(db, "admin-inuse", "AdminPass1!");
+
+            var service = CreateService(db);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                service.DeleteAsync(remote.Id, adminUserSystemId, "AdminPass1!"));
+
+            Assert.NotNull(db.Remotes.SingleOrDefault(r => r.Id == remote.Id));
+        }
+
+        [Fact]
+        public async Task DeleteAsync_ThrowsWhenAdminPasswordIncorrect_AndPersistsRemote()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var remote = new Remote { ConnectionType = RemoteConnectionType.Aplicativo, AppDescription = "Zoom" };
+            db.Remotes.Add(remote);
+            db.SaveChanges();
+            var adminUserSystemId = SeedAdminUserSystem(db, "admin-wrongpw", "AdminPass1!");
+
+            var service = CreateService(db);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                service.DeleteAsync(remote.Id, adminUserSystemId, "IncorrectPassword!"));
+
+            Assert.NotNull(db.Remotes.SingleOrDefault(r => r.Id == remote.Id));
+        }
+
+        [Fact]
+        public async Task DeleteAsync_ThrowsWhenAdminPasswordMissing()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var remote = new Remote { ConnectionType = RemoteConnectionType.Aplicativo, AppDescription = "Anydesk" };
+            db.Remotes.Add(remote);
+            db.SaveChanges();
+            var adminUserSystemId = SeedAdminUserSystem(db, "admin-nopw", "AdminPass1!");
+
+            var service = CreateService(db);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                service.DeleteAsync(remote.Id, adminUserSystemId, null));
+        }
+
+        [Fact]
+        public async Task DeleteAsync_MissingRemote_ThrowsInvalidOperationException()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var adminUserSystemId = SeedAdminUserSystem(db, "admin-missing", "AdminPass1!");
+            var service = CreateService(db);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                service.DeleteAsync(999, adminUserSystemId, "AdminPass1!"));
         }
     }
 }

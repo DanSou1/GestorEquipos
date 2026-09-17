@@ -30,7 +30,16 @@ namespace Gestor_Equipos.Controllers
                 return View(vm);
             }
 
-            await _licenseService.AddAsync(vm);
+            try
+            {
+                await _licenseService.AddAsync(vm);
+            }
+            catch (InvalidOperationException ex)
+            {
+                ModelState.AddModelError(string.Empty, ex.Message);
+                return View(vm);
+            }
+
             return RedirectToAction("Details", "Desktop", new { id = vm.DesktopId });
         }
     }

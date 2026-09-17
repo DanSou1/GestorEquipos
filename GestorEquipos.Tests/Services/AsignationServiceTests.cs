@@ -23,7 +23,9 @@ namespace GestorEquipos.Tests.Services
 
         private static Desktop SeedDesktop(Gestor_Equipos.Data.MyDbContext db, OSVersion os, Ram ram, bool estado = true)
         {
-            var desktop = new Desktop { NameDesktop = "PC", SerialNumber = "SN", Brand = "B", Model = "M", Processor = "P", Disk = "D", OSVersionId = os.Id, RamId = ram.Id, Estado = estado };
+            // SerialNumber is unique per LOG-06 — even the InMemory provider enforces it — so
+            // each call needs a distinct value for tests that seed more than one desktop.
+            var desktop = new Desktop { NameDesktop = "PC", SerialNumber = "SN-" + Guid.NewGuid().ToString("N"), Brand = "B", Model = "M", Processor = "P", Disk = "D", OSVersionId = os.Id, RamId = ram.Id, Estado = estado };
             db.Desktops.Add(desktop);
             db.SaveChanges();
             return desktop;
@@ -150,6 +152,68 @@ namespace GestorEquipos.Tests.Services
 
             var latest = db.Asignations.Where(a => a.DesktopId == desktop.Id).OrderByDescending(a => a.Id).First();
             Assert.Equal(userB.Id, latest.UserId);
+        }
+
+        [Fact]
+        public async Task AssignAsync_ThrowsWhenTargetUserIsInactive()
+        {
+            // LOG-04: the dropdown only lists active people, but a manipulated request could
+            // still name someone inactive — the server must reject that too.
+            using var db = TestHelpers.CreateDbContext();
+            var (area, regional, os, ram) = SeedLookups(db);
+            var inactiveUser = new Users { Name = "Inactivo", LastName = "Persona", Email = "inactivo@x.com", EmailTeams = "inactivo@x.com", AreaId = area.Id, RegionalId = regional.Id, Activo = false };
+            db.Users.Add(inactiveUser);
+            db.SaveChanges();
+            var desktop = SeedDesktop(db, os, ram);
+
+            var service = new AsignationService(db);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.AssignAsync(desktop.Id, inactiveUser.Id));
+            Assert.Empty(db.Asignations);
+        }
+
+        [Fact]
+        public async Task ReturnAsync_ReleasesActiveHolderWithoutDeactivatingThem()
+        {
+            // UX-06: returning one equipo must not touch the holder's own Activo flag or their
+            // other assignments — only DesktopService.DeactivateAsync (RAES) may do that.
+            using var db = TestHelpers.CreateDbContext();
+            var (area, regional, os, ram) = SeedLookups(db);
+            db.Users.Add(new Users { Name = "Disponible", LastName = "Sistema", Email = AuthBootstrapper.UnassignedUserEmail, EmailTeams = AuthBootstrapper.UnassignedUserEmail, Activo = false });
+            var holder = new Users { Name = "Ana", LastName = "Gomez", Email = "ana-return@x.com", EmailTeams = "ana-return@x.com", AreaId = area.Id, RegionalId = regional.Id };
+            db.Users.Add(holder);
+            db.SaveChanges();
+            var desktop = SeedDesktop(db, os, ram);
+            var otherDesktop = SeedDesktop(db, os, ram);
+
+            var service = new AsignationService(db);
+            await service.AssignAsync(desktop.Id, holder.Id);
+            await service.AssignAsync(otherDesktop.Id, holder.Id);
+
+            await service.ReturnAsync(desktop.Id);
+
+            var latestOnReturned = db.Asignations.Where(a => a.DesktopId == desktop.Id).OrderByDescending(a => a.Id).First();
+            Assert.Equal(AuthBootstrapper.UnassignedUserEmail, db.Users.Single(u => u.Id == latestOnReturned.UserId).Email);
+
+            var holderAfter = db.Users.Single(u => u.Id == holder.Id);
+            Assert.True(holderAfter.Activo);
+
+            var latestOnOther = db.Asignations.Where(a => a.DesktopId == otherDesktop.Id).OrderByDescending(a => a.Id).First();
+            Assert.Equal(holder.Id, latestOnOther.UserId);
+        }
+
+        [Fact]
+        public async Task ReturnAsync_ThrowsWhenAlreadyDisponible()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (_, _, os, ram) = SeedLookups(db);
+            db.Users.Add(new Users { Name = "Disponible", LastName = "Sistema", Email = AuthBootstrapper.UnassignedUserEmail, EmailTeams = AuthBootstrapper.UnassignedUserEmail, Activo = false });
+            db.SaveChanges();
+            var desktop = SeedDesktop(db, os, ram);
+
+            var service = new AsignationService(db);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.ReturnAsync(desktop.Id));
         }
 
         [Fact]

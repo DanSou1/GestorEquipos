@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Gestor_Equipos.Data;
 using Gestor_Equipos.Services;
 using Gestor_Equipos.Services.Auth;
@@ -23,10 +24,16 @@ namespace Gestor_Equipos.Controllers
 
         public async Task<IActionResult> Index(string? estado, string? search)
         {
-            var stats = await _remoteService.GetInventoryStatsAsync();
             var all = await _remoteService.GetInventoryAsync();
 
-            ViewBag.Stats = stats;
+            // REN-02: GetInventoryStatsAsync() internally re-materializes the whole inventory —
+            // compute the same totals from the list already loaded above instead of fetching twice.
+            ViewBag.Stats = new RemoteInventoryStatsViewModel
+            {
+                Total = all.Count,
+                Asignados = all.Count(i => i.Estado == "Asignado"),
+                Disponibles = all.Count(i => i.Estado == "Disponible")
+            };
 
             var items = all.AsEnumerable();
 
@@ -46,6 +53,7 @@ namespace Gestor_Equipos.Controllers
 
             ViewBag.EstadoFiltro = estado;
             ViewBag.SearchTerm = search;
+            ViewBag.Error = TempData["Error"];
             return View(items.ToList());
         }
 
@@ -70,7 +78,16 @@ namespace Gestor_Equipos.Controllers
                 return NotFound();
             }
 
+            var linkedDesktops = await _dbContext.Desktops
+                .Where(d => d.RemoteId == id)
+                .OrderBy(d => d.NameDesktop)
+                .ToListAsync();
+            var preselectedDesktopId = linkedDesktops.Count == 1 ? linkedDesktops[0].Id : (int?)null;
+
             ViewBag.RemoteId = id;
+            ViewBag.LinkedDesktops = linkedDesktops;
+            await PopulateEditDesktopDropdownAsync(id, preselectedDesktopId);
+
             return View(new RemoteEditViewModel
             {
                 ConnectionType = remote.ConnectionType,
@@ -78,7 +95,8 @@ namespace Gestor_Equipos.Controllers
                 Port = remote.Port,
                 Username = remote.Username,
                 Password = remote.Password,
-                AppDescription = remote.AppDescription
+                AppDescription = remote.AppDescription,
+                DesktopId = preselectedDesktopId
             });
         }
 
@@ -90,17 +108,21 @@ namespace Gestor_Equipos.Controllers
             if (!ModelState.IsValid)
             {
                 ViewBag.RemoteId = id;
+                ViewBag.LinkedDesktops = await _dbContext.Desktops.Where(d => d.RemoteId == id).OrderBy(d => d.NameDesktop).ToListAsync();
+                await PopulateEditDesktopDropdownAsync(id, vm.DesktopId);
                 return View(vm);
             }
 
             try
             {
-                await _remoteService.UpdateAsync(id, vm);
+                await _remoteService.UpdateAsync(id, vm, GetCurrentUserSystemId());
             }
             catch (InvalidOperationException ex)
             {
                 ModelState.AddModelError(string.Empty, ex.Message);
                 ViewBag.RemoteId = id;
+                ViewBag.LinkedDesktops = await _dbContext.Desktops.Where(d => d.RemoteId == id).OrderBy(d => d.NameDesktop).ToListAsync();
+                await PopulateEditDesktopDropdownAsync(id, vm.DesktopId);
                 return View(vm);
             }
 
@@ -114,7 +136,7 @@ namespace Gestor_Equipos.Controllers
         {
             try
             {
-                await _remoteService.ReleaseAsync(id);
+                await _remoteService.ReleaseAsync(id, GetCurrentUserSystemId());
             }
             catch (InvalidOperationException ex)
             {
@@ -138,7 +160,7 @@ namespace Gestor_Equipos.Controllers
         {
             try
             {
-                await _remoteService.AssignToDesktopAsync(remoteId, desktopId);
+                await _remoteService.AssignToDesktopAsync(remoteId, desktopId, GetCurrentUserSystemId());
             }
             catch (InvalidOperationException ex)
             {
@@ -150,11 +172,43 @@ namespace Gestor_Equipos.Controllers
             return RedirectToAction(nameof(Details), new { id = remoteId });
         }
 
+        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Delete(int id, string adminPassword)
+        {
+            try
+            {
+                await _remoteService.DeleteAsync(id, GetCurrentUserSystemId(), adminPassword);
+            }
+            catch (InvalidOperationException ex)
+            {
+                TempData["Error"] = ex.Message;
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        private int GetCurrentUserSystemId()
+        {
+            var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            return int.Parse(claim!);
+        }
+
         private async Task PopulateAssignDropdownAsync(int remoteId, int? selectedDesktopId = null)
         {
             ViewBag.RemoteId = remoteId;
             var desktops = await _dbContext.Desktops
                 .Where(d => d.RemoteId == null && d.Estado)
+                .OrderBy(d => d.NameDesktop)
+                .ToListAsync();
+            ViewBag.Desktops = new SelectList(desktops, "Id", "NameDesktop", selectedDesktopId);
+        }
+
+        private async Task PopulateEditDesktopDropdownAsync(int remoteId, int? selectedDesktopId)
+        {
+            var desktops = await _dbContext.Desktops
+                .Where(d => d.RemoteId == remoteId || (d.RemoteId == null && d.Estado))
                 .OrderBy(d => d.NameDesktop)
                 .ToListAsync();
             ViewBag.Desktops = new SelectList(desktops, "Id", "NameDesktop", selectedDesktopId);

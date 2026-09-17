@@ -99,7 +99,18 @@ namespace Gestor_Equipos.Controllers
                 return View(vm);
             }
 
-            var id = await _desktopService.CreateAsync(vm);
+            int id;
+            try
+            {
+                id = await _desktopService.CreateAsync(vm);
+            }
+            catch (InvalidOperationException ex)
+            {
+                ModelState.AddModelError(string.Empty, ex.Message);
+                await PopulateDropdownsAsync();
+                return View(vm);
+            }
+
             return RedirectToAction(nameof(Details), new { id });
         }
 
@@ -153,7 +164,24 @@ namespace Gestor_Equipos.Controllers
                 return View(vm);
             }
 
-            await _desktopService.UpdateSpecsAsync(id, vm, GetCurrentUserSystemId());
+            try
+            {
+                await _desktopService.UpdateSpecsAsync(id, vm, GetCurrentUserSystemId());
+            }
+            catch (InvalidOperationException ex)
+            {
+                ModelState.AddModelError(string.Empty, ex.Message);
+                await PopulateDropdownsAsync();
+                ViewBag.DesktopId = id;
+                var currentRemote = await _dbContext.Desktops
+                    .Where(d => d.Id == id)
+                    .Select(d => d.Remote)
+                    .SingleOrDefaultAsync();
+                ViewBag.CurrentRemoteId = currentRemote?.Id;
+                ViewBag.CurrentRemoteSummary = currentRemote is null ? null : BuildRemoteLabel(currentRemote);
+                return View(vm);
+            }
+
             return RedirectToAction(nameof(Details), new { id });
         }
 
@@ -201,6 +229,25 @@ namespace Gestor_Equipos.Controllers
             return RedirectToAction(nameof(Details), new { id = desktopId });
         }
 
+        // UX-06: return a single equipo to Disponible without deactivating its holder (which
+        // would release every other equipo/periférico that person has too).
+        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Return(int id)
+        {
+            try
+            {
+                await _asignationService.ReturnAsync(id);
+            }
+            catch (InvalidOperationException ex)
+            {
+                TempData["Error"] = ex.Message;
+            }
+
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
         private int GetCurrentUserSystemId()
         {
             var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -227,9 +274,18 @@ namespace Gestor_Equipos.Controllers
 
             var rams = await _dbContext.Rams.ToListAsync();
             ViewBag.Rams = new SelectList(
-                rams.OrderBy(r => int.Parse(r.Especification.Replace("GB", ""))),
+                rams.OrderBy(r => ParseRamCapacity(r.Especification)),
                 "Id",
                 "Especification");
+        }
+
+        // Especification is a free-text catalog value seeded directly via SQL (no admin UI),
+        // so it isn't guaranteed to be an exact "<number>GB" string — parse tolerantly instead
+        // of throwing and taking down every Create/Edit screen on a malformed row.
+        private static int ParseRamCapacity(string especification)
+        {
+            var digits = new string((especification ?? string.Empty).TakeWhile(char.IsDigit).ToArray());
+            return int.TryParse(digits, out var value) ? value : int.MaxValue;
         }
 
         private static string BuildRemoteLabel(Remote remote)

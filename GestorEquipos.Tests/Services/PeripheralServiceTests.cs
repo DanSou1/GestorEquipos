@@ -103,6 +103,61 @@ namespace GestorEquipos.Tests.Services
         }
 
         [Fact]
+        public async Task UpdateAsync_LinksOrphanedPeripheralToActiveDesktop_AndInheritsCurrentHolder()
+        {
+            // LOG-12: an orphaned peripheral (DesktopId null) had no way back onto an equipo.
+            using var db = TestHelpers.CreateDbContext();
+            var (desktop, type) = SeedDesktopAndType(db);
+            var area = new Area { Name = "A" };
+            db.Areas.Add(area);
+            db.SaveChanges();
+            var holder = new Users { Name = "Ana", LastName = "Gomez", Email = "ana@x.com", EmailTeams = "ana@x.com", AreaId = area.Id };
+            db.Users.Add(holder);
+            db.SaveChanges();
+            db.Asignations.Add(new Asignation { DesktopId = desktop.Id, UserId = holder.Id, DateAsignation = DateOnly.FromDateTime(DateTime.Now) });
+            var peripheral = new Peripheral { DesktopId = null, PeripheralTypeId = type.Id, Brand = "B", Model = "M", Serial = "ORPHAN-1" };
+            db.Peripherals.Add(peripheral);
+            db.SaveChanges();
+
+            var service = CreateService(db);
+            await service.UpdateAsync(peripheral.Id, new PeripheralEditViewModel
+            {
+                DesktopId = desktop.Id,
+                PeripheralTypeId = type.Id,
+                Brand = "B",
+                Model = "M",
+                Serial = "ORPHAN-1"
+            });
+
+            var updated = db.Peripherals.Single(p => p.Id == peripheral.Id);
+            Assert.Equal(desktop.Id, updated.DesktopId);
+            Assert.True(db.PeripheralAssignments.Any(a => a.PeripheralId == peripheral.Id && a.UserId == holder.Id));
+        }
+
+        [Fact]
+        public async Task UpdateAsync_ThrowsWhenLinkingOrphanToRetiredDesktop()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (desktop, type) = SeedDesktopAndType(db);
+            desktop.Estado = false;
+            var peripheral = new Peripheral { DesktopId = null, PeripheralTypeId = type.Id, Brand = "B", Model = "M", Serial = "ORPHAN-2" };
+            db.Peripherals.Add(peripheral);
+            db.SaveChanges();
+
+            var service = CreateService(db);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.UpdateAsync(peripheral.Id, new PeripheralEditViewModel
+            {
+                DesktopId = desktop.Id,
+                PeripheralTypeId = type.Id,
+                Brand = "B",
+                Model = "M",
+                Serial = "ORPHAN-2"
+            }));
+
+            Assert.Null(db.Peripherals.Single(p => p.Id == peripheral.Id).DesktopId);
+        }
+
+        [Fact]
         public async Task UpdateAsync_ThrowsWhenNotFound()
         {
             using var db = TestHelpers.CreateDbContext();

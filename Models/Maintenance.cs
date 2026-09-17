@@ -24,10 +24,18 @@ namespace GestorEquipos.Models
         [Required]
         public MaintenanceCategory Category { get; set; }
 
+        // LOG-08: captured once at creation time (Preventivo only — see MaintenanceService.CreateAsync)
+        // so the PDF reflects who held the equipment and what it included back then, not today.
+        [MaxLength(200)]
+        public string? SnapshotHolderName { get; set; }
+        [MaxLength(150)]
+        public string? SnapshotHolderArea { get; set; }
+
         // Navigation properties
         public MaintenanceType MaintenanceType { get; set; }
         public Desktop Desktop { get; set; }
         public MaintenanceChecklist? Checklist { get; set; }
+        public ICollection<MaintenanceEquipmentSnapshotItem> EquipmentSnapshot { get; set; } = new List<MaintenanceEquipmentSnapshotItem>();
     }
 
     public enum MaintenanceCategory

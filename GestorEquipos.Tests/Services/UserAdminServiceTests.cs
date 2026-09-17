@@ -177,6 +177,42 @@ namespace GestorEquipos.Tests.Services
         }
 
         [Fact]
+        public async Task CreateAccountAsync_CreatesPersonAndLoginTogether()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (area, regional, role) = SeedLookups(db);
+            var service = CreateService(db);
+
+            var userId = await service.CreateAccountAsync(
+                new UserCreateViewModel { Name = "Nora", LastName = "Ruiz", Email = "nora@empresa.com", AreaId = area.Id, RegionalId = regional.Id },
+                "nora", "Sup3rSecreta!", role.Id);
+
+            var userSystem = db.UserSystems.Single(us => us.UserId == userId);
+            Assert.Equal("nora", userSystem.Username);
+            Assert.NotEmpty(userSystem.PasswordHash);
+        }
+
+        [Fact]
+        public async Task CreateAccountAsync_DuplicateUsername_LeavesNoOrphanedPerson()
+        {
+            // LOG-01: creating the person then the login as two separate saves used to leave a
+            // Users row with no UserSystem behind when the login step failed. CreateAccountAsync
+            // must leave nothing behind on failure.
+            using var db = TestHelpers.CreateDbContext();
+            var (area, regional, role) = SeedLookups(db);
+            var service = CreateService(db);
+            await service.CreateAccountAsync(
+                new UserCreateViewModel { Name = "Existing", LastName = "User", Email = "existing@empresa.com", AreaId = area.Id, RegionalId = regional.Id },
+                "duplicado", "Password1!", role.Id);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.CreateAccountAsync(
+                new UserCreateViewModel { Name = "New", LastName = "Person", Email = "new-person@empresa.com", AreaId = area.Id, RegionalId = regional.Id },
+                "duplicado", "Password2!", role.Id));
+
+            Assert.False(db.Users.Any(u => u.Email == "new-person@empresa.com"));
+        }
+
+        [Fact]
         public async Task UpdateAccountAsync_UpdatesFieldsWithoutChangingPasswordWhenNewPasswordEmpty()
         {
             using var db = TestHelpers.CreateDbContext();
@@ -417,6 +453,10 @@ namespace GestorEquipos.Tests.Services
             db.SaveChanges();
             var service = CreateService(db);
 
+            // A second enabled Administrador account so demoting Ana doesn't trip the last-admin guard.
+            var otherAdminId = await service.CreateUserAsync(new UserCreateViewModel { Name = "Beto", LastName = "Ruiz", Email = "beto-role@empresa.com", AreaId = area.Id, RegionalId = regional.Id });
+            await service.CreateLoginAsync(otherAdminId, "beto-role", "Password1!", role.Id);
+
             var userId = await service.CreateUserAsync(new UserCreateViewModel { Name = "Ana", LastName = "Gomez", Email = "ana-role@empresa.com", AreaId = area.Id, RegionalId = regional.Id });
             await service.CreateLoginAsync(userId, "ana-role", "Password1!", role.Id);
 
@@ -433,6 +473,53 @@ namespace GestorEquipos.Tests.Services
 
             var userSystem = db.UserSystems.Single(us => us.UserId == userId);
             Assert.Equal(otherRole.Id, userSystem.RolId);
+
+            // SEG-09: role changes must leave an audit trail entry.
+            Assert.Contains(db.AuditLogEntries, e => e.Action == "RoleChanged" && e.TargetDescription.Contains("ana-role"));
+        }
+
+        [Fact]
+        public async Task UpdateAccountAsync_RejectsDemotingTheOnlyEnabledAdmin()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (area, regional, role) = SeedLookups(db);
+            var otherRole = new Rol { Name = "Auditor" };
+            db.Rols.Add(otherRole);
+            db.SaveChanges();
+            var service = CreateService(db);
+
+            var userId = await service.CreateUserAsync(new UserCreateViewModel { Name = "Ana", LastName = "Gomez", Email = "ana-lastadmin@empresa.com", AreaId = area.Id, RegionalId = regional.Id });
+            await service.CreateLoginAsync(userId, "ana-lastadmin", "Password1!", role.Id);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.UpdateAccountAsync(userId, new AccessAccountEditViewModel
+            {
+                Name = "Ana",
+                LastName = "Gomez",
+                Email = "ana-lastadmin@empresa.com",
+                AreaId = area.Id,
+                RegionalId = regional.Id,
+                Username = "ana-lastadmin",
+                RolId = otherRole.Id
+            }, actingAdminUserSystemId: -1));
+
+            var userSystem = db.UserSystems.Single(us => us.UserId == userId);
+            Assert.Equal(role.Id, userSystem.RolId);
+        }
+
+        [Fact]
+        public async Task DeactivateAsync_RejectsDeactivatingTheOnlyEnabledAdmin()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (area, regional, role) = SeedLookups(db);
+            var service = CreateService(db);
+
+            var userId = await service.CreateUserAsync(new UserCreateViewModel { Name = "Ana", LastName = "Gomez", Email = "ana-deact-admin@empresa.com", AreaId = area.Id, RegionalId = regional.Id });
+            await service.CreateLoginAsync(userId, "ana-deact-admin", "Password1!", role.Id);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.DeactivateAsync(userId));
+
+            var user = db.Users.Single(u => u.Id == userId);
+            Assert.True(user.Activo);
         }
 
         [Fact]
@@ -449,6 +536,39 @@ namespace GestorEquipos.Tests.Services
 
             var item = Assert.Single(result);
             Assert.Equal("normal@empresa.com", item.Email);
+        }
+
+        [Fact]
+        public async Task UpdateUserAsync_RejectsEditingRaesUser()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (area, regional, _) = SeedLookups(db);
+            var raes = new Users { Name = "RAES", LastName = "Sistema", Email = AuthBootstrapper.RaesUserEmail, EmailTeams = AuthBootstrapper.RaesUserEmail, AreaId = area.Id, RegionalId = regional.Id };
+            db.Users.Add(raes);
+            db.SaveChanges();
+            var service = CreateService(db);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.UpdateUserAsync(raes.Id, new UserCreateViewModel
+            {
+                Name = "Hijacked", LastName = "Sistema", Email = "hijacked@empresa.com", AreaId = area.Id, RegionalId = regional.Id
+            }));
+
+            Assert.Equal(AuthBootstrapper.RaesUserEmail, db.Users.Single(u => u.Id == raes.Id).Email);
+        }
+
+        [Fact]
+        public async Task DeactivateAsync_RejectsDeactivatingRaesUser()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (area, regional, _) = SeedLookups(db);
+            var raes = new Users { Name = "RAES", LastName = "Sistema", Email = AuthBootstrapper.RaesUserEmail, EmailTeams = AuthBootstrapper.RaesUserEmail, AreaId = area.Id, RegionalId = regional.Id };
+            db.Users.Add(raes);
+            db.SaveChanges();
+            var service = CreateService(db);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.DeactivateAsync(raes.Id));
+
+            Assert.True(db.Users.Single(u => u.Id == raes.Id).Activo);
         }
 
         [Fact]
@@ -903,6 +1023,46 @@ namespace GestorEquipos.Tests.Services
             await service.DeleteAccountAsync(otherAdminId, adminUserSystemId, "AdminPass1!");
 
             Assert.False(db.UserSystems.Any(us => us.UserId == otherAdminId));
+
+            // SEG-09: account deletion must leave an audit trail entry.
+            Assert.Contains(db.AuditLogEntries, e => e.Action == "AccountDeleted" && e.TargetDescription.Contains("admin-del6"));
+        }
+
+        [Fact]
+        public async Task DeleteAccountAsync_ThrowsWhenAuthorOfSpecChangeLog_AndPersistsAccount()
+        {
+            // LOG-07: SpecChangeLog.ChangedByUserSystemId is DeleteBehavior.Restrict — deleting
+            // an account with edit history used to bubble up as a raw DbUpdateException (500).
+            using var db = TestHelpers.CreateDbContext();
+            var (area, regional, role) = SeedLookups(db);
+            var service = CreateService(db);
+
+            var adminId = await service.CreateUserAsync(new UserCreateViewModel { Name = "Admin", LastName = "Actor", Email = "admin-actor@empresa.com", AreaId = area.Id, RegionalId = regional.Id });
+            await service.CreateLoginAsync(adminId, "admin-actor", "AdminPass1!", role.Id);
+            var actingAdminUserSystemId = db.UserSystems.Single(us => us.UserId == adminId).Id;
+
+            var authorId = await service.CreateUserAsync(new UserCreateViewModel { Name = "Author", LastName = "History", Email = "author-history@empresa.com", AreaId = area.Id, RegionalId = regional.Id });
+            await service.CreateLoginAsync(authorId, "author-history", "Password1!", role.Id);
+            var authorUserSystemId = db.UserSystems.Single(us => us.UserId == authorId).Id;
+
+            var os = new OSVersion { TypeSO = "Windows", Version = "11" };
+            var ram = new Ram { Especification = "8GB" };
+            db.OSVersions.Add(os);
+            db.Rams.Add(ram);
+            db.SaveChanges();
+            var desktop = new Desktop { NameDesktop = "PC", SerialNumber = "SN-LOG07", Brand = "B", Model = "M", Processor = "P", Disk = "D", OSVersionId = os.Id, RamId = ram.Id };
+            db.Desktops.Add(desktop);
+            db.SaveChanges();
+            db.SpecChangeLogs.Add(new SpecChangeLog
+            {
+                DesktopId = desktop.Id, FieldName = "Disk", OldValue = "256GB", NewValue = "512GB",
+                Date = DateOnly.FromDateTime(DateTime.Now), ChangedByUserSystemId = authorUserSystemId
+            });
+            db.SaveChanges();
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.DeleteAccountAsync(authorId, actingAdminUserSystemId, "AdminPass1!"));
+
+            Assert.True(db.UserSystems.Any(us => us.UserId == authorId));
         }
     }
 }

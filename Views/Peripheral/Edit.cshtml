@@ -8,8 +8,22 @@
 <form asp-controller="Peripheral" asp-action="Edit" asp-route-id="@Model.Id" method="post">
     @Html.AntiForgeryToken()
     <input type="hidden" asp-for="Id" />
-    <input type="hidden" asp-for="DesktopId" />
     <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+    @if (Model.DesktopId.HasValue)
+    {
+        <input type="hidden" asp-for="DesktopId" />
+    }
+    else
+    {
+        <div class="mb-3">
+            <label asp-for="DesktopId" class="form-label">Vincular a un equipo (periférico sin equipo asignado)</label>
+            <select asp-for="DesktopId" class="form-select" asp-items="ViewBag.Desktops">
+                <option value="">-- Dejar sin vincular --</option>
+            </select>
+            <span asp-validation-for="DesktopId" class="text-danger"></span>
+        </div>
+    }
 
     <div class="mb-3">
         <label asp-for="PeripheralTypeId" class="form-label">Tipo</label>

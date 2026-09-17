@@ -3,6 +3,12 @@
     ViewData["Title"] = "Usuarios";
     string? searchTerm = ViewBag.SearchTerm;
     bool showInactive = ViewBag.ShowInactive;
+    string? error = ViewBag.Error;
+}
+
+@if (!string.IsNullOrWhiteSpace(error))
+{
+    <div class="alert alert-danger">@error</div>
 }
 
 <div class="section-header">
@@ -29,7 +35,7 @@
 <form method="get" class="app-toolbar">
     <div class="app-toolbar__search">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
-        <input type="search" name="search" value="@searchTerm" class="form-control" placeholder="Buscar usuario..." />
+        <input type="search" name="search" value="@searchTerm" class="form-control" placeholder="Buscar usuario..." aria-label="Buscar usuario" />
     </div>
     <div class="form-check d-flex align-items-center">
         <input type="checkbox" id="showInactive" name="showInactive" value="true" class="form-check-input" onchange="this.form.submit()" checked="@(showInactive ? "checked" : null)" />

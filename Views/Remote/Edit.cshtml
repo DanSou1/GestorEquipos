@@ -1,7 +1,9 @@
+@using GestorEquipos.Models
 @model RemoteEditViewModel
 @{
     ViewData["Title"] = "Editar acceso remoto";
     int remoteId = ViewBag.RemoteId;
+    var linkedDesktops = (List<Desktop>)ViewBag.LinkedDesktops;
 }
 
 <h1>Editar acceso remoto</h1>
@@ -18,6 +20,23 @@
                 <option value="EscritorioRemotoWindows">Escritorio remoto de Windows (RDP)</option>
             </select>
             <span asp-validation-for="ConnectionType" class="text-danger"></span>
+        </div>
+    </div>
+
+    <div class="row g-3 mt-1">
+        <div class="col-md-6">
+            <label asp-for="DesktopId" class="form-label">Equipo asignado</label>
+            <select asp-for="DesktopId" class="form-select" asp-items="ViewBag.Desktops">
+                <option value="">-- Ninguno (liberar) --</option>
+            </select>
+            <span asp-validation-for="DesktopId" class="text-danger"></span>
+            @if (linkedDesktops.Count > 1)
+            {
+                <div class="form-text text-warning">
+                    Este acceso está vinculado actualmente a varios equipos (@string.Join(", ", linkedDesktops.Select(d => d.NameDesktop))), lo cual no debería ocurrir normalmente.
+                    Al guardar, quedará asignado únicamente al equipo que selecciones aquí (o liberado de todos si eliges "-- Ninguno --").
+                </div>
+            }
         </div>
     </div>
 

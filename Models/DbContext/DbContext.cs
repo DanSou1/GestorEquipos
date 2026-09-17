@@ -21,6 +21,7 @@ public class MyDbContext : DbContext
     public DbSet<Maintenance> Maintenances { get; set; }
     public DbSet<MaintenanceType> MaintenanceTypes { get; set; }
     public DbSet<MaintenanceChecklist> MaintenanceChecklists { get; set; }
+    public DbSet<MaintenanceEquipmentSnapshotItem> MaintenanceEquipmentSnapshotItems { get; set; }
     public DbSet<Asignation> Asignations { get; set; }
     public DbSet<PeripheralType> PeripheralTypes { get; set; }
     public DbSet<Peripheral> Peripherals { get; set; }
@@ -28,6 +29,7 @@ public class MyDbContext : DbContext
     public DbSet<PeripheralMaintenance> PeripheralMaintenances { get; set; }
     public DbSet<License> Licenses { get; set; }
     public DbSet<SpecChangeLog> SpecChangeLogs { get; set; }
+    public DbSet<AuditLogEntry> AuditLogEntries { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -54,8 +56,10 @@ public class MyDbContext : DbContext
         modelBuilder.Entity<PeripheralAssignment>().ToTable("PeripheralAssignment");
         modelBuilder.Entity<PeripheralMaintenance>().ToTable("PeripheralMaintenance");
         modelBuilder.Entity<MaintenanceChecklist>().ToTable("MaintenanceChecklist");
+        modelBuilder.Entity<MaintenanceEquipmentSnapshotItem>().ToTable("MaintenanceEquipmentSnapshotItem");
         modelBuilder.Entity<License>().ToTable("License");
         modelBuilder.Entity<SpecChangeLog>().ToTable("SpecChangeLog");
+        modelBuilder.Entity<AuditLogEntry>().ToTable("AuditLogEntry");
 
         modelBuilder.Entity<Users>()
             .HasIndex(u => u.Email)
@@ -68,6 +72,10 @@ public class MyDbContext : DbContext
         modelBuilder.Entity<UserSystem>()
             .HasIndex(us => us.UserId)
             .IsUnique();
+
+        modelBuilder.Entity<UserSystem>()
+            .Property(us => us.SecurityStamp)
+            .HasDefaultValueSql("NEWID()");
 
         modelBuilder.Entity<Rol>()
             .HasIndex(r => r.Name)
@@ -87,6 +95,12 @@ public class MyDbContext : DbContext
 
         modelBuilder.Entity<Ram>()
             .HasIndex(r => r.Especification)
+            .IsUnique();
+
+        // LOG-06: two Create requests with the same serial used to both succeed — nothing
+        // enforced uniqueness for a physical asset's identifying serial.
+        modelBuilder.Entity<Desktop>()
+            .HasIndex(d => d.SerialNumber)
             .IsUnique();
 
         modelBuilder.Entity<Desktop>()
@@ -172,6 +186,12 @@ public class MyDbContext : DbContext
             .HasOne(c => c.Maintenance)
             .WithOne(m => m.Checklist)
             .HasForeignKey<MaintenanceChecklist>(c => c.MaintenanceId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<MaintenanceEquipmentSnapshotItem>()
+            .HasOne(s => s.Maintenance)
+            .WithMany(m => m.EquipmentSnapshot)
+            .HasForeignKey(s => s.MaintenanceId)
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<Peripheral>()

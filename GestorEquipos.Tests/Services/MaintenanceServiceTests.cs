@@ -1,6 +1,7 @@
 using Gestor_Equipos.Services.Implementations;
 using GestorEquipos.Models;
 using GestorEquipos.Models.ViewModels.Maintenance;
+using Microsoft.EntityFrameworkCore;
 using Xunit;
 
 namespace GestorEquipos.Tests.Services
@@ -47,6 +48,48 @@ namespace GestorEquipos.Tests.Services
             var maintenance = db.Maintenances.Single(m => m.Id == id);
             Assert.Equal(desktop.Id, maintenance.DesktopId);
             Assert.Equal("Carlos Ruiz", maintenance.TechnicianName);
+        }
+
+        [Fact]
+        public async Task CreateAsync_Preventivo_SnapshotsHolderAndEquipment_UnaffectedByLaterChanges()
+        {
+            // LOG-08: the PDF must keep showing who held the equipment and what it included
+            // *at maintenance time*, even after the desktop is reassigned or a peripheral changes.
+            using var db = TestHelpers.CreateDbContext();
+            var (desktop, type) = SeedBase(db);
+            var area = db.Areas.Single();
+            var originalHolder = new Users { Name = "Ana", LastName = "Gomez", Email = "ana@x.com", EmailTeams = "ana@x.com", AreaId = area.Id };
+            var laterHolder = new Users { Name = "Beto", LastName = "Ruiz", Email = "beto@x.com", EmailTeams = "beto@x.com", AreaId = area.Id };
+            db.Users.AddRange(originalHolder, laterHolder);
+            db.SaveChanges();
+            db.Asignations.Add(new Asignation { DesktopId = desktop.Id, UserId = originalHolder.Id, DateAsignation = new DateOnly(2026, 1, 1) });
+
+            var mouseType = new PeripheralType { Name = "Mouse" };
+            db.PeripheralTypes.Add(mouseType);
+            db.SaveChanges();
+            var mouse = new Peripheral { DesktopId = desktop.Id, PeripheralTypeId = mouseType.Id, Brand = "Logitech", Model = "M90", Serial = "MOUSE-1", Estado = true };
+            db.Peripherals.Add(mouse);
+            db.SaveChanges();
+
+            var service = new MaintenanceService(db);
+            var id = await service.CreateAsync(new MaintenanceCreateViewModel
+            {
+                DesktopId = desktop.Id,
+                MaintenanceTypeId = type.Id,
+                Category = MaintenanceCategory.Preventivo,
+                Date = new DateOnly(2026, 1, 2),
+                Description = "Mantenimiento preventivo",
+                TechnicianName = "Carlos Ruiz"
+            });
+
+            // Reassign afterward and retire the peripheral — history must not shift.
+            db.Asignations.Add(new Asignation { DesktopId = desktop.Id, UserId = laterHolder.Id, DateAsignation = new DateOnly(2026, 2, 1) });
+            mouse.Estado = false;
+            db.SaveChanges();
+
+            var maintenance = await db.Maintenances.Include(m => m.EquipmentSnapshot).SingleAsync(m => m.Id == id);
+            Assert.Equal("Ana Gomez", maintenance.SnapshotHolderName);
+            Assert.Contains(maintenance.EquipmentSnapshot, s => s.Label == "Mouse" && s.Serial == "MOUSE-1");
         }
 
         [Fact]

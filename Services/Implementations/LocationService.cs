@@ -1,4 +1,5 @@
 using Gestor_Equipos.Data;
+using Gestor_Equipos.Services.Auth;
 using GestorEquipos.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -63,6 +64,13 @@ namespace Gestor_Equipos.Services.Implementations
             var area = await _dbContext.Areas.SingleOrDefaultAsync(a => a.Id == id)
                 ?? throw new InvalidOperationException("Área no encontrada.");
 
+            // LOG-03: this is the reserved area seeded for the RAES pseudo-user — renaming it
+            // would desync the label AuthBootstrapper looks up by name on every startup.
+            if (area.Name == AuthBootstrapper.RaesAreaAndRegionalName)
+            {
+                throw new InvalidOperationException("El área reservada RAES no se puede editar.");
+            }
+
             var trimmedName = name.Trim();
 
             if (await _dbContext.Areas.AnyAsync(a => a.Id != id && a.Name.ToLower() == trimmedName.ToLower()))
@@ -78,6 +86,11 @@ namespace Gestor_Equipos.Services.Implementations
         {
             var area = await _dbContext.Areas.SingleOrDefaultAsync(a => a.Id == id)
                 ?? throw new InvalidOperationException("Área no encontrada.");
+
+            if (area.Name == AuthBootstrapper.RaesAreaAndRegionalName)
+            {
+                throw new InvalidOperationException("El área reservada RAES no se puede eliminar.");
+            }
 
             await VerifyAdminPasswordAsync(actingAdminUserSystemId, adminPassword);
 
@@ -121,6 +134,11 @@ namespace Gestor_Equipos.Services.Implementations
             var regional = await _dbContext.Regionals.SingleOrDefaultAsync(r => r.Id == id)
                 ?? throw new InvalidOperationException("Regional no encontrada.");
 
+            if (regional.Name == AuthBootstrapper.RaesAreaAndRegionalName)
+            {
+                throw new InvalidOperationException("La regional reservada RAES no se puede editar.");
+            }
+
             var trimmedName = name.Trim();
 
             if (await _dbContext.Regionals.AnyAsync(r => r.Id != id && r.Name.ToLower() == trimmedName.ToLower()))
@@ -136,6 +154,11 @@ namespace Gestor_Equipos.Services.Implementations
         {
             var regional = await _dbContext.Regionals.SingleOrDefaultAsync(r => r.Id == id)
                 ?? throw new InvalidOperationException("Regional no encontrada.");
+
+            if (regional.Name == AuthBootstrapper.RaesAreaAndRegionalName)
+            {
+                throw new InvalidOperationException("La regional reservada RAES no se puede eliminar.");
+            }
 
             await VerifyAdminPasswordAsync(actingAdminUserSystemId, adminPassword);
 

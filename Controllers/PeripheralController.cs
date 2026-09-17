@@ -30,6 +30,7 @@ namespace Gestor_Equipos.Controllers
             var all = await _peripheralService.GetInventoryAsync();
 
             ViewBag.Stats = stats;
+            ViewBag.TotalCount = all.Count;
 
             var items = all.AsEnumerable();
 
@@ -48,7 +49,8 @@ namespace Gestor_Equipos.Controllers
                 items = items.Where(p =>
                     p.Brand.Contains(search, StringComparison.OrdinalIgnoreCase) ||
                     p.Model.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                    p.DesktopName.Contains(search, StringComparison.OrdinalIgnoreCase));
+                    p.DesktopName.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                    (p.Serial is not null && p.Serial.Contains(search, StringComparison.OrdinalIgnoreCase)));
             }
 
             ViewBag.PeripheralTypeFiltro = peripheralTypeId;
@@ -89,7 +91,17 @@ namespace Gestor_Equipos.Controllers
                 return View(vm);
             }
 
-            await _peripheralService.AddAsync(vm);
+            try
+            {
+                await _peripheralService.AddAsync(vm);
+            }
+            catch (InvalidOperationException ex)
+            {
+                ModelState.AddModelError(string.Empty, ex.Message);
+                await PopulateTypesAsync();
+                return View(vm);
+            }
+
             return RedirectToAction("Details", "Desktop", new { id = vm.DesktopId });
         }
 
@@ -103,6 +115,10 @@ namespace Gestor_Equipos.Controllers
             }
 
             await PopulateTypesAsync();
+            if (peripheral.DesktopId is null)
+            {
+                await PopulateDesktopsAsync();
+            }
             return View(new PeripheralEditViewModel
             {
                 Id = peripheral.Id,
@@ -122,6 +138,10 @@ namespace Gestor_Equipos.Controllers
             if (!ModelState.IsValid)
             {
                 await PopulateTypesAsync();
+                if (!vm.DesktopId.HasValue)
+                {
+                    await PopulateDesktopsAsync();
+                }
                 return View(vm);
             }
 
@@ -133,6 +153,10 @@ namespace Gestor_Equipos.Controllers
             {
                 ModelState.AddModelError(string.Empty, ex.Message);
                 await PopulateTypesAsync();
+                if (!vm.DesktopId.HasValue)
+                {
+                    await PopulateDesktopsAsync();
+                }
                 return View(vm);
             }
 
@@ -198,6 +222,16 @@ namespace Gestor_Equipos.Controllers
         private async Task PopulateTypesAsync()
         {
             ViewBag.PeripheralTypes = new SelectList(await _dbContext.PeripheralTypes.OrderBy(t => t.Name).ToListAsync(), "Id", "Name");
+        }
+
+        // LOG-12: orphaned peripherals (DesktopId null, e.g. after their Desktop was deleted)
+        // had no path back onto an active equipo from this module — only this dropdown when
+        // the peripheral is currently unassigned.
+        private async Task PopulateDesktopsAsync()
+        {
+            ViewBag.Desktops = new SelectList(
+                await _dbContext.Desktops.Where(d => d.Estado).OrderBy(d => d.NameDesktop).ToListAsync(),
+                "Id", "NameDesktop");
         }
 
         private async Task PopulateReassignDropdownAsync(int peripheralId, int? selectedUserId = null)

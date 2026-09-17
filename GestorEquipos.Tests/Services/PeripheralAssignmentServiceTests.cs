@@ -158,6 +158,22 @@ namespace GestorEquipos.Tests.Services
         }
 
         [Fact]
+        public async Task AssignAsync_ThrowsWhenTargetUserIsInactive()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (area, regional, os, ram, type) = SeedLookups(db);
+            var inactiveUser = new Users { Name = "Inactivo", LastName = "Persona", Email = "inactivo@x.com", EmailTeams = "inactivo@x.com", AreaId = area.Id, RegionalId = regional.Id, Activo = false };
+            db.Users.Add(inactiveUser);
+            db.SaveChanges();
+            var peripheral = SeedPeripheral(db, os, ram, type);
+
+            var service = new PeripheralAssignmentService(db);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.AssignAsync(peripheral.Id, inactiveUser.Id));
+            Assert.Empty(db.PeripheralAssignments);
+        }
+
+        [Fact]
         public async Task GetHistoryAsync_ReturnsOrderedDescendingByDate()
         {
             using var db = TestHelpers.CreateDbContext();

@@ -278,3 +278,23 @@ Ejecutado vía navegador (Chrome, sesiones Administrador `administrador@exro.co`
 - [x] Sesión Auditor → navegación directa a `/Remote/Edit/{id}` → redirige a `Login/AccessDenied`.
 - [x] Sesión Auditor → `Desktop/Details` de un equipo con acceso remoto RDP ahora muestra tipo/IP/puerto/usuario (antes oculto por completo), sin botón para revelar la clave; `Desktop/DownloadPdf` genera el PDF con la misma línea "Acceso remoto: RDP — `<ip>`:`<puerto>` (`<usuario>`)" sin la clave (verificado leyendo el PDF descargado).
 - [x] Equipo y cuenta de Auditor de prueba usados en esta verificación se documentan aquí; el equipo de prueba se eliminó al finalizar, la cuenta Auditor de prueba quedó activa (no existe función de borrado de cuentas de acceso en la app) y el registro `Remote` que quedó huérfano tras borrar el equipo de prueba permanece como "Disponible" (no existe función de borrado de accesos remotos, por diseño — ver Fase 21 en el código).
+
+## Fase 22 — Eliminar acceso remoto desde `Remote/Index` (pendiente de verificar en navegador)
+
+Se agregó `RemoteController.Delete`/`IRemoteService.DeleteAsync`, calcado del patrón admin-password-gated ya usado en `PeripheralTypeService.DeleteAsync`: botón "Eliminar" (solo Administrador) por fila en `Remote/Index` con modal Bootstrap que pide la contraseña de admin, bloqueado si el registro sigue asignado a algún `Desktop.RemoteId` (hay que "Liberar" primero). Esto reemplaza el "no existe función de borrado de accesos remotos, por diseño" documentado en la Fase 21 — decisión revertida a pedido explícito del usuario. Cubierto por pruebas automatizadas (`RemoteServiceTests.DeleteAsync_*`); **verificación manual en navegador aún no ejecutada**, pendiente:
+
+- [ ] `Remote/Index` sesión Administrador → botón "Eliminar" visible por fila; sesión Auditor → botón ausente.
+- [ ] Eliminar un registro "Disponible" con contraseña correcta → desaparece de la tabla.
+- [ ] Intentar eliminar un registro "Asignado" → error "No se puede eliminar: este acceso remoto está asignado a uno o más equipos. Libéralo primero.", el registro persiste.
+- [ ] Contraseña de admin incorrecta o vacía → error correspondiente, el registro persiste.
+
+## Fase 23 — Reasignar equipo directamente desde `Remote/Edit` + acceso directo "Editar" en `Remote/Index` (pendiente de verificar en navegador)
+
+`Remote/Index` ahora tiene un link "Editar" por fila (solo Administrador) que va directo a `Remote/Edit` sin pasar por `Details`. `RemoteEditViewModel` gana `DesktopId` (nullable): el formulario de edición ahora incluye un desplegable "Equipo asignado" que permite, en el mismo submit que IP/Puerto/Usuario/Clave, reasignar el acceso remoto a otro equipo, liberarlo (`-- Ninguno --`) o dejarlo igual. `RemoteService.UpdateAsync` bloquea la reasignación si el equipo destino ya está vinculado a **otro** `Remote` distinto (hay que liberarlo primero desde ese otro registro). Las acciones previas "Asignar a equipo"/"Liberar" en `Remote/Details` **no se eliminaron** — quedan como atajos de un solo paso equivalentes. Cubierto por pruebas automatizadas (`RemoteServiceTests.UpdateAsync_*DesktopId*`); **verificación manual en navegador aún no ejecutada**, pendiente:
+
+- [ ] `Remote/Index` sesión Administrador → link "Editar" visible por fila y navega directo a `Remote/Edit/{id}` (sin pasar por Details).
+- [ ] `Remote/Edit` de un registro sin equipo asignado → desplegable "Equipo asignado" en "-- Ninguno --"; seleccionar un equipo activo sin acceso remoto y guardar → `Remote/Details` lo muestra como "Asignado" a ese equipo.
+- [ ] `Remote/Edit` de un registro ya asignado a un equipo → desplegable preseleccionado con ese equipo; cambiar a otro equipo (sin acceso remoto previo) y guardar → el equipo anterior queda "Disponible" (sin acceso remoto) y el nuevo queda con este `Remote`.
+- [ ] `Remote/Edit` de un registro asignado → seleccionar "-- Ninguno --" y guardar → equivale a "Liberar", el equipo queda sin acceso remoto y el registro pasa a "Disponible".
+- [ ] Intentar seleccionar en `Remote/Edit` un equipo que ya tiene **otro** acceso remoto asignado → error "Este equipo ya tiene otro acceso remoto asignado. Libéralo primero desde ese registro.", no se guardan cambios (ni los de IP/Puerto/Usuario/Clave).
+- [ ] Las acciones "Asignar a equipo"/"Liberar" en `Remote/Details` siguen funcionando igual que antes de esta fase (regresión).

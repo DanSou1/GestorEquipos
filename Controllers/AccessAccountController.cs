@@ -48,7 +48,7 @@ namespace Gestor_Equipos.Controllers
 
             try
             {
-                var userId = await _userAdminService.CreateUserAsync(new UserCreateViewModel
+                await _userAdminService.CreateAccountAsync(new UserCreateViewModel
                 {
                     Name = vm.Name,
                     LastName = vm.LastName,
@@ -56,9 +56,7 @@ namespace Gestor_Equipos.Controllers
                     EmailTeams = vm.EmailTeams,
                     AreaId = vm.AreaId,
                     RegionalId = vm.RegionalId
-                });
-
-                await _userAdminService.CreateLoginAsync(userId, vm.Username, vm.Password, vm.RolId);
+                }, vm.Username, vm.Password, vm.RolId);
             }
             catch (InvalidOperationException ex)
             {

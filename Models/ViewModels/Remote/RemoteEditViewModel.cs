@@ -1,5 +1,5 @@
 using System.ComponentModel.DataAnnotations;
-using System.Text.RegularExpressions;
+using GestorEquipos.Models.ViewModels;
 
 namespace GestorEquipos.Models.ViewModels.Remote
 {
@@ -23,6 +23,8 @@ namespace GestorEquipos.Models.ViewModels.Remote
         [MaxLength(200)]
         public string? AppDescription { get; set; }
 
+        public int? DesktopId { get; set; }
+
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
             if (ConnectionType == RemoteConnectionType.Aplicativo)
@@ -42,18 +44,18 @@ namespace GestorEquipos.Models.ViewModels.Remote
             {
                 yield return new ValidationResult("La IP es obligatoria.", new[] { nameof(IPAddress) });
             }
-            else if (!Regex.IsMatch(IPAddress, @"^(\d{1,3}\.){3}\d{1,3}$"))
+            else if (!RemoteConnectionValidation.IsValidIPv4(IPAddress))
             {
-                yield return new ValidationResult("Ingresa una IP válida (ej. 10.0.0.5).", new[] { nameof(IPAddress) });
+                yield return new ValidationResult("Ingresa una IP válida (ej. 10.0.0.5), con cada octeto entre 0 y 255.", new[] { nameof(IPAddress) });
             }
 
             if (string.IsNullOrWhiteSpace(Port))
             {
                 yield return new ValidationResult("El puerto es obligatorio.", new[] { nameof(Port) });
             }
-            else if (!Regex.IsMatch(Port, @"^\d{1,5}$"))
+            else if (!RemoteConnectionValidation.IsValidPort(Port))
             {
-                yield return new ValidationResult("El puerto debe ser numérico.", new[] { nameof(Port) });
+                yield return new ValidationResult("El puerto debe ser numérico, entre 1 y 65535.", new[] { nameof(Port) });
             }
 
             if (string.IsNullOrWhiteSpace(Username))

@@ -16,9 +16,9 @@
         @if (User.IsInRole("Administrador"))
         {
             <a asp-controller="Desktop" asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-secondary">Editar</a>
-            <a asp-controller="Desktop" asp-action="Assign" asp-route-desktopId="@Model.Id" class="btn btn-sm btn-outline-primary">Asignar</a>
             @if (Model.Estado)
             {
+                <a asp-controller="Desktop" asp-action="Assign" asp-route-desktopId="@Model.Id" class="btn btn-sm btn-outline-primary">Asignar</a>
                 <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deactivateDesktopModal">Enviar a RAES</button>
             }
             <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteDesktopModal">Eliminar</button>
@@ -28,6 +28,30 @@
 
 @if (User.IsInRole("Administrador"))
 {
+    @if (Model.Estado && Model.CurrentUserName != "Disponible" && Model.CurrentUserName != "Sin asignar")
+    {
+        <div class="modal fade" id="returnDesktopModal" tabindex="-1" aria-labelledby="returnDesktopModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="returnDesktopModalLabel">Devolver equipo</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>¿Marcar este equipo como Disponible? <strong>@Model.CurrentUserName</strong> deja de figurar como su titular, pero su cuenta y el resto de sus equipos no se ven afectados.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <form asp-controller="Desktop" asp-action="Return" asp-route-id="@Model.Id" method="post" class="d-inline">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-primary">Devolver</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
     @if (Model.Estado)
     {
         <div class="modal fade" id="deactivateDesktopModal" tabindex="-1" aria-labelledby="deactivateDesktopModalLabel" aria-hidden="true">
@@ -114,7 +138,13 @@
         </div>
 
         <div class="card mb-3">
-            <div class="card-header">Asignación actual</div>
+            <div class="card-header d-flex justify-content-between align-items-center">
+                Asignación actual
+                @if (Model.Estado && Model.CurrentUserName != "Disponible" && Model.CurrentUserName != "Sin asignar" && User.IsInRole("Administrador"))
+                {
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#returnDesktopModal">Devolver</button>
+                }
+            </div>
             <div class="card-body">
                 <p class="mb-1"><strong>Usuario:</strong> @Model.CurrentUserName</p>
                 @if (Model.CurrentUserName == "Disponible" && Model.CurrentSinceDate is not null)
@@ -227,7 +257,7 @@
                                             <p>¿Desea eliminar <strong>@p.TypeName — @p.Brand @p.Model</strong>?</p>
                                             <div class="mb-2">
                                                 <label class="form-label">Tu contraseña de Administrador</label>
-                                                <input type="password" name="adminPassword" class="form-control" autocomplete="current-password" required />
+                                                <input type="password" name="adminPassword" class="form-control" autocomplete="current-password" required aria-label="Contraseña de administrador" />
                                                 <div class="form-text">Requerida únicamente para confirmar la eliminación.</div>
                                             </div>
                                         </div>

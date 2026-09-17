@@ -14,7 +14,6 @@ namespace Gestor_Equipos.Controllers
     {
         private readonly IMaintenanceService _maintenanceService;
         private readonly IMaintenancePdfService _maintenancePdfService;
-        private readonly IAsignationService _asignationService;
         private readonly MyDbContext _dbContext;
 
         private static readonly (string Label, Func<MaintenanceChecklist?, bool> Selector)[] ChecklistItems =
@@ -29,17 +28,13 @@ namespace Gestor_Equipos.Controllers
             ("Cambio de accesorios y repuestos por desgaste", c => c?.CambioAccesorios ?? false)
         };
 
-        private static readonly string[] EquipmentPeripheralTypeNames = { "Mouse", "Teclado", "Monitor" };
-
         public MaintenanceController(
             IMaintenanceService maintenanceService,
             IMaintenancePdfService maintenancePdfService,
-            IAsignationService asignationService,
             MyDbContext dbContext)
         {
             _maintenanceService = maintenanceService;
             _maintenancePdfService = maintenancePdfService;
-            _asignationService = asignationService;
             _dbContext = dbContext;
         }
 
@@ -61,7 +56,17 @@ namespace Gestor_Equipos.Controllers
                 return View(vm);
             }
 
-            await _maintenanceService.CreateAsync(vm);
+            try
+            {
+                await _maintenanceService.CreateAsync(vm);
+            }
+            catch (InvalidOperationException ex)
+            {
+                ModelState.AddModelError(string.Empty, ex.Message);
+                await PopulateDropdownsAsync();
+                return View(vm);
+            }
+
             return RedirectToAction("Details", "Desktop", new { id = vm.DesktopId });
         }
 
@@ -71,6 +76,7 @@ namespace Gestor_Equipos.Controllers
                 .Include(m => m.MaintenanceType)
                 .Include(m => m.Checklist)
                 .Include(m => m.Desktop)
+                .Include(m => m.EquipmentSnapshot)
                 .SingleOrDefaultAsync(m => m.Id == id);
 
             if (maintenance is null)
@@ -93,38 +99,19 @@ namespace Gestor_Equipos.Controllers
 
             if (maintenance.Category == MaintenanceCategory.Preventivo)
             {
-                var asignationHistory = await _asignationService.GetHistoryAsync(maintenance.DesktopId);
-                var currentAsignation = asignationHistory.FirstOrDefault();
-                var isDisponible = currentAsignation is not null && !currentAsignation.User.Activo;
-                vm.CurrentUserName = currentAsignation is null
-                    ? "Sin asignar"
-                    : isDisponible
-                        ? "Disponible"
-                        : $"{currentAsignation.User.Name} {currentAsignation.User.LastName}";
-                vm.CurrentAreaName = currentAsignation?.User.Area?.Name ?? "-";
+                // LOG-08: reads the snapshot captured at creation time (MaintenanceService.CreateAsync),
+                // not the desktop's current holder/peripherals — those can have changed since.
+                // Records created before this snapshot existed have no data to show; showing the
+                // *current* holder/equipment instead would misrepresent history, so it stays blank.
+                vm.CurrentUserName = maintenance.SnapshotHolderName ?? "Sin dato histórico";
+                vm.CurrentAreaName = maintenance.SnapshotHolderArea ?? "Sin dato histórico";
 
-                vm.Equipment.Add(new MaintenanceEquipmentRow
+                vm.Equipment.AddRange(maintenance.EquipmentSnapshot.Select(s => new MaintenanceEquipmentRow
                 {
-                    Label = "Desktop",
-                    Brand = maintenance.Desktop.Brand,
-                    Model = maintenance.Desktop.Model,
-                    Serial = maintenance.Desktop.SerialNumber
-                });
-
-                var peripherals = await _dbContext.Peripherals
-                    .Include(p => p.PeripheralType)
-                    .Where(p => p.DesktopId == maintenance.DesktopId
-                        && p.Estado
-                        && EquipmentPeripheralTypeNames.Contains(p.PeripheralType.Name))
-                    .OrderBy(p => p.PeripheralType.Name)
-                    .ToListAsync();
-
-                vm.Equipment.AddRange(peripherals.Select(p => new MaintenanceEquipmentRow
-                {
-                    Label = p.PeripheralType.Name,
-                    Brand = p.Brand,
-                    Model = p.Model,
-                    Serial = p.Serial
+                    Label = s.Label,
+                    Brand = s.Brand,
+                    Model = s.Model,
+                    Serial = s.Serial
                 }));
 
                 vm.Checklist = ChecklistItems

@@ -4,6 +4,12 @@
     var stats = (RemoteInventoryStatsViewModel)ViewBag.Stats;
     string? estadoFiltro = ViewBag.EstadoFiltro;
     string? searchTerm = ViewBag.SearchTerm;
+    string? error = ViewBag.Error;
+}
+
+@if (!string.IsNullOrWhiteSpace(error))
+{
+    <div class="alert alert-danger">@error</div>
 }
 
 <div class="section-header">
@@ -46,9 +52,9 @@
 <form method="get" class="app-toolbar">
     <div class="app-toolbar__search">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
-        <input type="search" name="search" value="@searchTerm" class="form-control" placeholder="Buscar por IP, usuario, aplicativo o equipo..." />
+        <input type="search" name="search" value="@searchTerm" class="form-control" placeholder="Buscar por IP, usuario, aplicativo o equipo..." aria-label="Buscar acceso remoto" />
     </div>
-    <select name="estado" class="form-select" style="max-width: 180px;" onchange="this.form.submit()">
+    <select name="estado" class="form-select" style="max-width: 180px;" onchange="this.form.submit()" aria-label="Filtrar por estado">
         <option value="" selected="@(string.IsNullOrEmpty(estadoFiltro))">Todos los estados</option>
         <option value="Asignado" selected="@(estadoFiltro == "Asignado")">Asignado</option>
         <option value="Disponible" selected="@(estadoFiltro == "Disponible")">Disponible</option>
@@ -102,8 +108,46 @@
                     </td>
                     <td>
                         <a asp-controller="Remote" asp-action="Details" asp-route-id="@item.Id">Ver detalle</a>
+                        @if (User.IsInRole("Administrador"))
+                        {
+                            <a asp-controller="Remote" asp-action="Edit" asp-route-id="@item.Id" class="ms-2">Editar</a>
+                            <button type="button" class="btn btn-sm btn-outline-danger ms-2" data-bs-toggle="modal" data-bs-target="#deleteRemoteModal-@item.Id">Eliminar</button>
+                        }
                     </td>
                 </tr>
+
+                @if (User.IsInRole("Administrador"))
+                {
+                    <div class="modal fade" id="deleteRemoteModal-@item.Id" tabindex="-1" aria-labelledby="deleteRemoteModalLabel-@item.Id" aria-hidden="true">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <form asp-controller="Remote" asp-action="Delete" asp-route-id="@item.Id" method="post">
+                                    @Html.AntiForgeryToken()
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="deleteRemoteModalLabel-@item.Id">Eliminar acceso remoto</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p>¿Desea eliminar este acceso remoto?</p>
+                                        @if (item.AssignedDesktops.Any())
+                                        {
+                                            <div class="alert alert-warning">Está asignado a uno o más equipos. Libéralo primero desde su detalle.</div>
+                                        }
+                                        <div class="mb-2">
+                                            <label class="form-label">Tu contraseña de Administrador</label>
+                                            <input type="password" name="adminPassword" class="form-control" autocomplete="current-password" required aria-label="Contraseña de administrador" />
+                                            <div class="form-text">Requerida únicamente para confirmar la eliminación.</div>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                        <button type="submit" class="btn btn-danger">Eliminar</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                }
             }
         </tbody>
     </table>

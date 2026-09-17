@@ -1,6 +1,7 @@
 using Gestor_Equipos.Data;
 using GestorEquipos.Models;
 using GestorEquipos.Models.ViewModels.License;
+using Microsoft.EntityFrameworkCore;
 
 namespace Gestor_Equipos.Services.Implementations
 {
@@ -13,8 +14,14 @@ namespace Gestor_Equipos.Services.Implementations
             _dbContext = dbContext;
         }
 
+        // LOG-09: see the matching comment on DesktopService.CreateAsync.
         public async Task<int> AddAsync(LicenseCreateViewModel vm)
         {
+            if (!await _dbContext.Desktops.AnyAsync(d => d.Id == vm.DesktopId))
+            {
+                throw new InvalidOperationException("El equipo seleccionado no existe.");
+            }
+
             var license = new License
             {
                 DesktopId = vm.DesktopId,

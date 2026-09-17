@@ -49,16 +49,25 @@
     </div>
 </div>
 
+@{
+    bool hasActiveFilter = !string.IsNullOrWhiteSpace(searchTerm) || estadoFiltro != null;
+}
+
 <form method="get" class="app-toolbar">
     <div class="app-toolbar__search">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
-        <input type="search" name="search" value="@searchTerm" class="form-control" placeholder="Buscar equipo..." />
+        <input type="search" name="search" value="@searchTerm" class="form-control" placeholder="Buscar equipo..." aria-label="Buscar equipo" />
     </div>
-    <select name="estado" class="form-select" style="max-width: 180px;" onchange="this.form.submit()">
+    <select name="estado" class="form-select" style="max-width: 180px;" onchange="this.form.submit()" aria-label="Filtrar por estado">
         <option value="" selected="@(estadoFiltro == null)">Todos</option>
         <option value="true" selected="@(estadoFiltro == true)">Activo</option>
         <option value="false" selected="@(estadoFiltro == false)">Inactivo / RAES</option>
     </select>
+    <button type="submit" class="btn-app-primary">Buscar</button>
+    @if (hasActiveFilter)
+    {
+        <a asp-controller="Desktop" asp-action="Index" class="btn btn-outline-secondary">Limpiar</a>
+    }
 </form>
 
 <div class="app-card">
@@ -96,6 +105,8 @@
 
     @if (!Model.Any())
     {
-        <p class="text-muted p-3 mb-0">No hay equipos registrados.</p>
+        <p class="text-muted p-3 mb-0">
+            @(hasActiveFilter ? "No se encontraron equipos que coincidan con la búsqueda." : "No hay equipos registrados.")
+        </p>
     }
 </div>

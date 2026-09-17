@@ -9,6 +9,7 @@ namespace Gestor_Equipos.Services
         Task<int> CreateUserAsync(UserCreateViewModel vm);
         Task UpdateUserAsync(int id, UserCreateViewModel vm);
         Task CreateLoginAsync(int userId, string username, string password, int rolId);
+        Task<int> CreateAccountAsync(UserCreateViewModel personVm, string username, string password, int rolId);
         Task UpdateAccountAsync(int userId, AccessAccountEditViewModel vm, int actingAdminUserSystemId);
         Task DeleteAccountAsync(int userId, int actingAdminUserSystemId, string? adminPassword);
         Task<List<Users>> GetAllAsync(bool includeInactive = false);

@@ -26,7 +26,7 @@ namespace Gestor_Equipos.Services.Implementations
                 .Include(us => us.Rol)
                 .SingleOrDefaultAsync(us => us.User.Email.ToLower() == normalizedEmail);
 
-            if (userSystem is null)
+            if (userSystem is null || !userSystem.User.Activo)
             {
                 return null;
             }
@@ -52,7 +52,8 @@ namespace Gestor_Equipos.Services.Implementations
                 userSystem.Id,
                 userSystem.User.Email,
                 $"{userSystem.User.Name} {userSystem.User.LastName}".Trim(),
-                userSystem.Rol.Name);
+                userSystem.Rol.Name,
+                userSystem.SecurityStamp);
         }
     }
 }

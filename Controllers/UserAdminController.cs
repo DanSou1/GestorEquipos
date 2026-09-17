@@ -25,6 +25,7 @@ namespace Gestor_Equipos.Controllers
         {
             var users = await _userAdminService.GetAllAsync(includeInactive: showInactive == true);
 
+            ViewBag.Error = TempData["Error"];
             ViewBag.TotalCount = users.Count;
             ViewBag.SearchTerm = search;
             ViewBag.ShowInactive = showInactive == true;
@@ -132,7 +133,15 @@ namespace Gestor_Equipos.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Deactivate(int id)
         {
-            await _userAdminService.DeactivateAsync(id);
+            try
+            {
+                await _userAdminService.DeactivateAsync(id);
+            }
+            catch (InvalidOperationException ex)
+            {
+                TempData["Error"] = ex.Message;
+            }
+
             return RedirectToAction(nameof(Index));
         }
 

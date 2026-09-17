@@ -433,3 +433,43 @@ body.app-shell {
   width: 100%;
   height: 240px;
 }
+
+/* ---------- Accessibility / responsive (UX-01, UX-03) ---------- */
+
+/* UX-03: tables inside .app-card can be wider than the card (long seriales, zoom, narrow
+   screens) — scroll horizontally inside the card instead of overflowing the page. */
+.app-card:has(> .app-table) {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* UX-01: the sidebar was a fixed 240px column with no narrow-screen handling, leaving very
+   little room for forms/tables on a phone and risking page-wide horizontal scroll. Stack it
+   above the content instead of beside it below this breakpoint. */
+@media (max-width: 768px) {
+  .app-layout {
+    flex-direction: column;
+  }
+
+  .app-sidebar {
+    width: 100%;
+    flex: 0 0 auto;
+    padding: 1rem 0;
+  }
+
+  .app-content {
+    padding: 1rem;
+  }
+
+  .app-footer {
+    padding: 1rem;
+  }
+
+  .charts-row {
+    grid-template-columns: 1fr;
+  }
+
+  .stat-card-row {
+    grid-template-columns: 1fr;
+  }
+}

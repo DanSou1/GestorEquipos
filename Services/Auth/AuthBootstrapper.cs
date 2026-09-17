@@ -10,7 +10,13 @@ namespace Gestor_Equipos.Services.Auth
         public const string AdministradorRoleName = "Administrador";
         public const string AuditorRoleName = "Auditor";
         public const string RaesUserEmail = "raes@system.local";
-        private const string RaesAreaAndRegionalName = "RAES";
+        // UX-06: distinct from RaesUserEmail — this represents "returned, equipment still in
+        // service" (Desktop.Estado stays true), not "retired". Activo=false so it's picked up
+        // for free by every existing "current holder inactive => Disponible" query, the same
+        // way the RAES trick is. No dedicated Area/Regional (unlike RAES): those columns just
+        // show "-", which is accurate — an unassigned desktop isn't "in" any area.
+        public const string UnassignedUserEmail = "sin-asignar@system.local";
+        public const string RaesAreaAndRegionalName = "RAES";
 
         public static async Task EnsureAdminAsync(IServiceProvider services, IConfiguration configuration)
         {
@@ -28,6 +34,7 @@ namespace Gestor_Equipos.Services.Auth
             await dbContext.SaveChangesAsync();
 
             await EnsureRaesUserAsync(dbContext);
+            await EnsureUnassignedUserAsync(dbContext);
             await dbContext.SaveChangesAsync();
 
             var email = configuration["BootstrapAdmin:Email"];
@@ -138,6 +145,23 @@ namespace Gestor_Equipos.Services.Auth
                 RegionalId = raesRegional.Id
             };
             dbContext.Users.Add(raesUser);
+        }
+
+        private static async Task EnsureUnassignedUserAsync(MyDbContext dbContext)
+        {
+            if (await dbContext.Users.AnyAsync(u => u.Email == UnassignedUserEmail))
+            {
+                return;
+            }
+
+            dbContext.Users.Add(new Users
+            {
+                Name = "Disponible",
+                LastName = "Sistema",
+                Email = UnassignedUserEmail,
+                EmailTeams = UnassignedUserEmail,
+                Activo = false
+            });
         }
     }
 }

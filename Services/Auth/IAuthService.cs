@@ -10,5 +10,6 @@ namespace Gestor_Equipos.Services.Auth
         int UserSystemId,
         string Email,
         string FullName,
-        string RoleName);
+        string RoleName,
+        Guid SecurityStamp);
 }

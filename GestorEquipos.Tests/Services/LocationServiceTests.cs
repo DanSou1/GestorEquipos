@@ -1,3 +1,4 @@
+using Gestor_Equipos.Services.Auth;
 using Gestor_Equipos.Services.Implementations;
 using GestorEquipos.Models;
 using Microsoft.AspNetCore.Identity;
@@ -88,6 +89,29 @@ namespace GestorEquipos.Tests.Services
             var service = CreateService(db);
 
             await Assert.ThrowsAsync<InvalidOperationException>(() => service.UpdateAreaAsync(999, "X"));
+        }
+
+        [Fact]
+        public async Task UpdateAreaAsync_RejectsEditingReservedRaesArea()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var service = CreateService(db);
+            var id = await service.CreateAreaAsync(AuthBootstrapper.RaesAreaAndRegionalName);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.UpdateAreaAsync(id, "Otro nombre"));
+        }
+
+        [Fact]
+        public async Task DeleteAreaAsync_RejectsDeletingReservedRaesArea()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var service = CreateService(db);
+            var adminUserSystemId = SeedAdminUserSystem(db, "admin-raes-area", "AdminPass1!");
+            var id = await service.CreateAreaAsync(AuthBootstrapper.RaesAreaAndRegionalName);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.DeleteAreaAsync(id, adminUserSystemId, "AdminPass1!"));
+
+            Assert.NotNull(await service.GetAreaByIdAsync(id));
         }
 
         [Fact]
@@ -206,6 +230,29 @@ namespace GestorEquipos.Tests.Services
 
             var regional = db.Regionals.Single(r => r.Id == id);
             Assert.Equal("Bogota D.C.", regional.Name);
+        }
+
+        [Fact]
+        public async Task UpdateRegionalAsync_RejectsEditingReservedRaesRegional()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var service = CreateService(db);
+            var id = await service.CreateRegionalAsync(AuthBootstrapper.RaesAreaAndRegionalName);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.UpdateRegionalAsync(id, "Otro nombre"));
+        }
+
+        [Fact]
+        public async Task DeleteRegionalAsync_RejectsDeletingReservedRaesRegional()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var service = CreateService(db);
+            var adminUserSystemId = SeedAdminUserSystem(db, "admin-raes-regional", "AdminPass1!");
+            var id = await service.CreateRegionalAsync(AuthBootstrapper.RaesAreaAndRegionalName);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.DeleteRegionalAsync(id, adminUserSystemId, "AdminPass1!"));
+
+            Assert.NotNull(await service.GetRegionalByIdAsync(id));
         }
 
         [Fact]

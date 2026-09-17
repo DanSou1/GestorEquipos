@@ -9,8 +9,9 @@ namespace Gestor_Equipos.Services
         Task<RemoteInventoryStatsViewModel> GetInventoryStatsAsync();
         Task<RemoteDetailViewModel?> GetDetailAsync(int id);
         Task<Remote?> GetByIdAsync(int id);
-        Task UpdateAsync(int id, RemoteEditViewModel vm);
-        Task ReleaseAsync(int id);
-        Task AssignToDesktopAsync(int remoteId, int desktopId);
+        Task UpdateAsync(int id, RemoteEditViewModel vm, int actingUserSystemId);
+        Task ReleaseAsync(int id, int actingUserSystemId);
+        Task AssignToDesktopAsync(int remoteId, int desktopId, int actingUserSystemId);
+        Task DeleteAsync(int id, int actingAdminUserSystemId, string? adminPassword);
     }
 }

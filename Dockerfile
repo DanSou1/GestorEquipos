@@ -19,9 +19,15 @@ WORKDIR /app
 RUN apt-get update \
     && apt-get install -y --no-install-recommends fontconfig fonts-liberation fonts-dejavu-core \
     && fc-cache -f \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --uid 1000 --create-home --shell /usr/sbin/nologin appuser
 
-COPY --from=build /app/publish .
+COPY --from=build --chown=appuser:appuser /app/publish .
+
+# OPS-04: run as a non-root user rather than the image's default root. The Data Protection
+# key ring (cookies/antiforgery) now persists under this user's home directory — the
+# dataprotection_keys volume mount in docker-compose.yml must match (see there).
+USER appuser
 
 ENV ASPNETCORE_URLS=http://+:8080
 ENV ASPNETCORE_ENVIRONMENT=Production

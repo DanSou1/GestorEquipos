@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 
 namespace Gestor_Equipos.Controllers
@@ -31,6 +32,7 @@ namespace Gestor_Equipos.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [EnableRateLimiting("login")]
         public async Task<IActionResult> LoginUser(LoginViewModel model)
         {
             if (!ModelState.IsValid)
@@ -51,7 +53,8 @@ namespace Gestor_Equipos.Controllers
                 new(ClaimTypes.Email, authenticatedUser.Email),
                 new(ClaimTypes.Name, authenticatedUser.FullName),
                 new(ClaimTypes.Role, authenticatedUser.RoleName),
-                new("UserId", authenticatedUser.UserId.ToString())
+                new("UserId", authenticatedUser.UserId.ToString()),
+                new(SessionCookieEvents.SecurityStampClaimType, authenticatedUser.SecurityStamp.ToString("D"))
             };
 
             var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);

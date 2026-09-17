@@ -66,6 +66,40 @@ namespace GestorEquipos.Migrations
                     b.ToTable("Asignation", (string)null);
                 });
 
+            modelBuilder.Entity("GestorEquipos.Models.AuditLogEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ActorDescription")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("ActorUserSystemId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TargetDescription")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTime>("TimestampUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AuditLogEntry", (string)null);
+                });
+
             modelBuilder.Entity("GestorEquipos.Models.Desktop", b =>
                 {
                     b.Property<int>("Id")
@@ -129,6 +163,9 @@ namespace GestorEquipos.Migrations
 
                     b.HasIndex("RemoteId");
 
+                    b.HasIndex("SerialNumber")
+                        .IsUnique();
+
                     b.ToTable("Desktop", (string)null);
                 });
 
@@ -187,6 +224,14 @@ namespace GestorEquipos.Migrations
                     b.Property<int>("MaintenanceTypeId")
                         .HasColumnType("int");
 
+                    b.Property<string>("SnapshotHolderArea")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("SnapshotHolderName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<string>("TechnicianName")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -242,6 +287,41 @@ namespace GestorEquipos.Migrations
                         .IsUnique();
 
                     b.ToTable("MaintenanceChecklist", (string)null);
+                });
+
+            modelBuilder.Entity("GestorEquipos.Models.MaintenanceEquipmentSnapshotItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Brand")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("MaintenanceId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Model")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Serial")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MaintenanceId");
+
+                    b.ToTable("MaintenanceEquipmentSnapshotItem", (string)null);
                 });
 
             modelBuilder.Entity("GestorEquipos.Models.MaintenanceType", b =>
@@ -567,6 +647,11 @@ namespace GestorEquipos.Migrations
                     b.Property<int>("RolId")
                         .HasColumnType("int");
 
+                    b.Property<Guid>("SecurityStamp")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWID()");
+
                     b.Property<int>("UserId")
                         .HasColumnType("int");
 
@@ -728,6 +813,17 @@ namespace GestorEquipos.Migrations
                     b.Navigation("Maintenance");
                 });
 
+            modelBuilder.Entity("GestorEquipos.Models.MaintenanceEquipmentSnapshotItem", b =>
+                {
+                    b.HasOne("GestorEquipos.Models.Maintenance", "Maintenance")
+                        .WithMany("EquipmentSnapshot")
+                        .HasForeignKey("MaintenanceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Maintenance");
+                });
+
             modelBuilder.Entity("GestorEquipos.Models.Peripheral", b =>
                 {
                     b.HasOne("GestorEquipos.Models.Desktop", "Desktop")
@@ -855,6 +951,8 @@ namespace GestorEquipos.Migrations
             modelBuilder.Entity("GestorEquipos.Models.Maintenance", b =>
                 {
                     b.Navigation("Checklist");
+
+                    b.Navigation("EquipmentSnapshot");
                 });
 
             modelBuilder.Entity("GestorEquipos.Models.MaintenanceType", b =>

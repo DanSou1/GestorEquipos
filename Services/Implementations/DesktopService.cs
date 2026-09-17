@@ -168,8 +168,26 @@ namespace Gestor_Equipos.Services.Implementations
             };
         }
 
+        // LOG-09: [Required] on an int only checks it was posted, not that the row exists —
+        // a stale form, deleted catalog entry, or manipulated request used to reach SQL as a raw
+        // FK violation (500). Validate existence up front and fail with a normal form error.
         public async Task<int> CreateAsync(DesktopCreateViewModel vm)
         {
+            if (!await _dbContext.OSVersions.AnyAsync(o => o.Id == vm.OSVersionId))
+            {
+                throw new InvalidOperationException("El sistema operativo seleccionado no existe.");
+            }
+
+            if (!await _dbContext.Rams.AnyAsync(r => r.Id == vm.RamId))
+            {
+                throw new InvalidOperationException("La RAM seleccionada no existe.");
+            }
+
+            if (await _dbContext.Desktops.AnyAsync(d => d.SerialNumber == vm.SerialNumber))
+            {
+                throw new InvalidOperationException("Ya existe un equipo registrado con ese serial.");
+            }
+
             var (remoteId, newRemote) = ResolveRemoteSelection(vm, currentRemoteId: null);
 
             var desktop = new Desktop
@@ -197,6 +215,21 @@ namespace Gestor_Equipos.Services.Implementations
         {
             var desktop = await _dbContext.Desktops.SingleOrDefaultAsync(d => d.Id == desktopId)
                 ?? throw new InvalidOperationException("Equipo no encontrado.");
+
+            if (!await _dbContext.OSVersions.AnyAsync(o => o.Id == vm.OSVersionId))
+            {
+                throw new InvalidOperationException("El sistema operativo seleccionado no existe.");
+            }
+
+            if (!await _dbContext.Rams.AnyAsync(r => r.Id == vm.RamId))
+            {
+                throw new InvalidOperationException("La RAM seleccionada no existe.");
+            }
+
+            if (await _dbContext.Desktops.AnyAsync(d => d.Id != desktopId && d.SerialNumber == vm.SerialNumber))
+            {
+                throw new InvalidOperationException("Ya existe un equipo registrado con ese serial.");
+            }
 
             var date = DateOnly.FromDateTime(DateTime.Now);
 
@@ -257,6 +290,11 @@ namespace Gestor_Equipos.Services.Implementations
             await _dbContext.SaveChangesAsync();
         }
 
+        // LOG-02: Estado=false used to be saved separately from the RAES reassignment. If the
+        // RAES pseudo-user was missing (or the reassignment failed for any other reason), the
+        // desktop was left inactive with no matching Asignation row — and retrying just no-op'd
+        // (Estado was already false) without ever creating the missing history. Resolve the RAES
+        // user before writing anything, and make the state flip + reassignment one transaction.
         public async Task DeactivateAsync(int desktopId)
         {
             var desktop = await _dbContext.Desktops.SingleOrDefaultAsync(d => d.Id == desktopId)
@@ -267,11 +305,18 @@ namespace Gestor_Equipos.Services.Implementations
                 return;
             }
 
-            desktop.Estado = false;
-            await _dbContext.SaveChangesAsync();
+            var raesUser = await _dbContext.Users.SingleOrDefaultAsync(u => u.Email == AuthBootstrapper.RaesUserEmail)
+                ?? throw new InvalidOperationException("No se encontró el usuario reservado RAES; no se puede dar de baja el equipo.");
 
-            var raesUser = await _dbContext.Users.SingleAsync(u => u.Email == AuthBootstrapper.RaesUserEmail);
-            await _asignationService.AssignAsync(desktopId, raesUser.Id);
+            var strategy = _dbContext.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                await using var transaction = await _dbContext.Database.BeginTransactionAsync();
+                desktop.Estado = false;
+                await _dbContext.SaveChangesAsync();
+                await _asignationService.AssignAsync(desktopId, raesUser.Id);
+                await transaction.CommitAsync();
+            });
         }
 
         public async Task DeleteAsync(int desktopId)

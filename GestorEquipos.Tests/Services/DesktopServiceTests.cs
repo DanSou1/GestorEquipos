@@ -390,6 +390,61 @@ namespace GestorEquipos.Tests.Services
         }
 
         [Fact]
+        public async Task CreateAsync_ThrowsWhenOSVersionIdDoesNotExist()
+        {
+            // LOG-09: creating an equipo with a stale/manipulated OSVersionId used to reach SQL
+            // as a raw FK violation (500) instead of a normal validation error.
+            using var db = TestHelpers.CreateDbContext();
+            var (_, _, _, ram) = SeedLookups(db);
+            var service = new DesktopService(db, new AsignationService(db));
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.CreateAsync(new DesktopCreateViewModel
+            {
+                NameDesktop = "PC-Bad-OS", SerialNumber = "SN-BADOS", Brand = "HP", Model = "Elite",
+                Processor = "i7", Disk = "512GB SSD", OSVersionId = 999999, RamId = ram.Id
+            }));
+
+            Assert.False(db.Desktops.Any(d => d.SerialNumber == "SN-BADOS"));
+        }
+
+        [Fact]
+        public async Task CreateAsync_ThrowsWhenRamIdDoesNotExist()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (_, _, os, _) = SeedLookups(db);
+            var service = new DesktopService(db, new AsignationService(db));
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.CreateAsync(new DesktopCreateViewModel
+            {
+                NameDesktop = "PC-Bad-Ram", SerialNumber = "SN-BADRAM", Brand = "HP", Model = "Elite",
+                Processor = "i7", Disk = "512GB SSD", OSVersionId = os.Id, RamId = 999999
+            }));
+
+            Assert.False(db.Desktops.Any(d => d.SerialNumber == "SN-BADRAM"));
+        }
+
+        [Fact]
+        public async Task CreateAsync_ThrowsOnDuplicateSerialNumber()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (_, _, os, ram) = SeedLookups(db);
+            var service = new DesktopService(db, new AsignationService(db));
+            await service.CreateAsync(new DesktopCreateViewModel
+            {
+                NameDesktop = "PC-First", SerialNumber = "SN-DUP", Brand = "HP", Model = "Elite",
+                Processor = "i7", Disk = "512GB SSD", OSVersionId = os.Id, RamId = ram.Id
+            });
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.CreateAsync(new DesktopCreateViewModel
+            {
+                NameDesktop = "PC-Second", SerialNumber = "SN-DUP", Brand = "HP", Model = "Elite",
+                Processor = "i7", Disk = "512GB SSD", OSVersionId = os.Id, RamId = ram.Id
+            }));
+
+            Assert.Single(db.Desktops.Where(d => d.SerialNumber == "SN-DUP"));
+        }
+
+        [Fact]
         public async Task UpdateSpecsAsync_LogsOnlyChangedFields()
         {
             using var db = TestHelpers.CreateDbContext();

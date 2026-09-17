@@ -22,8 +22,19 @@ namespace Gestor_Equipos.Services.Implementations
             _peripheralMaintenanceService = peripheralMaintenanceService;
         }
 
+        // LOG-09: see the matching comment on DesktopService.CreateAsync.
         public async Task<int> AddAsync(PeripheralCreateViewModel vm)
         {
+            if (!await _dbContext.Desktops.AnyAsync(d => d.Id == vm.DesktopId))
+            {
+                throw new InvalidOperationException("El equipo seleccionado no existe.");
+            }
+
+            if (!await _dbContext.PeripheralTypes.AnyAsync(t => t.Id == vm.PeripheralTypeId))
+            {
+                throw new InvalidOperationException("El tipo de periférico seleccionado no existe.");
+            }
+
             var peripheral = new Peripheral
             {
                 DesktopId = vm.DesktopId,
@@ -123,12 +134,47 @@ namespace Gestor_Equipos.Services.Implementations
             var peripheral = await _dbContext.Peripherals.SingleOrDefaultAsync(p => p.Id == id)
                 ?? throw new InvalidOperationException("Periférico no encontrado.");
 
+            if (!await _dbContext.PeripheralTypes.AnyAsync(t => t.Id == vm.PeripheralTypeId))
+            {
+                throw new InvalidOperationException("El tipo de periférico seleccionado no existe.");
+            }
+
+            // LOG-12: link an orphaned peripheral (DesktopId null — e.g. its Desktop was deleted)
+            // back onto an active equipo. Only this null -> value transition is allowed here;
+            // moving an already-linked peripheral to a different desktop is out of scope.
+            var wasOrphaned = peripheral.DesktopId is null;
+            if (wasOrphaned && vm.DesktopId.HasValue)
+            {
+                var targetDesktop = await _dbContext.Desktops.SingleOrDefaultAsync(d => d.Id == vm.DesktopId)
+                    ?? throw new InvalidOperationException("El equipo seleccionado no existe.");
+                if (!targetDesktop.Estado)
+                {
+                    throw new InvalidOperationException("No se puede vincular el periférico a un equipo dado de baja (RAES).");
+                }
+                peripheral.DesktopId = vm.DesktopId;
+            }
+
             peripheral.PeripheralTypeId = vm.PeripheralTypeId;
             peripheral.Brand = vm.Brand;
             peripheral.Model = vm.Model;
             peripheral.Serial = vm.Serial;
 
             await _dbContext.SaveChangesAsync();
+
+            if (wasOrphaned && peripheral.DesktopId.HasValue)
+            {
+                var currentDesktopHolder = await _dbContext.Asignations
+                    .Where(a => a.DesktopId == peripheral.DesktopId)
+                    .Include(a => a.User)
+                    .OrderByDescending(a => a.DateAsignation)
+                    .ThenByDescending(a => a.Id)
+                    .FirstOrDefaultAsync();
+
+                if (currentDesktopHolder is not null && currentDesktopHolder.User.Activo)
+                {
+                    await _peripheralAssignmentService.AssignAsync(peripheral.Id, currentDesktopHolder.UserId);
+                }
+            }
         }
 
         public async Task DeleteAsync(int id, int actingAdminUserSystemId, string? adminPassword)
@@ -154,6 +200,8 @@ namespace Gestor_Equipos.Services.Implementations
             await _dbContext.SaveChangesAsync();
         }
 
+        // LOG-02: see the matching comment on DesktopService.DeactivateAsync — same bug,
+        // same fix (resolve RAES user first, flip Estado + reassign in one transaction).
         public async Task RetireToRaesAsync(int id)
         {
             var peripheral = await _dbContext.Peripherals.SingleOrDefaultAsync(p => p.Id == id)
@@ -164,11 +212,18 @@ namespace Gestor_Equipos.Services.Implementations
                 return;
             }
 
-            peripheral.Estado = false;
-            await _dbContext.SaveChangesAsync();
+            var raesUser = await _dbContext.Users.SingleOrDefaultAsync(u => u.Email == AuthBootstrapper.RaesUserEmail)
+                ?? throw new InvalidOperationException("No se encontró el usuario reservado RAES; no se puede dar de baja el periférico.");
 
-            var raesUser = await _dbContext.Users.SingleAsync(u => u.Email == AuthBootstrapper.RaesUserEmail);
-            await _peripheralAssignmentService.AssignAsync(id, raesUser.Id);
+            var strategy = _dbContext.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                await using var transaction = await _dbContext.Database.BeginTransactionAsync();
+                peripheral.Estado = false;
+                await _dbContext.SaveChangesAsync();
+                await _peripheralAssignmentService.AssignAsync(id, raesUser.Id);
+                await transaction.CommitAsync();
+            });
         }
 
         public async Task<List<PeripheralInventoryItem>> GetInventoryAsync()

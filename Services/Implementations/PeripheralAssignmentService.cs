@@ -29,29 +29,57 @@ namespace Gestor_Equipos.Services.Implementations
                 throw new InvalidOperationException("No se puede asignar un periférico dado de baja (RAES).");
             }
 
-            var currentAssignment = await _dbContext.PeripheralAssignments
-                .Where(a => a.PeripheralId == peripheralId)
-                .Include(a => a.User)
-                .OrderByDescending(a => a.DateAsignation)
-                .ThenByDescending(a => a.Id)
-                .FirstOrDefaultAsync();
-
-            if (!isRaesAssignment && currentAssignment is not null && currentAssignment.User.Activo && currentAssignment.UserId != userId)
+            // LOG-04: see the matching comment on AsignationService.AssignAsync — the dropdown
+            // only offers active people, but the server must validate it too.
+            if (!isRaesAssignment)
             {
-                throw new InvalidOperationException(
-                    $"Este periférico ya está asignado a {currentAssignment.User.Name} {currentAssignment.User.LastName}. " +
-                    "Debe quedar Disponible antes de asignarlo a otra persona.");
+                var targetUser = await _dbContext.Users.SingleOrDefaultAsync(u => u.Id == userId)
+                    ?? throw new InvalidOperationException("La persona seleccionada no existe.");
+                if (!targetUser.Activo)
+                {
+                    throw new InvalidOperationException("No se puede asignar el periférico a una persona inactiva.");
+                }
             }
 
-            var assignment = new PeripheralAssignment
+            // LOG-05: see the matching comment on AsignationService.AssignAsync.
+            async Task CheckAndInsertAsync()
             {
-                PeripheralId = peripheralId,
-                UserId = userId,
-                DateAsignation = DateOnly.FromDateTime(DateTime.Now)
-            };
+                var currentAssignment = await _dbContext.PeripheralAssignments
+                    .Where(a => a.PeripheralId == peripheralId)
+                    .Include(a => a.User)
+                    .OrderByDescending(a => a.DateAsignation)
+                    .ThenByDescending(a => a.Id)
+                    .FirstOrDefaultAsync();
 
-            _dbContext.PeripheralAssignments.Add(assignment);
-            await _dbContext.SaveChangesAsync();
+                if (!isRaesAssignment && currentAssignment is not null && currentAssignment.User.Activo && currentAssignment.UserId != userId)
+                {
+                    throw new InvalidOperationException(
+                        $"Este periférico ya está asignado a {currentAssignment.User.Name} {currentAssignment.User.LastName}. " +
+                        "Debe quedar Disponible antes de asignarlo a otra persona.");
+                }
+
+                _dbContext.PeripheralAssignments.Add(new PeripheralAssignment
+                {
+                    PeripheralId = peripheralId,
+                    UserId = userId,
+                    DateAsignation = DateOnly.FromDateTime(DateTime.Now)
+                });
+                await _dbContext.SaveChangesAsync();
+            }
+
+            if (_dbContext.Database.CurrentTransaction is not null)
+            {
+                await CheckAndInsertAsync();
+                return;
+            }
+
+            var strategy = _dbContext.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                await using var transaction = await _dbContext.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+                await CheckAndInsertAsync();
+                await transaction.CommitAsync();
+            });
         }
 
         public async Task<List<PeripheralAssignment>> GetHistoryAsync(int peripheralId)
