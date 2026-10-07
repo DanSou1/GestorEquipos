@@ -10,6 +10,7 @@ public class MyDbContext : DbContext
     }
 
     public DbSet<Desktop> Desktops { get; set; }
+    public DbSet<DesktopType> DesktopTypes { get; set; }
     public DbSet<Users> Users { get; set; }
     public DbSet<UserSystem> UserSystems { get; set; }
     public DbSet<Area> Areas { get; set; }
@@ -30,6 +31,11 @@ public class MyDbContext : DbContext
     public DbSet<License> Licenses { get; set; }
     public DbSet<SpecChangeLog> SpecChangeLogs { get; set; }
     public DbSet<AuditLogEntry> AuditLogEntries { get; set; }
+    public DbSet<Cargo> Cargos { get; set; }
+    public DbSet<CargoAssignment> CargoAssignments { get; set; }
+    public DbSet<MaintenanceCampaignItem> MaintenanceCampaignItems { get; set; }
+    public DbSet<TipoCaso> TiposCaso { get; set; }
+    public DbSet<CasoTI> CasosTI { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -37,6 +43,7 @@ public class MyDbContext : DbContext
 
         // Configure table names
         modelBuilder.Entity<Desktop>().ToTable("Desktop");
+        modelBuilder.Entity<DesktopType>().ToTable("DesktopType");
         modelBuilder.Entity<Users>().ToTable("Users");
         modelBuilder.Entity<UserSystem>().ToTable("UserSystem");
         modelBuilder.Entity<Area>().ToTable("Area");
@@ -60,6 +67,11 @@ public class MyDbContext : DbContext
         modelBuilder.Entity<License>().ToTable("License");
         modelBuilder.Entity<SpecChangeLog>().ToTable("SpecChangeLog");
         modelBuilder.Entity<AuditLogEntry>().ToTable("AuditLogEntry");
+        modelBuilder.Entity<Cargo>().ToTable("Cargo");
+        modelBuilder.Entity<CargoAssignment>().ToTable("CargoAssignment");
+        modelBuilder.Entity<MaintenanceCampaignItem>().ToTable("MaintenanceCampaignItem");
+        modelBuilder.Entity<TipoCaso>().ToTable("TipoCaso");
+        modelBuilder.Entity<CasoTI>().ToTable("CasoTI");
 
         modelBuilder.Entity<Users>()
             .HasIndex(u => u.Email)
@@ -85,8 +97,20 @@ public class MyDbContext : DbContext
             .HasIndex(pt => pt.Name)
             .IsUnique();
 
+        modelBuilder.Entity<DesktopType>()
+            .HasIndex(dt => new { dt.Brand, dt.Model })
+            .IsUnique();
+
         modelBuilder.Entity<MaintenanceType>()
             .HasIndex(mt => mt.Type)
+            .IsUnique();
+
+        modelBuilder.Entity<TipoCaso>()
+            .HasIndex(t => t.Nombre)
+            .IsUnique();
+
+        modelBuilder.Entity<CasoTI>()
+            .HasIndex(c => c.RatingToken)
             .IsUnique();
 
         modelBuilder.Entity<MaintenanceChecklist>()
@@ -106,6 +130,12 @@ public class MyDbContext : DbContext
         modelBuilder.Entity<Desktop>()
             .Property(d => d.Estado)
             .HasDefaultValue(true);
+
+        // Evita duplicar un ítem de campaña para el mismo equipo en el mismo período —
+        // ver MaintenanceCampaignService.SyncOpenPeriodsAsync.
+        modelBuilder.Entity<MaintenanceCampaignItem>()
+            .HasIndex(c => new { c.DesktopId, c.PeriodYear, c.PeriodMonth })
+            .IsUnique();
 
         modelBuilder.Entity<Users>()
             .Property(u => u.Activo)
@@ -139,6 +169,12 @@ public class MyDbContext : DbContext
             .WithMany(u => u.UserSystems)
             .HasForeignKey(us => us.UserId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Desktop>()
+            .HasOne(d => d.DesktopType)
+            .WithMany(dt => dt.Desktops)
+            .HasForeignKey(d => d.DesktopTypeId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Desktop>()
             .HasOne(d => d.OSVersion)
@@ -175,12 +211,6 @@ public class MyDbContext : DbContext
             .WithMany(d => d.Maintenances)
             .HasForeignKey(m => m.DesktopId)
             .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<Maintenance>()
-            .HasOne(m => m.MaintenanceType)
-            .WithMany(mt => mt.Maintenances)
-            .HasForeignKey(m => m.MaintenanceTypeId)
-            .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<MaintenanceChecklist>()
             .HasOne(c => c.Maintenance)
@@ -246,6 +276,56 @@ public class MyDbContext : DbContext
             .HasOne(s => s.ChangedByUserSystem)
             .WithMany()
             .HasForeignKey(s => s.ChangedByUserSystemId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<CargoAssignment>()
+            .HasOne(a => a.User)
+            .WithMany(u => u.CargoAssignments)
+            .HasForeignKey(a => a.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<CargoAssignment>()
+            .HasOne(a => a.Cargo)
+            .WithMany(c => c.Assignments)
+            .HasForeignKey(a => a.CargoId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Restrict (no Cascade): es un registro de auditoría/seguimiento, no debe
+        // desaparecer en silencio si el Desktop se borra — ver DesktopService.DeleteAsync.
+        modelBuilder.Entity<MaintenanceCampaignItem>()
+            .HasOne(c => c.Desktop)
+            .WithMany()
+            .HasForeignKey(c => c.DesktopId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<MaintenanceCampaignItem>()
+            .HasOne(c => c.Maintenance)
+            .WithMany()
+            .HasForeignKey(c => c.MaintenanceId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<MaintenanceCampaignItem>()
+            .HasOne(c => c.SignedPdfUploadedByUserSystem)
+            .WithMany()
+            .HasForeignKey(c => c.SignedPdfUploadedByUserSystemId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<CasoTI>()
+            .HasOne(c => c.Tecnico)
+            .WithMany()
+            .HasForeignKey(c => c.TecnicoUserSystemId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<CasoTI>()
+            .HasOne(c => c.Persona)
+            .WithMany()
+            .HasForeignKey(c => c.PersonaUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<CasoTI>()
+            .HasOne(c => c.TipoCaso)
+            .WithMany(t => t.Casos)
+            .HasForeignKey(c => c.TipoCasoId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

@@ -1,0 +1,25 @@
+@model GestorEquipos.Models.ViewModels.TipoCaso.TipoCasoEditViewModel
+@{
+    ViewData["Title"] = "Editar tipo de caso";
+}
+
+<h1>Editar tipo de caso</h1>
+
+<form asp-controller="TipoCaso" asp-action="Edit" asp-route-id="@Model.Id" method="post">
+    @Html.AntiForgeryToken()
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+    <input type="hidden" asp-for="Id" />
+
+    <div class="mb-3">
+        <label asp-for="Nombre" class="form-label">Nombre (ej. Soporte de impresora, Problema de red)</label>
+        <input asp-for="Nombre" class="form-control" />
+        <span asp-validation-for="Nombre" class="text-danger"></span>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Guardar</button>
+    <a asp-controller="TipoCaso" asp-action="Index" class="btn btn-link">Cancelar</a>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

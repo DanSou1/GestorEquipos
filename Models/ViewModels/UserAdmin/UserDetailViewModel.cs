@@ -11,11 +11,19 @@ namespace GestorEquipos.Models.ViewModels.UserAdmin
         public string RegionalName { get; set; } = string.Empty;
         public string? Username { get; set; }
         public string? RolName { get; set; }
+        public string? CargoName { get; set; }
         public bool Activo { get; set; } = true;
         public DateOnly? DeactivatedAt { get; set; }
 
         public List<AssignedDesktopItem> CurrentDesktops { get; set; } = new();
         public List<UserAsignationHistoryItem> AsignationHistory { get; set; } = new();
+        public List<UserCargoHistoryItem> CargoHistory { get; set; } = new();
+    }
+
+    public class UserCargoHistoryItem
+    {
+        public string CargoName { get; set; } = string.Empty;
+        public DateOnly DateAsignation { get; set; }
     }
 
     public class AssignedDesktopItem

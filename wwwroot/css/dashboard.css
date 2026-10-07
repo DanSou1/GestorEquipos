@@ -3,6 +3,7 @@
 
 :root {
   --sidebar-width: 240px;
+  --sidebar-width-collapsed: 76px;
   --color-navy-900: #0e2547;
   --color-navy-800: #15315f;
   --color-navy-700: #1c3d73;
@@ -40,6 +41,8 @@ body.app-shell {
   display: flex;
   flex-direction: column;
   padding: 1.5rem 0;
+  overflow: hidden;
+  transition: width 0.25s ease, flex-basis 0.25s ease;
 }
 
 .app-sidebar__logo {
@@ -51,6 +54,14 @@ body.app-shell {
 .app-sidebar__logo img {
   max-width: 100%;
   height: auto;
+  transition: max-width 0.25s ease;
+}
+
+.app-sidebar__nav-label {
+  white-space: nowrap;
+  overflow: hidden;
+  opacity: 1;
+  transition: opacity 0.15s ease;
 }
 
 .app-sidebar__profile {
@@ -120,6 +131,83 @@ body.app-shell {
   flex-shrink: 0;
 }
 
+/* ---------- Sidebar collapsible submenu (Equipos > Tipos de equipo / Tipos de
+   mantenimiento, Periféricos > Tipos de periférico) ---------- */
+
+.app-sidebar__nav-row {
+  display: flex;
+  align-items: stretch;
+}
+
+.app-sidebar__nav-row .app-sidebar__nav-link {
+  flex: 1 1 auto;
+}
+
+.app-sidebar__nav-chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  border-left: 3px solid transparent;
+  color: #b9c9e8;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.app-sidebar__nav-chevron:hover {
+  background-color: var(--color-navy-800);
+  color: #ffffff;
+}
+
+.app-sidebar__nav-chevron svg {
+  transition: transform 0.2s ease;
+}
+
+.app-sidebar__nav-group.is-expanded .app-sidebar__nav-chevron svg {
+  transform: rotate(180deg);
+}
+
+.app-sidebar__submenu {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.2s ease;
+}
+
+.app-sidebar__nav-group.is-expanded .app-sidebar__submenu {
+  max-height: 20rem;
+}
+
+.app-sidebar__submenu-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 1.25rem 0.55rem 2.75rem;
+  color: #b9c9e8;
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border-left: 3px solid transparent;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.app-sidebar__submenu-link:hover {
+  background-color: var(--color-navy-800);
+  color: #ffffff;
+}
+
+.app-sidebar__submenu-link.active {
+  background-color: var(--color-navy-800);
+  color: #ffffff;
+  border-left-color: var(--color-accent-green);
+}
+
 .app-sidebar__footer {
   padding: 0.5rem 1.25rem 0;
   border-top: 1px solid var(--color-navy-700);
@@ -143,6 +231,96 @@ body.app-shell {
 
 .app-sidebar__logout:hover {
   color: #ffffff;
+}
+
+/* ---------- Sidebar collapsed (desktop icon rail only — scoped so a stale localStorage
+   preference can never fight the mobile off-canvas rules below 769px). ---------- */
+
+@media (min-width: 769px) {
+  html.sidebar-collapsed .app-sidebar {
+    width: var(--sidebar-width-collapsed);
+    flex-basis: var(--sidebar-width-collapsed);
+  }
+
+  html.sidebar-collapsed .app-sidebar__logo img {
+    max-width: 36px;
+  }
+
+  html.sidebar-collapsed .app-sidebar__nav-label {
+    opacity: 0;
+    width: 0;
+  }
+
+  html.sidebar-collapsed .app-sidebar__profile {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  html.sidebar-collapsed .app-sidebar__nav-link,
+  html.sidebar-collapsed .app-sidebar__logout {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  html.sidebar-collapsed .app-sidebar__nav-chevron,
+  html.sidebar-collapsed .app-sidebar__submenu {
+    display: none;
+  }
+
+  html.sidebar-collapsed .app-main::before {
+    left: var(--sidebar-width-collapsed);
+  }
+}
+
+/* ---------- Topbar (hamburger toggle) ---------- */
+
+.app-topbar {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 2rem 0;
+}
+
+.app-topbar__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background-color: #ffffff;
+  color: var(--color-navy-900);
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.app-topbar__toggle:hover {
+  background-color: var(--color-bg-app);
+  border-color: var(--color-navy-700);
+}
+
+.app-topbar__toggle:focus-visible {
+  outline: 2px solid var(--color-accent-blue);
+  outline-offset: 2px;
+}
+
+/* ---------- Mobile off-canvas backdrop ---------- */
+
+.app-sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+  z-index: 1040;
+}
+
+html.sidebar-mobile-open .app-sidebar-backdrop {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 /* ---------- Main content ---------- */
@@ -169,6 +347,7 @@ body.app-shell {
   opacity: 0.05;
   pointer-events: none;
   z-index: -1;
+  transition: left 0.25s ease;
 }
 
 .app-content {
@@ -444,17 +623,30 @@ body.app-shell {
 }
 
 /* UX-01: the sidebar was a fixed 240px column with no narrow-screen handling, leaving very
-   little room for forms/tables on a phone and risking page-wide horizontal scroll. Stack it
-   above the content instead of beside it below this breakpoint. */
+   little room for forms/tables on a phone and risking page-wide horizontal scroll. Below this
+   breakpoint it's an off-canvas panel hidden by default (position: fixed takes it out of the
+   flex flow, so .app-main fills the width on its own) and slides in over the content when the
+   hamburger toggle opens it. */
 @media (max-width: 768px) {
-  .app-layout {
-    flex-direction: column;
-  }
-
   .app-sidebar {
-    width: 100%;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(280px, 85vw);
     flex: 0 0 auto;
     padding: 1rem 0;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    z-index: 1050;
+  }
+
+  html.sidebar-mobile-open .app-sidebar {
+    transform: translateX(0);
+  }
+
+  .app-sidebar__logo img {
+    max-width: 120px;
   }
 
   .app-content {

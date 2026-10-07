@@ -27,15 +27,9 @@ namespace Gestor_Equipos.Services.Implementations
                 throw new InvalidOperationException("El equipo seleccionado no existe.");
             }
 
-            if (!await _dbContext.MaintenanceTypes.AnyAsync(t => t.Id == vm.MaintenanceTypeId))
-            {
-                throw new InvalidOperationException("El tipo de mantenimiento seleccionado no existe.");
-            }
-
             var maintenance = new Maintenance
             {
                 DesktopId = vm.DesktopId,
-                MaintenanceTypeId = vm.MaintenanceTypeId,
                 Category = vm.Category,
                 Date = vm.Date,
                 Description = vm.Description,
@@ -70,12 +64,14 @@ namespace Gestor_Equipos.Services.Implementations
                         : $"{currentAsignation.User.Name} {currentAsignation.User.LastName}";
                 maintenance.SnapshotHolderArea = currentAsignation?.User.Area?.Name ?? "-";
 
-                var desktop = await _dbContext.Desktops.SingleAsync(d => d.Id == vm.DesktopId);
+                var desktop = await _dbContext.Desktops
+                    .Include(d => d.DesktopType)
+                    .SingleAsync(d => d.Id == vm.DesktopId);
                 maintenance.EquipmentSnapshot.Add(new MaintenanceEquipmentSnapshotItem
                 {
                     Label = "Desktop",
-                    Brand = desktop.Brand,
-                    Model = desktop.Model,
+                    Brand = desktop.DesktopType.Brand,
+                    Model = desktop.DesktopType.Model,
                     Serial = desktop.SerialNumber
                 });
 

@@ -13,20 +13,23 @@
     <h1>@Model.NameDesktop</h1>
     <div class="d-flex align-items-center gap-2">
         <span class="badge @(Model.Estado ? "bg-success" : "bg-secondary") fs-6">@(Model.Estado ? "Activo" : "Inactivo")</span>
-        @if (User.IsInRole("Administrador"))
+        @if (User.IsInRole("Administrador") || User.IsInRole("Técnico en Sistemas"))
         {
-            <a asp-controller="Desktop" asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-secondary">Editar</a>
             @if (Model.Estado)
             {
                 <a asp-controller="Desktop" asp-action="Assign" asp-route-desktopId="@Model.Id" class="btn btn-sm btn-outline-primary">Asignar</a>
                 <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deactivateDesktopModal">Enviar a RAES</button>
             }
+        }
+        @if (User.IsInRole("Administrador"))
+        {
+            <a asp-controller="Desktop" asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-secondary">Editar</a>
             <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteDesktopModal">Eliminar</button>
         }
     </div>
 </div>
 
-@if (User.IsInRole("Administrador"))
+@if (User.IsInRole("Administrador") || User.IsInRole("Técnico en Sistemas"))
 {
     @if (Model.Estado && Model.CurrentUserName != "Disponible" && Model.CurrentUserName != "Sin asignar")
     {
@@ -76,7 +79,10 @@
             </div>
         </div>
     }
+}
 
+@if (User.IsInRole("Administrador"))
+{
     <div class="modal fade" id="deleteDesktopModal" tabindex="-1" aria-labelledby="deleteDesktopModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -123,7 +129,7 @@
                     else
                     {
                         @:RDP — @Model.RemoteAccess.IPAddress:@Model.RemoteAccess.Port (@Model.RemoteAccess.Username)
-                        @if (User.IsInRole("Administrador"))
+                        @if (User.IsInRole("Administrador") || User.IsInRole("Técnico en Sistemas"))
                         {
                             <button type="button" class="btn btn-sm btn-link p-0 ms-1" id="toggleRemotePassword" data-password="@Model.RemoteAccess.Password">mostrar clave</button>
                             <span id="remotePasswordValue" class="ms-1 text-muted"></span>
@@ -140,7 +146,7 @@
         <div class="card mb-3">
             <div class="card-header d-flex justify-content-between align-items-center">
                 Asignación actual
-                @if (Model.Estado && Model.CurrentUserName != "Disponible" && Model.CurrentUserName != "Sin asignar" && User.IsInRole("Administrador"))
+                @if (Model.Estado && Model.CurrentUserName != "Disponible" && Model.CurrentUserName != "Sin asignar" && (User.IsInRole("Administrador") || User.IsInRole("Técnico en Sistemas")))
                 {
                     <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#returnDesktopModal">Devolver</button>
                 }
@@ -176,7 +182,7 @@
         <div class="card mb-3">
             <div class="card-header d-flex justify-content-between align-items-center">
                 Licencias
-                @if (User.IsInRole("Administrador"))
+                @if (User.IsInRole("Administrador") || User.IsInRole("Técnico en Sistemas"))
                 {
                     <a asp-controller="License" asp-action="Create" asp-route-desktopId="@Model.Id" class="btn btn-sm btn-outline-primary">Agregar licencia</a>
                 }
@@ -208,7 +214,7 @@
         <div class="card mb-3">
             <div class="card-header d-flex justify-content-between align-items-center">
                 Periféricos
-                @if (User.IsInRole("Administrador"))
+                @if (User.IsInRole("Administrador") || User.IsInRole("Técnico en Sistemas"))
                 {
                     <a asp-controller="Peripheral" asp-action="Create" asp-route-desktopId="@Model.Id" class="btn btn-sm btn-outline-primary">Agregar periférico</a>
                 }
@@ -228,14 +234,17 @@
                                 <span class="badge @(p.Estado == "Activo" ? "bg-success" : p.Estado == "Raes" ? "bg-dark" : "bg-secondary")">@p.Estado</span>
                                 <a asp-controller="Peripheral" asp-action="Details" asp-route-id="@p.Id" class="ms-2 small">Ver detalle</a>
                             </div>
-                            @if (User.IsInRole("Administrador"))
+                            @if (User.IsInRole("Administrador") || User.IsInRole("Técnico en Sistemas"))
                             {
                                 <div class="d-flex flex-column align-items-end gap-1">
                                     <a asp-controller="Peripheral" asp-action="Reassign" asp-route-peripheralId="@p.Id" class="btn btn-sm btn-outline-primary">Reasignar</a>
-                                    <div>
-                                        <a asp-controller="Peripheral" asp-action="Edit" asp-route-id="@p.Id" class="btn btn-sm btn-link p-0">Editar</a>
-                                        <button type="button" class="btn btn-sm btn-link p-0 text-danger ms-2" data-bs-toggle="modal" data-bs-target="#deletePeripheralModal-@p.Id">Eliminar</button>
-                                    </div>
+                                    @if (User.IsInRole("Administrador"))
+                                    {
+                                        <div>
+                                            <a asp-controller="Peripheral" asp-action="Edit" asp-route-id="@p.Id" class="btn btn-sm btn-link p-0">Editar</a>
+                                            <button type="button" class="btn btn-sm btn-link p-0 text-danger ms-2" data-bs-toggle="modal" data-bs-target="#deletePeripheralModal-@p.Id">Eliminar</button>
+                                        </div>
+                                    }
                                 </div>
                             }
                         </div>
@@ -281,7 +290,7 @@
         <div class="card mb-3">
             <div class="card-header d-flex justify-content-between align-items-center">
                 Historial de mantenimiento
-                @if (User.IsInRole("Administrador"))
+                @if (User.IsInRole("Administrador") || User.IsInRole("Técnico en Sistemas"))
                 {
                     <a asp-controller="Maintenance" asp-action="Create" asp-route-desktopId="@Model.Id" class="btn btn-sm btn-outline-primary">Registrar mantenimiento</a>
                 }
@@ -291,7 +300,7 @@
                 {
                     <li class="list-group-item">
                         <div class="d-flex justify-content-between">
-                            <strong>@m.MaintenanceTypeName</strong>
+                            <strong>@(m.Category == MaintenanceCategory.Preventivo ? "Preventivo" : "Correctivo")</strong>
                             <span class="text-muted">@m.Date.ToString("yyyy-MM-dd")</span>
                         </div>
                         <div>@m.Description</div>
@@ -336,7 +345,7 @@
     <a asp-controller="Desktop" asp-action="DownloadPdf" asp-route-id="@Model.Id" class="btn btn-outline-primary">Descargar PDF</a>
 </div>
 
-@if (User.IsInRole("Administrador") && Model.RemoteAccess is { ConnectionType: RemoteConnectionType.EscritorioRemotoWindows })
+@if ((User.IsInRole("Administrador") || User.IsInRole("Técnico en Sistemas")) && Model.RemoteAccess is { ConnectionType: RemoteConnectionType.EscritorioRemotoWindows })
 {
     @section Scripts {
         <script>

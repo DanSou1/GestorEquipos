@@ -13,10 +13,13 @@
 
 <div class="section-header">
     <h1>Áreas</h1>
-    <a asp-controller="Location" asp-action="CreateArea" class="btn-app-primary">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-        Nueva área
-    </a>
+    @if (User.IsInRole("Administrador"))
+    {
+        <a asp-controller="Location" asp-action="CreateArea" class="btn-app-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+            Nueva área
+        </a>
+    }
 </div>
 
 <div class="app-card mb-4">
@@ -33,12 +36,17 @@
                 <tr>
                     <td>@a.Name</td>
                     <td>
-                        <a asp-controller="Location" asp-action="EditArea" asp-route-id="@a.Id">Editar</a>
-                        <button type="button" class="btn btn-sm btn-outline-danger ms-2" data-bs-toggle="modal" data-bs-target="#deleteAreaModal-@a.Id">Eliminar</button>
+                        @if (User.IsInRole("Administrador"))
+                        {
+                            <a asp-controller="Location" asp-action="EditArea" asp-route-id="@a.Id">Editar</a>
+                            <button type="button" class="btn btn-sm btn-outline-danger ms-2" data-bs-toggle="modal" data-bs-target="#deleteAreaModal-@a.Id">Eliminar</button>
+                        }
                     </td>
                 </tr>
 
-                <div class="modal fade" id="deleteAreaModal-@a.Id" tabindex="-1" aria-labelledby="deleteAreaModalLabel-@a.Id" aria-hidden="true">
+                @if (User.IsInRole("Administrador"))
+                {
+                    <div class="modal fade" id="deleteAreaModal-@a.Id" tabindex="-1" aria-labelledby="deleteAreaModalLabel-@a.Id" aria-hidden="true">
                     <div class="modal-dialog">
                         <div class="modal-content">
                             <form asp-controller="Location" asp-action="DeleteArea" asp-route-id="@a.Id" method="post">
@@ -64,6 +72,7 @@
                         </div>
                     </div>
                 </div>
+                }
             }
         </tbody>
     </table>
@@ -76,10 +85,13 @@
 
 <div class="section-header">
     <h1>Regionales</h1>
-    <a asp-controller="Location" asp-action="CreateRegional" class="btn-app-primary">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-        Nueva regional
-    </a>
+    @if (User.IsInRole("Administrador"))
+    {
+        <a asp-controller="Location" asp-action="CreateRegional" class="btn-app-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+            Nueva regional
+        </a>
+    }
 </div>
 
 <div class="app-card">
@@ -96,12 +108,17 @@
                 <tr>
                     <td>@r.Name</td>
                     <td>
-                        <a asp-controller="Location" asp-action="EditRegional" asp-route-id="@r.Id">Editar</a>
-                        <button type="button" class="btn btn-sm btn-outline-danger ms-2" data-bs-toggle="modal" data-bs-target="#deleteRegionalModal-@r.Id">Eliminar</button>
+                        @if (User.IsInRole("Administrador"))
+                        {
+                            <a asp-controller="Location" asp-action="EditRegional" asp-route-id="@r.Id">Editar</a>
+                            <button type="button" class="btn btn-sm btn-outline-danger ms-2" data-bs-toggle="modal" data-bs-target="#deleteRegionalModal-@r.Id">Eliminar</button>
+                        }
                     </td>
                 </tr>
 
-                <div class="modal fade" id="deleteRegionalModal-@r.Id" tabindex="-1" aria-labelledby="deleteRegionalModalLabel-@r.Id" aria-hidden="true">
+                @if (User.IsInRole("Administrador"))
+                {
+                    <div class="modal fade" id="deleteRegionalModal-@r.Id" tabindex="-1" aria-labelledby="deleteRegionalModalLabel-@r.Id" aria-hidden="true">
                     <div class="modal-dialog">
                         <div class="modal-content">
                             <form asp-controller="Location" asp-action="DeleteRegional" asp-route-id="@r.Id" method="post">
@@ -127,6 +144,7 @@
                         </div>
                     </div>
                 </div>
+                }
             }
         </tbody>
     </table>

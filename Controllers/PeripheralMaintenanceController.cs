@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Gestor_Equipos.Controllers
 {
-    [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
+    [Authorize(Roles = AuthBootstrapper.AdminOrTecnicoRoles)]
     public class PeripheralMaintenanceController : Controller
     {
         private readonly IPeripheralMaintenanceService _peripheralMaintenanceService;

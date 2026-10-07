@@ -26,7 +26,7 @@ namespace Gestor_Equipos.Controllers
         public async Task<IActionResult> Index()
         {
             ViewBag.Error = TempData["Error"];
-            var accounts = await _userAdminService.GetAccountsAsync();
+            var accounts = await _userAdminService.GetAccountsAsync(HttpContext.RequestAborted);
             return View(accounts);
         }
 

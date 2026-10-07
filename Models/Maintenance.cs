@@ -8,9 +8,6 @@ namespace GestorEquipos.Models
         [Key]
         public int Id { get; set; }
         [Required]
-        [ForeignKey("MaintenanceType")]
-        public int MaintenanceTypeId { get; set; }
-        [Required]
         [ForeignKey("Desktop")]
         public int DesktopId { get; set; }
         [Required]
@@ -32,7 +29,6 @@ namespace GestorEquipos.Models
         public string? SnapshotHolderArea { get; set; }
 
         // Navigation properties
-        public MaintenanceType MaintenanceType { get; set; }
         public Desktop Desktop { get; set; }
         public MaintenanceChecklist? Checklist { get; set; }
         public ICollection<MaintenanceEquipmentSnapshotItem> EquipmentSnapshot { get; set; } = new List<MaintenanceEquipmentSnapshotItem>();
@@ -52,7 +48,6 @@ namespace GestorEquipos.Models
         [MaxLength(100)]
         public string Type { get; set; }
 
-        public ICollection<Maintenance> Maintenances { get; set; } = new List<Maintenance>();
         public ICollection<PeripheralMaintenance> PeripheralMaintenances { get; set; } = new List<PeripheralMaintenance>();
     }
 }

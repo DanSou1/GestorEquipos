@@ -6,6 +6,6 @@ namespace Gestor_Equipos.Services
     public interface IPeripheralMaintenanceService
     {
         Task<int> CreateAsync(PeripheralMaintenanceCreateViewModel vm);
-        Task<List<PeripheralMaintenance>> GetByPeripheralAsync(int peripheralId);
+        Task<List<PeripheralMaintenance>> GetByPeripheralAsync(int peripheralId, CancellationToken cancellationToken = default);
     }
 }

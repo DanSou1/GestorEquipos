@@ -1,20 +1,85 @@
+@model GestorEquipos.Models.ViewModels.Desktop.DesktopAssignViewModel
 @{
     ViewData["Title"] = "Asignar equipo";
-    int desktopId = ViewBag.DesktopId;
 }
 
 <h1>Asignar equipo</h1>
+<p class="text-muted">@Model.DesktopLabel</p>
 
-<form asp-controller="Desktop" asp-action="Assign" method="post">
+@if (Model.HasActiveHolder)
+{
+    <div class="alert alert-warning">
+        Este equipo está asignado actualmente a <strong>@Model.CurrentHolderName</strong>.
+        Reasignarlo a otra persona le quitará el equipo automáticamente, sin pasos adicionales.
+    </div>
+}
+
+<form asp-controller="Desktop" asp-action="Assign" method="post" id="assignForm">
     @Html.AntiForgeryToken()
     <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
-    <input type="hidden" name="desktopId" value="@desktopId" />
+    <input type="hidden" name="desktopId" value="@Model.DesktopId" />
     <div class="mb-3">
         <label class="form-label">Usuario</label>
-        <select name="userId" class="form-select" asp-items="ViewBag.Users">
+        <select name="userId" id="userSelect" class="form-select" asp-items="Model.Users" required>
             <option value="">-- Selecciona --</option>
         </select>
     </div>
-    <button type="submit" class="btn btn-primary">Asignar</button>
-    <a asp-controller="Desktop" asp-action="Details" asp-route-id="@desktopId" class="btn btn-link">Cancelar</a>
+    <button type="submit" class="btn btn-primary" id="assignSubmitBtn">Asignar</button>
+    <a asp-controller="Desktop" asp-action="Details" asp-route-id="@Model.DesktopId" class="btn btn-link">Cancelar</a>
 </form>
+
+@if (Model.HasActiveHolder)
+{
+    <div class="modal fade" id="reassignConfirmModal" tabindex="-1" aria-labelledby="reassignConfirmModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="reassignConfirmModalLabel">Confirmar reasignación</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p>
+                        Este equipo está asignado a <strong>@Model.CurrentHolderName</strong>.
+                        Al confirmar, <strong>@Model.CurrentHolderName</strong> deja de figurar como su titular
+                        y el equipo pasa a la persona seleccionada.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="confirmReassignBtn">Confirmar reasignación</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @section Scripts {
+        <script>
+            (function () {
+                var form = document.getElementById('assignForm');
+                var select = document.getElementById('userSelect');
+                var modalEl = document.getElementById('reassignConfirmModal');
+                var modal = new bootstrap.Modal(modalEl);
+                var confirmBtn = document.getElementById('confirmReassignBtn');
+                var currentHolderUserId = '@Model.CurrentHolderUserId';
+                var submitting = false;
+
+                form.addEventListener('submit', function (e) {
+                    if (submitting) {
+                        return;
+                    }
+                    if (select.value && select.value === currentHolderUserId) {
+                        return;
+                    }
+                    e.preventDefault();
+                    modal.show();
+                });
+
+                confirmBtn.addEventListener('click', function () {
+                    submitting = true;
+                    modal.hide();
+                    form.submit();
+                });
+            })();
+        </script>
+    }
+}

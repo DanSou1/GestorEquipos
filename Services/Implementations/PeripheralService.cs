@@ -70,21 +70,21 @@ namespace Gestor_Equipos.Services.Implementations
             return await _dbContext.Peripherals.SingleOrDefaultAsync(p => p.Id == id);
         }
 
-        public async Task<PeripheralDetailViewModel?> GetDetailAsync(int id)
+        public async Task<PeripheralDetailViewModel?> GetDetailAsync(int id, CancellationToken cancellationToken = default)
         {
             var peripheral = await _dbContext.Peripherals
                 .AsNoTracking()
                 .Include(p => p.Desktop)
                 .Include(p => p.PeripheralType)
-                .SingleOrDefaultAsync(p => p.Id == id);
+                .SingleOrDefaultAsync(p => p.Id == id, cancellationToken);
 
             if (peripheral is null)
             {
                 return null;
             }
 
-            var assignmentHistory = await _peripheralAssignmentService.GetHistoryAsync(id);
-            var maintenances = await _peripheralMaintenanceService.GetByPeripheralAsync(id);
+            var assignmentHistory = await _peripheralAssignmentService.GetHistoryAsync(id, cancellationToken);
+            var maintenances = await _peripheralMaintenanceService.GetByPeripheralAsync(id, cancellationToken);
             var currentAssignment = assignmentHistory.FirstOrDefault();
             var isDisponible = currentAssignment is not null && !currentAssignment.User.Activo;
 
@@ -226,64 +226,77 @@ namespace Gestor_Equipos.Services.Implementations
             });
         }
 
-        public async Task<List<PeripheralInventoryItem>> GetInventoryAsync()
+        // Reduce assignment history in SQL; transfer at most one holder per peripheral.
+        public async Task<List<PeripheralInventoryItem>> GetInventoryAsync(CancellationToken cancellationToken = default)
         {
-            var query =
-                from p in _dbContext.Peripherals.AsNoTracking()
-                select new PeripheralInventoryItem
-                {
-                    Id = p.Id,
-                    PeripheralTypeId = p.PeripheralTypeId,
-                    TypeName = p.PeripheralType.Name,
-                    Brand = p.Brand,
-                    Model = p.Model,
-                    Serial = p.Serial,
-                    DesktopId = p.DesktopId,
-                    DesktopName = p.Desktop != null ? p.Desktop.NameDesktop : "Sin equipo asignado",
-                    Estado = !p.Estado
-                        ? "Raes"
-                        : (p.Desktop != null && p.Desktop.Estado
-                            && p.Assignments
-                                .OrderByDescending(a => a.DateAsignation)
-                                .ThenByDescending(a => a.Id)
-                                .Select(a => (bool?)a.User.Activo)
-                                .FirstOrDefault() == true)
-                            ? "Activo"
-                            : "Disponible",
-                    CurrentHolderName = p.Assignments
-                        .OrderByDescending(a => a.DateAsignation)
-                        .ThenByDescending(a => a.Id)
-                        .Select(a => a.User.Activo ? a.User.Name + " " + a.User.LastName : "Disponible")
-                        .FirstOrDefault() ?? "Sin asignar"
-                };
-
-            return await query.ToListAsync();
-        }
-
-        public async Task<PeripheralInventoryStatsViewModel> GetInventoryStatsAsync()
-        {
-            var rows = await _dbContext.Peripherals.AsNoTracking()
+            var peripherals = await _dbContext.Peripherals
+                .AsNoTracking()
                 .Select(p => new
                 {
-                    p.Estado,
+                    p.Id,
+                    p.PeripheralTypeId,
                     TypeName = p.PeripheralType.Name,
+                    p.Brand,
+                    p.Model,
+                    p.Serial,
+                    p.DesktopId,
+                    DesktopName = p.Desktop != null ? p.Desktop.NameDesktop : null,
                     DesktopActivo = p.Desktop != null && p.Desktop.Estado,
-                    HolderActivo = p.Assignments
-                        .OrderByDescending(a => a.DateAsignation)
-                        .ThenByDescending(a => a.Id)
-                        .Select(a => (bool?)a.User.Activo)
-                        .FirstOrDefault()
+                    p.Estado
                 })
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
+
+            var latestAssignmentByPeripheral = (await _dbContext.PeripheralAssignments
+                .AsNoTracking()
+                .Where(a => !_dbContext.PeripheralAssignments.Any(newer => newer.PeripheralId == a.PeripheralId &&
+                    (newer.DateAsignation > a.DateAsignation ||
+                     (newer.DateAsignation == a.DateAsignation && newer.Id > a.Id))))
+                .Select(a => new { a.PeripheralId, a.User.Activo, HolderName = a.User.Name + " " + a.User.LastName })
+                .ToListAsync(cancellationToken))
+                .ToDictionary(a => a.PeripheralId);
+
+            return peripherals
+                .Select(p =>
+                {
+                    latestAssignmentByPeripheral.TryGetValue(p.Id, out var lastAssignment);
+                    var estado = !p.Estado
+                        ? "Raes"
+                        : (p.DesktopActivo && lastAssignment is not null && lastAssignment.Activo)
+                            ? "Activo"
+                            : "Disponible";
+
+                    return new PeripheralInventoryItem
+                    {
+                        Id = p.Id,
+                        PeripheralTypeId = p.PeripheralTypeId,
+                        TypeName = p.TypeName,
+                        Brand = p.Brand,
+                        Model = p.Model,
+                        Serial = p.Serial,
+                        DesktopId = p.DesktopId,
+                        DesktopName = p.DesktopName ?? "Sin equipo asignado",
+                        Estado = estado,
+                        CurrentHolderName = lastAssignment is null
+                            ? "Sin asignar"
+                            : lastAssignment.Activo ? lastAssignment.HolderName : "Disponible"
+                    };
+                })
+                .ToList();
+        }
+
+        // PERF-01: derive from GetInventoryAsync() instead of re-querying — see its comment.
+        public async Task<PeripheralInventoryStatsViewModel> GetInventoryStatsAsync(CancellationToken cancellationToken = default)
+        {
+            var items = await GetInventoryAsync(cancellationToken);
 
             return new PeripheralInventoryStatsViewModel
             {
-                Total = rows.Count,
-                Activos = rows.Count(r => r.Estado && r.DesktopActivo && r.HolderActivo == true),
-                Disponibles = rows.Count(r => r.Estado && (!r.DesktopActivo || r.HolderActivo != true)),
-                Raes = rows.Count(r => !r.Estado),
-                ByType = rows
-                    .GroupBy(r => r.TypeName)
+                Total = items.Count,
+                Activos = items.Count(i => i.Estado == "Activo"),
+                Disponibles = items.Count(i => i.Estado == "Disponible"),
+                Raes = items.Count(i => i.Estado == "Raes"),
+                ByType = items
+                    .GroupBy(i => i.TypeName)
                     .Select(g => new PeripheralTypeCountItem { TypeName = g.Key, Count = g.Count() })
                     .OrderByDescending(t => t.Count)
                     .ThenBy(t => t.TypeName)

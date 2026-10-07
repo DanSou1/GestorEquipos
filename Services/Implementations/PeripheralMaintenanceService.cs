@@ -30,13 +30,13 @@ namespace Gestor_Equipos.Services.Implementations
             return maintenance.Id;
         }
 
-        public async Task<List<PeripheralMaintenance>> GetByPeripheralAsync(int peripheralId)
+        public async Task<List<PeripheralMaintenance>> GetByPeripheralAsync(int peripheralId, CancellationToken cancellationToken = default)
         {
             return await _dbContext.PeripheralMaintenances
                 .Where(m => m.PeripheralId == peripheralId)
                 .Include(m => m.MaintenanceType)
                 .OrderByDescending(m => m.Date)
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
         }
     }
 }

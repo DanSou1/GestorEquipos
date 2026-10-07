@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Gestor_Equipos.Controllers
 {
-    [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
+    [Authorize(Roles = AuthBootstrapper.AdminOrTecnicoRoles)]
     public class MaintenanceTypeController : Controller
     {
         private readonly IMaintenanceTypeService _maintenanceTypeService;
@@ -24,11 +24,13 @@ namespace Gestor_Equipos.Controllers
             return View(types);
         }
 
+        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
         public IActionResult Create()
         {
             return View(new MaintenanceTypeCreateViewModel());
         }
 
+        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(MaintenanceTypeCreateViewModel vm)
@@ -51,6 +53,7 @@ namespace Gestor_Equipos.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
         public async Task<IActionResult> Edit(int id)
         {
             var type = await _maintenanceTypeService.GetByIdAsync(id);
@@ -62,6 +65,7 @@ namespace Gestor_Equipos.Controllers
             return View(new MaintenanceTypeEditViewModel { Id = type.Id, Type = type.Type });
         }
 
+        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, MaintenanceTypeEditViewModel vm)
@@ -84,6 +88,7 @@ namespace Gestor_Equipos.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Delete(int id, string adminPassword)

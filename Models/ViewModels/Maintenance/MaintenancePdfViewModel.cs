@@ -8,7 +8,6 @@ namespace GestorEquipos.Models.ViewModels.Maintenance
         public string Model { get; set; } = string.Empty;
         public DateOnly Date { get; set; }
         public MaintenanceCategory Category { get; set; }
-        public string MaintenanceTypeName { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public string TechnicianName { get; set; } = string.Empty;
 

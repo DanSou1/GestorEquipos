@@ -23,16 +23,6 @@
             <span asp-validation-for="SerialNumber" class="text-danger"></span>
         </div>
         <div class="col-md-6">
-            <label asp-for="Brand" class="form-label">Marca del equipo</label>
-            <input asp-for="Brand" class="form-control" />
-            <span asp-validation-for="Brand" class="text-danger"></span>
-        </div>
-        <div class="col-md-6">
-            <label asp-for="Model" class="form-label">Modelo del equipo</label>
-            <input asp-for="Model" class="form-control" />
-            <span asp-validation-for="Model" class="text-danger"></span>
-        </div>
-        <div class="col-md-6">
             <label asp-for="Processor" class="form-label">Tipo de procesador</label>
             <input asp-for="Processor" class="form-control" />
             <span asp-validation-for="Processor" class="text-danger"></span>
@@ -41,6 +31,27 @@
             <label asp-for="Disk" class="form-label">Tipo de disco y capacidad</label>
             <input asp-for="Disk" class="form-control" />
             <span asp-validation-for="Disk" class="text-danger"></span>
+        </div>
+        <div class="col-md-3">
+            <label for="desktopTypeBrandFilter" class="form-label">Marca</label>
+            <select id="desktopTypeBrandFilter" class="form-select">
+                <option value="">-- Selecciona --</option>
+                @foreach (var brand in (List<string>)ViewBag.DesktopTypeBrands)
+                {
+                    <option value="@brand">@brand</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label asp-for="DesktopTypeId" class="form-label">Modelo</label>
+            <select asp-for="DesktopTypeId" id="desktopTypeModelSelect" class="form-select">
+                <option value="">-- Selecciona una marca --</option>
+                @foreach (var t in (List<GestorEquipos.Models.DesktopType>)ViewBag.DesktopTypeCatalog)
+                {
+                    <option value="@t.Id" data-brand="@t.Brand">@t.Model</option>
+                }
+            </select>
+            <span asp-validation-for="DesktopTypeId" class="text-danger"></span>
         </div>
         <div class="col-md-3">
             <label asp-for="OSVersionId" class="form-label">Sistema Operativo</label>
@@ -147,4 +158,5 @@
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <partial name="_RemoteFieldsScriptsPartial" />
+    <partial name="_DesktopTypeFieldsScriptsPartial" />
 }

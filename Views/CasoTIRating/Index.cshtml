@@ -1,0 +1,65 @@
+@model GestorEquipos.Models.ViewModels.CasoTI.CasoTIRatingPromptViewModel
+@{
+    Layout = "_Layout_Login";
+    ViewData["Title"] = "Califica tu soporte";
+}
+
+<div class="container">
+    <div class="row justify-content-center mt-5">
+        <div class="col-md-6">
+            <div class="tarjet_main bg-light p-4 shadow rounded">
+                @if (Model.AlreadySubmitted)
+                {
+                    <h2 class="fw-bold text-center">¡Gracias, ya calificaste este caso!</h2>
+                    <p class="text-center">Tu calificación: <strong>@Model.RatingValue / 5</strong></p>
+                    @if (!string.IsNullOrWhiteSpace(Model.RatingComment))
+                    {
+                        <p class="text-center">"@Model.RatingComment"</p>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(Model.Notas))
+                    {
+                        <hr />
+                        <p class="text-muted"><strong>Notas de resolución:</strong> @Model.Notas</p>
+                    }
+                }
+                else
+                {
+                    <h2 class="fw-bold text-center mb-3">¿Cómo calificarías el soporte recibido?</h2>
+                    @if (!string.IsNullOrWhiteSpace(Model.Notas))
+                    {
+                        <p class="text-muted"><strong>Notas de resolución:</strong> @Model.Notas</p>
+                    }
+
+                    <form asp-controller="CasoTIRating" asp-action="Index" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="Token" value="@Model.Token" />
+                        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Calificación (1 = muy malo, 5 = excelente)</label>
+                            <div>
+                                @for (var i = 1; i <= 5; i++)
+                                {
+                                    <label class="me-3">
+                                        <input type="radio" name="Rating" value="@i" required /> @i
+                                    </label>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="Comment" class="form-label">Comentario (opcional)</label>
+                            <textarea id="Comment" name="Comment" class="form-control" rows="3"></textarea>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100 py-2 shadow-sm">Enviar calificación</button>
+                    </form>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -1,0 +1,70 @@
+@using GestorEquipos.Models
+@model GestorEquipos.Models.ViewModels.CasoTI.CasoTIDetailViewModel
+@{
+    ViewData["Title"] = "Caso TI";
+    string? error = ViewBag.Error;
+}
+
+<div class="section-header">
+    <h1>Caso TI #@Model.Id</h1>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
+
+<div class="app-card p-3">
+    <dl class="row mb-0">
+        <dt class="col-sm-3">Fecha</dt>
+        <dd class="col-sm-9">@Model.Fecha.ToString("dd/MM/yyyy")</dd>
+
+        <dt class="col-sm-3">Técnico</dt>
+        <dd class="col-sm-9">@Model.TecnicoNombre</dd>
+
+        <dt class="col-sm-3">Persona atendida</dt>
+        <dd class="col-sm-9">@Model.PersonaNombre</dd>
+
+        <dt class="col-sm-3">Área</dt>
+        <dd class="col-sm-9">@(Model.AreaSnapshot ?? "-")</dd>
+
+        <dt class="col-sm-3">Tipo de caso</dt>
+        <dd class="col-sm-9">@Model.TipoCasoNombre</dd>
+
+        <dt class="col-sm-3">Estado</dt>
+        <dd class="col-sm-9">
+            @if (Model.Estado == CasoTIEstado.Resuelto)
+            {
+                <span class="badge bg-success">Resuelto</span>
+                @if (Model.ResolvedAtUtc is not null)
+                {
+                    <span class="text-muted ms-2">@Model.ResolvedAtUtc.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                }
+            }
+            else
+            {
+                <span class="badge bg-warning text-dark">Abierto</span>
+            }
+        </dd>
+
+        <dt class="col-sm-3">Notas</dt>
+        <dd class="col-sm-9">@(string.IsNullOrWhiteSpace(Model.Notas) ? "-" : Model.Notas)</dd>
+    </dl>
+</div>
+
+@if (Model.CanResolve)
+{
+    <div class="app-card p-3 mt-3">
+        <h2 class="h5">Resolver caso</h2>
+        <form asp-controller="CasoTI" asp-action="Resolve" asp-route-id="@Model.Id" method="post">
+            @Html.AntiForgeryToken()
+            <div class="mb-3">
+                <label for="notas" class="form-label">Notas adicionales</label>
+                <textarea id="notas" name="notas" class="form-control" rows="4" required>@Model.Notas</textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Marcar como resuelto y notificar</button>
+        </form>
+    </div>
+}
+
+<a asp-controller="CasoTI" asp-action="Index" class="btn btn-link mt-3">Volver</a>

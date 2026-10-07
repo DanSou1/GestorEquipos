@@ -14,14 +14,6 @@ namespace GestorEquipos.Models.ViewModels.Desktop
         [MaxLength(50)]
         public string SerialNumber { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "La marca es obligatoria.")]
-        [MaxLength(100)]
-        public string Brand { get; set; } = string.Empty;
-
-        [Required(ErrorMessage = "El modelo es obligatorio.")]
-        [MaxLength(100)]
-        public string Model { get; set; } = string.Empty;
-
         [Required(ErrorMessage = "El procesador es obligatorio.")]
         [MaxLength(200)]
         public string Processor { get; set; } = string.Empty;
@@ -29,6 +21,9 @@ namespace GestorEquipos.Models.ViewModels.Desktop
         [Required(ErrorMessage = "El disco es obligatorio.")]
         [MaxLength(100)]
         public string Disk { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Selecciona la marca y el modelo del equipo.")]
+        public int DesktopTypeId { get; set; }
 
         [Required(ErrorMessage = "Selecciona el sistema operativo.")]
         public int OSVersionId { get; set; }

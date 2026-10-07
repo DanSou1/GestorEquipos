@@ -1,0 +1,21 @@
+@{
+    ViewData["Title"] = "Subir PDF firmado";
+    string desktopName = ViewBag.DesktopName;
+    int campaignItemId = ViewBag.CampaignItemId;
+}
+
+<h1>Subir PDF firmado</h1>
+<p class="text-muted">@desktopName</p>
+
+<div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+<form asp-controller="MaintenanceCampaign" asp-action="Upload" asp-route-id="@campaignItemId" method="post" enctype="multipart/form-data">
+    @Html.AntiForgeryToken()
+    <div class="mb-3">
+        <label for="signedPdf" class="form-label">Acta firmada por el usuario (PDF)</label>
+        <input type="file" id="signedPdf" name="signedPdf" accept="application/pdf" class="form-control" required />
+    </div>
+
+    <button type="submit" class="btn btn-primary">Subir</button>
+    <a asp-controller="MaintenanceCampaign" asp-action="Index" class="btn btn-link">Cancelar</a>
+</form>

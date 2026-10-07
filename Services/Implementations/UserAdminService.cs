@@ -41,6 +41,17 @@ namespace Gestor_Equipos.Services.Implementations
             };
 
             _dbContext.Users.Add(user);
+
+            if (vm.CargoId.HasValue)
+            {
+                _dbContext.CargoAssignments.Add(new CargoAssignment
+                {
+                    User = user,
+                    CargoId = vm.CargoId.Value,
+                    DateAsignation = DateOnly.FromDateTime(DateTime.Now)
+                });
+            }
+
             await _dbContext.SaveChangesAsync();
             return user.Id;
         }
@@ -74,6 +85,27 @@ namespace Gestor_Equipos.Services.Implementations
                 : vm.EmailTeams.Trim().ToLowerInvariant();
             user.AreaId = vm.AreaId;
             user.RegionalId = vm.RegionalId;
+
+            // El cargo es un historial append-only (ver CargoAssignment): no se "edita" el cargo
+            // actual, se agrega una fila nueva solo si el valor elegido cambió. Si vm.CargoId viene
+            // null (nada seleccionado) no se toca el historial — no tiene sentido un registro sin
+            // CargoId, así que no hay forma de "quitar" un cargo ya asignado desde aquí.
+            var currentCargoId = await _dbContext.CargoAssignments
+                .Where(a => a.UserId == id)
+                .OrderByDescending(a => a.DateAsignation)
+                .ThenByDescending(a => a.Id)
+                .Select(a => (int?)a.CargoId)
+                .FirstOrDefaultAsync();
+
+            if (vm.CargoId.HasValue && vm.CargoId != currentCargoId)
+            {
+                _dbContext.CargoAssignments.Add(new CargoAssignment
+                {
+                    UserId = id,
+                    CargoId = vm.CargoId.Value,
+                    DateAsignation = DateOnly.FromDateTime(DateTime.Now)
+                });
+            }
 
             await _dbContext.SaveChangesAsync();
         }
@@ -257,6 +289,12 @@ namespace Gestor_Equipos.Services.Implementations
                 throw new InvalidOperationException("No se puede eliminar: esta cuenta es autora de cambios registrados en el historial de equipos. Desactívala en vez de eliminarla para conservar esa autoría.");
             }
 
+            // MaintenanceCampaignItem.SignedPdfUploadedByUserSystemId es Restrict por el mismo motivo.
+            if (await _dbContext.MaintenanceCampaignItems.AnyAsync(c => c.SignedPdfUploadedByUserSystemId == userSystem.Id))
+            {
+                throw new InvalidOperationException("No se puede eliminar: esta cuenta subió actas de mantenimiento obligatorio firmadas. Desactívala en vez de eliminarla para conservar esa autoría.");
+            }
+
             await RunWithAdminInvariantAsync(async adminRoleId =>
             {
                 if (userSystem.RolId == adminRoleId && !await HasOtherEnabledAdminAsync(adminRoleId, userSystem.Id))
@@ -305,7 +343,7 @@ namespace Gestor_Equipos.Services.Implementations
             });
         }
 
-        public async Task<List<Users>> GetAllAsync(bool includeInactive = false)
+        public async Task<List<Users>> GetAllAsync(bool includeInactive = false, CancellationToken cancellationToken = default)
         {
             return await _dbContext.Users
                 .Where(u => u.Email != AuthBootstrapper.RaesUserEmail
@@ -315,17 +353,17 @@ namespace Gestor_Equipos.Services.Implementations
                 .Include(u => u.Area)
                 .Include(u => u.Regional)
                 .Include(u => u.UserSystems).ThenInclude(us => us.Rol)
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
         }
 
-        public async Task<List<Users>> GetAccountsAsync()
+        public async Task<List<Users>> GetAccountsAsync(CancellationToken cancellationToken = default)
         {
             return await _dbContext.Users
                 .Where(u => u.Email != AuthBootstrapper.RaesUserEmail && u.UserSystems.Any())
                 .Include(u => u.Area)
                 .Include(u => u.Regional)
                 .Include(u => u.UserSystems).ThenInclude(us => us.Rol)
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
         }
 
         public async Task DeactivateAsync(int id)
@@ -370,7 +408,7 @@ namespace Gestor_Equipos.Services.Implementations
             });
         }
 
-        public async Task<List<UsersByRegionalItem>> GetUsersByRegionalAsync()
+        public async Task<List<UsersByRegionalItem>> GetUsersByRegionalAsync(CancellationToken cancellationToken = default)
         {
             return await _dbContext.Users
                 .Where(u => u.Activo && u.Email != AuthBootstrapper.RaesUserEmail)
@@ -378,7 +416,7 @@ namespace Gestor_Equipos.Services.Implementations
                 .Select(g => new UsersByRegionalItem { RegionalName = g.Key, Count = g.Count() })
                 .OrderByDescending(item => item.Count)
                 .ThenBy(item => item.RegionalName)
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
         }
 
         public async Task<Users?> GetByIdAsync(int id)
@@ -435,6 +473,13 @@ namespace Gestor_Equipos.Services.Implementations
 
             var userSystem = user.UserSystems.FirstOrDefault();
 
+            var cargoHistory = await _dbContext.CargoAssignments
+                .Where(a => a.UserId == id)
+                .Include(a => a.Cargo)
+                .OrderByDescending(a => a.DateAsignation)
+                .ThenByDescending(a => a.Id)
+                .ToListAsync();
+
             return new UserDetailViewModel
             {
                 Id = user.Id,
@@ -448,12 +493,20 @@ namespace Gestor_Equipos.Services.Implementations
                 RegionalName = user.Regional?.Name ?? "-",
                 Username = userSystem?.Username,
                 RolName = userSystem?.Rol?.Name,
+                CargoName = cargoHistory.FirstOrDefault()?.Cargo.Name,
                 CurrentDesktops = currentDesktops,
                 AsignationHistory = history
                     .Select(a => new UserAsignationHistoryItem
                     {
                         NameDesktop = a.Desktop.NameDesktop,
                         SerialNumber = a.Desktop.SerialNumber,
+                        DateAsignation = a.DateAsignation
+                    })
+                    .ToList(),
+                CargoHistory = cargoHistory
+                    .Select(a => new UserCargoHistoryItem
+                    {
+                        CargoName = a.Cargo.Name,
                         DateAsignation = a.DateAsignation
                     })
                     .ToList()

@@ -1,0 +1,31 @@
+@model GestorEquipos.Models.ViewModels.DesktopType.DesktopTypeEditViewModel
+@{
+    ViewData["Title"] = "Editar tipo de equipo";
+}
+
+<h1>Editar tipo de equipo</h1>
+
+<form asp-controller="DesktopType" asp-action="Edit" asp-route-id="@Model.Id" method="post">
+    @Html.AntiForgeryToken()
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+    <input type="hidden" asp-for="Id" />
+
+    <div class="mb-3">
+        <label asp-for="Brand" class="form-label">Marca (ej. Hewlett-Packard, Dell, Lenovo)</label>
+        <input asp-for="Brand" class="form-control" />
+        <span asp-validation-for="Brand" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Model" class="form-label">Modelo (ej. EliteDesk 800G2, Optiplex 3020)</label>
+        <input asp-for="Model" class="form-control" />
+        <span asp-validation-for="Model" class="text-danger"></span>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Guardar</button>
+    <a asp-controller="DesktopType" asp-action="Index" class="btn btn-link">Cancelar</a>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

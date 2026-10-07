@@ -27,9 +27,9 @@ namespace Gestor_Equipos.Controllers
             _dbContext = dbContext;
         }
 
-        public async Task<IActionResult> Index(bool? estado, string? search)
+        public async Task<IActionResult> Index(bool? estado, string? search, string? brand, string? model)
         {
-            var allDesktops = await _desktopService.GetAllAsync();
+            var allDesktops = await _desktopService.GetAllAsync(HttpContext.RequestAborted);
 
             ViewBag.TotalCount = allDesktops.Count;
             ViewBag.ActivosCount = allDesktops.Count(d => d.Status == "Activo");
@@ -50,14 +50,38 @@ namespace Gestor_Equipos.Controllers
                     d.SerialNumber.Contains(search, StringComparison.OrdinalIgnoreCase));
             }
 
+            if (!string.IsNullOrWhiteSpace(brand))
+            {
+                desktops = desktops.Where(d => d.Brand == brand);
+            }
+
+            if (!string.IsNullOrWhiteSpace(model))
+            {
+                desktops = desktops.Where(d => d.Model == model);
+            }
+
+            var desktopTypes = await _dbContext.DesktopTypes
+                .OrderBy(t => t.Brand)
+                .ThenBy(t => t.Model)
+                .ToListAsync(HttpContext.RequestAborted);
+
             ViewBag.EstadoFiltro = estado;
             ViewBag.SearchTerm = search;
+            ViewBag.BrandFiltro = brand;
+            ViewBag.ModelFiltro = model;
+            ViewBag.BrandOptions = desktopTypes.Select(t => t.Brand).Distinct().OrderBy(b => b).ToList();
+            ViewBag.ModelOptions = desktopTypes
+                .Where(t => string.IsNullOrWhiteSpace(brand) || t.Brand == brand)
+                .Select(t => t.Model)
+                .Distinct()
+                .OrderBy(m => m)
+                .ToList();
             return View(desktops.ToList());
         }
 
         public async Task<IActionResult> Details(int id)
         {
-            var detail = await _desktopService.GetDetailAsync(id);
+            var detail = await _desktopService.GetDetailAsync(id, HttpContext.RequestAborted);
             if (detail is null)
             {
                 return NotFound();
@@ -69,26 +93,25 @@ namespace Gestor_Equipos.Controllers
 
         public async Task<IActionResult> DownloadPdf(int id)
         {
-            var detail = await _desktopService.GetDetailAsync(id);
+            var detail = await _desktopService.GetDetailAsync(id, HttpContext.RequestAborted);
             if (detail is null)
             {
                 return NotFound();
             }
 
-            var includeRemotePassword = User.IsInRole(AuthBootstrapper.AdministradorRoleName);
-            var pdfBytes = _desktopPdfService.GenerateHojaDeVidaPdf(detail, includeRemotePassword);
+            var pdfBytes = _desktopPdfService.GenerateHojaDeVidaPdf(detail);
             var fileName = $"HojaDeVida-{detail.SerialNumber}.pdf";
             return File(pdfBytes, "application/pdf", fileName);
         }
 
-        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
+        [Authorize(Roles = AuthBootstrapper.AdminOrTecnicoRoles)]
         public async Task<IActionResult> Create()
         {
             await PopulateDropdownsAsync();
             return View();
         }
 
-        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
+        [Authorize(Roles = AuthBootstrapper.AdminOrTecnicoRoles)]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(DesktopCreateViewModel vm)
@@ -129,10 +152,9 @@ namespace Gestor_Equipos.Controllers
             {
                 NameDesktop = desktop.NameDesktop,
                 SerialNumber = desktop.SerialNumber,
-                Brand = desktop.Brand,
-                Model = desktop.Model,
                 Processor = desktop.Processor,
                 Disk = desktop.Disk,
+                DesktopTypeId = desktop.DesktopTypeId,
                 OSVersionId = desktop.OSVersionId,
                 RamId = desktop.RamId,
                 RamType = desktop.RamType,
@@ -185,7 +207,7 @@ namespace Gestor_Equipos.Controllers
             return RedirectToAction(nameof(Details), new { id });
         }
 
-        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
+        [Authorize(Roles = AuthBootstrapper.AdminOrTecnicoRoles)]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Deactivate(int id)
@@ -203,14 +225,18 @@ namespace Gestor_Equipos.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
+        [Authorize(Roles = AuthBootstrapper.AdminOrTecnicoRoles)]
         public async Task<IActionResult> Assign(int desktopId)
         {
-            await PopulateAssignDropdownAsync(desktopId);
-            return View();
+            var vm = await BuildAssignViewModelAsync(desktopId);
+            if (vm is null)
+            {
+                return NotFound();
+            }
+            return View(vm);
         }
 
-        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
+        [Authorize(Roles = AuthBootstrapper.AdminOrTecnicoRoles)]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Assign(int desktopId, int userId)
@@ -222,8 +248,12 @@ namespace Gestor_Equipos.Controllers
             catch (InvalidOperationException ex)
             {
                 ModelState.AddModelError(string.Empty, ex.Message);
-                await PopulateAssignDropdownAsync(desktopId, userId);
-                return View();
+                var vm = await BuildAssignViewModelAsync(desktopId, userId);
+                if (vm is null)
+                {
+                    return NotFound();
+                }
+                return View(vm);
             }
 
             return RedirectToAction(nameof(Details), new { id = desktopId });
@@ -231,7 +261,7 @@ namespace Gestor_Equipos.Controllers
 
         // UX-06: return a single equipo to Disponible without deactivating its holder (which
         // would release every other equipo/periférico that person has too).
-        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
+        [Authorize(Roles = AuthBootstrapper.AdminOrTecnicoRoles)]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Return(int id)
@@ -254,22 +284,52 @@ namespace Gestor_Equipos.Controllers
             return int.Parse(claim!);
         }
 
-        private async Task PopulateAssignDropdownAsync(int desktopId, int? selectedUserId = null)
+        private async Task<DesktopAssignViewModel?> BuildAssignViewModelAsync(int desktopId, int? selectedUserId = null)
         {
-            ViewBag.DesktopId = desktopId;
+            var desktop = await _dbContext.Desktops.SingleOrDefaultAsync(d => d.Id == desktopId);
+            if (desktop is null)
+            {
+                return null;
+            }
+
             var users = await _dbContext.Users
                 .Where(u => u.Email != AuthBootstrapper.RaesUserEmail && u.Activo)
                 .OrderBy(u => u.Name)
                 .ToListAsync();
-            ViewBag.Users = new SelectList(
-                users.Select(u => new { u.Id, FullName = $"{u.Name} {u.LastName}" }),
-                "Id",
-                "FullName",
-                selectedUserId);
+
+            var history = await _asignationService.GetHistoryAsync(desktopId);
+            var current = history.FirstOrDefault();
+            var hasActiveHolder = current is not null && current.User.Activo;
+
+            return new DesktopAssignViewModel
+            {
+                DesktopId = desktopId,
+                DesktopLabel = $"{desktop.NameDesktop} ({desktop.SerialNumber})",
+                Users = new SelectList(
+                    users.Select(u => new { u.Id, FullName = $"{u.Name} {u.LastName}" }),
+                    "Id",
+                    "FullName",
+                    selectedUserId),
+                SelectedUserId = selectedUserId,
+                HasActiveHolder = hasActiveHolder,
+                CurrentHolderName = hasActiveHolder ? $"{current!.User.Name} {current.User.LastName}" : null,
+                CurrentHolderUserId = hasActiveHolder ? current!.UserId : null
+            };
         }
 
         private async Task PopulateDropdownsAsync()
         {
+            var desktopTypes = await _dbContext.DesktopTypes
+                .OrderBy(t => t.Brand)
+                .ThenBy(t => t.Model)
+                .ToListAsync();
+            ViewBag.DesktopTypeCatalog = desktopTypes;
+            ViewBag.DesktopTypeBrands = desktopTypes
+                .Select(t => t.Brand)
+                .Distinct()
+                .OrderBy(b => b)
+                .ToList();
+
             ViewBag.OSVersions = new SelectList(await _dbContext.OSVersions.ToListAsync(), "Id", "TypeSO");
 
             var rams = await _dbContext.Rams.ToListAsync();

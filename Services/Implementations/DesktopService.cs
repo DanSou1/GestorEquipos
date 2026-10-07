@@ -17,59 +17,82 @@ namespace Gestor_Equipos.Services.Implementations
             _asignationService = asignationService;
         }
 
-        public async Task<List<DesktopListViewModel>> GetAllAsync()
+        // Reduce assignment history in SQL; transfer at most one holder per desktop.
+        public async Task<List<DesktopListViewModel>> GetAllAsync(CancellationToken cancellationToken = default)
         {
-            var query =
-                from d in _dbContext.Desktops.AsNoTracking()
-                select new DesktopListViewModel
+            var desktops = await _dbContext.Desktops
+                .AsNoTracking()
+                .Select(d => new
                 {
-                    Id = d.Id,
-                    NameDesktop = d.NameDesktop,
-                    SerialNumber = d.SerialNumber,
-                    Brand = d.Brand,
-                    Model = d.Model,
-                    Status = d.Estado ? "Activo" : "Inactivo",
-                    UserName = d.Asignations
-                        .OrderByDescending(a => a.DateAsignation)
-                        .ThenByDescending(a => a.Id)
-                        .Select(a => a.User.Activo ? a.User.Name + " " + a.User.LastName : "Disponible")
-                        .FirstOrDefault() ?? "Sin asignar",
-                    AreaName = d.Asignations
-                        .OrderByDescending(a => a.DateAsignation)
-                        .ThenByDescending(a => a.Id)
-                        .Select(a => a.User.Area.Name)
-                        .FirstOrDefault() ?? "-",
-                    RegionalName = d.Asignations
-                        .OrderByDescending(a => a.DateAsignation)
-                        .ThenByDescending(a => a.Id)
-                        .Select(a => a.User.Regional.Name)
-                        .FirstOrDefault() ?? "-"
-                };
+                    d.Id,
+                    d.NameDesktop,
+                    d.SerialNumber,
+                    Brand = d.DesktopType.Brand,
+                    Model = d.DesktopType.Model,
+                    d.Estado
+                })
+                .ToListAsync(cancellationToken);
 
-            return await query.ToListAsync();
+            var latestAsignationByDesktop = (await _dbContext.Asignations
+                .AsNoTracking()
+                .Where(a => !_dbContext.Asignations.Any(newer => newer.DesktopId == a.DesktopId &&
+                    (newer.DateAsignation > a.DateAsignation ||
+                     (newer.DateAsignation == a.DateAsignation && newer.Id > a.Id))))
+                .Select(a => new
+                {
+                    a.DesktopId,
+                    a.User.Activo,
+                    UserName = a.User.Name + " " + a.User.LastName,
+                    AreaName = a.User.Area != null ? a.User.Area.Name : null,
+                    RegionalName = a.User.Regional != null ? a.User.Regional.Name : null
+                })
+                .ToListAsync(cancellationToken))
+                .ToDictionary(a => a.DesktopId);
+
+            return desktops
+                .Select(d =>
+                {
+                    latestAsignationByDesktop.TryGetValue(d.Id, out var last);
+                    return new DesktopListViewModel
+                    {
+                        Id = d.Id,
+                        NameDesktop = d.NameDesktop,
+                        SerialNumber = d.SerialNumber,
+                        Brand = d.Brand,
+                        Model = d.Model,
+                        Status = d.Estado ? "Activo" : "Inactivo",
+                        UserName = last is null
+                            ? "Sin asignar"
+                            : last.Activo ? last.UserName : "Disponible",
+                        AreaName = last?.AreaName ?? "-",
+                        RegionalName = last?.RegionalName ?? "-"
+                    };
+                })
+                .ToList();
         }
 
-        public async Task<DesktopDetailViewModel?> GetDetailAsync(int desktopId)
+        public async Task<DesktopDetailViewModel?> GetDetailAsync(int desktopId, CancellationToken cancellationToken = default)
         {
             var desktop = await _dbContext.Desktops
                 .AsNoTracking()
+                .Include(d => d.DesktopType)
                 .Include(d => d.OSVersion)
                 .Include(d => d.Ram)
                 .Include(d => d.Remote)
                 .Include(d => d.Peripherals).ThenInclude(p => p.PeripheralType)
                 .Include(d => d.Peripherals).ThenInclude(p => p.Assignments).ThenInclude(a => a.User)
-                .Include(d => d.Maintenances).ThenInclude(m => m.MaintenanceType)
+                .Include(d => d.Maintenances)
                 .Include(d => d.Licenses)
                 .Include(d => d.SpecChangeLogs).ThenInclude(s => s.ChangedByUserSystem).ThenInclude(u => u.User)
                 .AsSplitQuery()
-                .SingleOrDefaultAsync(d => d.Id == desktopId);
+                .SingleOrDefaultAsync(d => d.Id == desktopId, cancellationToken);
 
             if (desktop is null)
             {
                 return null;
             }
 
-            var asignationHistory = await _asignationService.GetHistoryAsync(desktopId);
+            var asignationHistory = await _asignationService.GetHistoryAsync(desktopId, cancellationToken);
             var currentAsignation = asignationHistory.FirstOrDefault();
             var isDisponible = currentAsignation is not null && !currentAsignation.User.Activo;
 
@@ -78,8 +101,8 @@ namespace Gestor_Equipos.Services.Implementations
                 Id = desktop.Id,
                 NameDesktop = desktop.NameDesktop,
                 SerialNumber = desktop.SerialNumber,
-                Brand = desktop.Brand,
-                Model = desktop.Model,
+                Brand = desktop.DesktopType.Brand,
+                Model = desktop.DesktopType.Model,
                 Processor = desktop.Processor,
                 Disk = desktop.Disk,
                 OSVersionName = $"{desktop.OSVersion.TypeSO} {desktop.OSVersion.Version}",
@@ -140,7 +163,7 @@ namespace Gestor_Equipos.Services.Implementations
                     {
                         Id = m.Id,
                         Date = m.Date,
-                        MaintenanceTypeName = m.MaintenanceType.Type,
+                        Category = m.Category,
                         Description = m.Description,
                         TechnicianName = m.TechnicianName
                     })
@@ -173,6 +196,11 @@ namespace Gestor_Equipos.Services.Implementations
         // FK violation (500). Validate existence up front and fail with a normal form error.
         public async Task<int> CreateAsync(DesktopCreateViewModel vm)
         {
+            if (!await _dbContext.DesktopTypes.AnyAsync(t => t.Id == vm.DesktopTypeId))
+            {
+                throw new InvalidOperationException("El tipo de equipo seleccionado no existe.");
+            }
+
             if (!await _dbContext.OSVersions.AnyAsync(o => o.Id == vm.OSVersionId))
             {
                 throw new InvalidOperationException("El sistema operativo seleccionado no existe.");
@@ -194,10 +222,9 @@ namespace Gestor_Equipos.Services.Implementations
             {
                 NameDesktop = vm.NameDesktop,
                 SerialNumber = vm.SerialNumber,
-                Brand = vm.Brand,
-                Model = vm.Model,
                 Processor = vm.Processor,
                 Disk = vm.Disk,
+                DesktopTypeId = vm.DesktopTypeId,
                 OSVersionId = vm.OSVersionId,
                 RamId = vm.RamId,
                 RamType = vm.RamType,
@@ -215,6 +242,11 @@ namespace Gestor_Equipos.Services.Implementations
         {
             var desktop = await _dbContext.Desktops.SingleOrDefaultAsync(d => d.Id == desktopId)
                 ?? throw new InvalidOperationException("Equipo no encontrado.");
+
+            if (!await _dbContext.DesktopTypes.AnyAsync(t => t.Id == vm.DesktopTypeId))
+            {
+                throw new InvalidOperationException("El tipo de equipo seleccionado no existe.");
+            }
 
             if (!await _dbContext.OSVersions.AnyAsync(o => o.Id == vm.OSVersionId))
             {
@@ -235,10 +267,15 @@ namespace Gestor_Equipos.Services.Implementations
 
             LogIfChanged(desktop.Id, "Nombre de equipo", desktop.NameDesktop, vm.NameDesktop, changedByUserSystemId, date);
             LogIfChanged(desktop.Id, "Serial", desktop.SerialNumber, vm.SerialNumber, changedByUserSystemId, date);
-            LogIfChanged(desktop.Id, "Marca", desktop.Brand, vm.Brand, changedByUserSystemId, date);
-            LogIfChanged(desktop.Id, "Modelo", desktop.Model, vm.Model, changedByUserSystemId, date);
             LogIfChanged(desktop.Id, "Procesador", desktop.Processor, vm.Processor, changedByUserSystemId, date);
             LogIfChanged(desktop.Id, "Disco", desktop.Disk, vm.Disk, changedByUserSystemId, date);
+
+            if (desktop.DesktopTypeId != vm.DesktopTypeId)
+            {
+                var oldName = await GetDesktopTypeNameAsync(desktop.DesktopTypeId);
+                var newName = await GetDesktopTypeNameAsync(vm.DesktopTypeId);
+                LogIfChanged(desktop.Id, "Marca / Modelo", oldName, newName, changedByUserSystemId, date);
+            }
 
             if (desktop.OSVersionId != vm.OSVersionId)
             {
@@ -270,10 +307,9 @@ namespace Gestor_Equipos.Services.Implementations
 
             desktop.NameDesktop = vm.NameDesktop;
             desktop.SerialNumber = vm.SerialNumber;
-            desktop.Brand = vm.Brand;
-            desktop.Model = vm.Model;
             desktop.Processor = vm.Processor;
             desktop.Disk = vm.Disk;
+            desktop.DesktopTypeId = vm.DesktopTypeId;
             desktop.OSVersionId = vm.OSVersionId;
             desktop.RamId = vm.RamId;
             desktop.RamType = vm.RamType;
@@ -329,15 +365,18 @@ namespace Gestor_Equipos.Services.Implementations
             // from a real SQL Server FK violation. Maintenance/License/SpecChangeLog are
             // Cascade — removed automatically. Peripheral.DesktopId is SetNull — peripherals
             // survive the delete (orphaned, DesktopId becomes null) — do not remove them
-            // manually either way.
+            // manually either way. MaintenanceCampaignItem.DesktopId is also Restrict.
             var asignations = _dbContext.Asignations.Where(a => a.DesktopId == desktopId);
             _dbContext.Asignations.RemoveRange(asignations);
+
+            var campaignItems = _dbContext.MaintenanceCampaignItems.Where(c => c.DesktopId == desktopId);
+            _dbContext.MaintenanceCampaignItems.RemoveRange(campaignItems);
 
             _dbContext.Desktops.Remove(desktop);
             await _dbContext.SaveChangesAsync();
         }
 
-        public async Task<EquipmentStatsViewModel> GetEquipmentStatsAsync()
+        public async Task<EquipmentStatsViewModel> GetEquipmentStatsAsync(CancellationToken cancellationToken = default)
         {
             var rows = await _dbContext.Desktops.AsNoTracking()
                 .Select(d => new
@@ -349,7 +388,7 @@ namespace Gestor_Equipos.Services.Implementations
                         .Select(a => (bool?)a.User.Activo)
                         .FirstOrDefault()
                 })
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
 
             return new EquipmentStatsViewModel
             {
@@ -376,6 +415,12 @@ namespace Gestor_Equipos.Services.Implementations
                 Date = date,
                 ChangedByUserSystemId = changedByUserSystemId
             });
+        }
+
+        private async Task<string?> GetDesktopTypeNameAsync(int desktopTypeId)
+        {
+            var desktopType = await _dbContext.DesktopTypes.FindAsync(desktopTypeId);
+            return desktopType is null ? null : $"{desktopType.Brand}, {desktopType.Model}";
         }
 
         private async Task<string?> GetOSVersionNameAsync(int osVersionId)

@@ -26,5 +26,7 @@ namespace GestorEquipos.Models.ViewModels.UserAdmin
         public int? AreaId { get; set; }
 
         public int? RegionalId { get; set; }
+
+        public int? CargoId { get; set; }
     }
 }

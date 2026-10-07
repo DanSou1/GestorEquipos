@@ -82,7 +82,10 @@
                     </td>
                     <td>
                         <a asp-controller="UserAdmin" asp-action="Details" asp-route-id="@u.Id">Ver hoja de vida</a>
-                        <a asp-controller="UserAdmin" asp-action="Edit" asp-route-id="@u.Id" class="ms-2">Editar</a>
+                        @if (User.IsInRole("Administrador"))
+                        {
+                            <a asp-controller="UserAdmin" asp-action="Edit" asp-route-id="@u.Id" class="ms-2">Editar</a>
+                        }
                         @if (u.Activo)
                         {
                             <button type="button" class="btn btn-sm btn-outline-danger ms-2" data-bs-toggle="modal" data-bs-target="#deactivateUserModal-@u.Id">Eliminar</button>

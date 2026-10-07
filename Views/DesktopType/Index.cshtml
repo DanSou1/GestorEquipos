@@ -1,0 +1,84 @@
+@using GestorEquipos.Models
+@model List<DesktopType>
+@{
+    ViewData["Title"] = "Tipos de equipo";
+    string? error = ViewBag.Error;
+}
+
+@if (!string.IsNullOrWhiteSpace(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
+
+<div class="section-header">
+    <h1>Tipos de equipo</h1>
+    @if (User.IsInRole("Administrador"))
+    {
+        <a asp-controller="DesktopType" asp-action="Create" class="btn-app-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+            Nuevo tipo
+        </a>
+    }
+</div>
+
+<div class="app-card">
+    <table class="app-table">
+        <thead>
+            <tr>
+                <th>Marca</th>
+                <th>Modelo</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var t in Model)
+            {
+                <tr>
+                    <td>@t.Brand</td>
+                    <td>@t.Model</td>
+                    <td>
+                        @if (User.IsInRole("Administrador"))
+                        {
+                            <a asp-controller="DesktopType" asp-action="Edit" asp-route-id="@t.Id">Editar</a>
+                            <button type="button" class="btn btn-sm btn-outline-danger ms-2" data-bs-toggle="modal" data-bs-target="#deleteDesktopTypeModal-@t.Id">Eliminar</button>
+                        }
+                    </td>
+                </tr>
+
+                @if (User.IsInRole("Administrador"))
+                {
+                    <div class="modal fade" id="deleteDesktopTypeModal-@t.Id" tabindex="-1" aria-labelledby="deleteDesktopTypeModalLabel-@t.Id" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <form asp-controller="DesktopType" asp-action="Delete" asp-route-id="@t.Id" method="post">
+                                @Html.AntiForgeryToken()
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="deleteDesktopTypeModalLabel-@t.Id">Eliminar tipo de equipo</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p>¿Desea eliminar el tipo <strong>@t.Brand, @t.Model</strong>?</p>
+                                    <div class="mb-2">
+                                        <label class="form-label">Tu contraseña de Administrador</label>
+                                        <input type="password" name="adminPassword" class="form-control" autocomplete="current-password" required aria-label="Contraseña de administrador" />
+                                        <div class="form-text">Requerida únicamente para confirmar la eliminación.</div>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                    <button type="submit" class="btn btn-danger">Eliminar</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                }
+            }
+        </tbody>
+    </table>
+
+    @if (!Model.Any())
+    {
+        <p class="text-muted p-3 mb-0">No hay tipos de equipo registrados.</p>
+    }
+</div>

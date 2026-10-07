@@ -3,11 +3,15 @@
     ViewData["Title"] = "Equipos";
     bool? estadoFiltro = ViewBag.EstadoFiltro;
     string? searchTerm = ViewBag.SearchTerm;
+    string? brandFiltro = ViewBag.BrandFiltro;
+    string? modelFiltro = ViewBag.ModelFiltro;
+    List<string> brandOptions = ViewBag.BrandOptions;
+    List<string> modelOptions = ViewBag.ModelOptions;
 }
 
 <div class="section-header">
     <h1>Equipos</h1>
-    @if (User.IsInRole("Administrador"))
+    @if (User.IsInRole("Administrador") || User.IsInRole("Técnico en Sistemas"))
     {
         <a asp-controller="Desktop" asp-action="Create" class="btn-app-primary">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
@@ -50,7 +54,8 @@
 </div>
 
 @{
-    bool hasActiveFilter = !string.IsNullOrWhiteSpace(searchTerm) || estadoFiltro != null;
+    bool hasActiveFilter = !string.IsNullOrWhiteSpace(searchTerm) || estadoFiltro != null
+        || !string.IsNullOrWhiteSpace(brandFiltro) || !string.IsNullOrWhiteSpace(modelFiltro);
 }
 
 <form method="get" class="app-toolbar">
@@ -62,6 +67,20 @@
         <option value="" selected="@(estadoFiltro == null)">Todos</option>
         <option value="true" selected="@(estadoFiltro == true)">Activo</option>
         <option value="false" selected="@(estadoFiltro == false)">Inactivo / RAES</option>
+    </select>
+    <select name="brand" class="form-select" style="max-width: 180px;" onchange="this.form.submit()" aria-label="Filtrar por marca">
+        <option value="" selected="@(string.IsNullOrWhiteSpace(brandFiltro))">Todas las marcas</option>
+        @foreach (var b in brandOptions)
+        {
+            <option value="@b" selected="@(brandFiltro == b)">@b</option>
+        }
+    </select>
+    <select name="model" class="form-select" style="max-width: 180px;" onchange="this.form.submit()" aria-label="Filtrar por modelo">
+        <option value="" selected="@(string.IsNullOrWhiteSpace(modelFiltro))">Todos los modelos</option>
+        @foreach (var m in modelOptions)
+        {
+            <option value="@m" selected="@(modelFiltro == m)">@m</option>
+        }
     </select>
     <button type="submit" class="btn-app-primary">Buscar</button>
     @if (hasActiveFilter)

@@ -48,27 +48,17 @@ namespace Gestor_Equipos.Services.Implementations
                 }
             }
 
-            // LOG-05: the "is it already taken" check and the insert used to run as two separate
-            // reads/writes with no locking between them — two concurrent requests could both pass
-            // the check and both insert. Serializable isolation closes that window; when nested
-            // inside DesktopService.DeactivateAsync's own transaction (the RAES retirement path),
-            // run inline instead of nesting a second BeginTransactionAsync on the same context.
-            async Task CheckAndInsertAsync()
+            // LOG-05: direct reassignment from one active holder to another is allowed —
+            // Asignation is append-only (no IsCurrent/EndDate column), so a user's hold on a
+            // desktop simply ends the moment a newer Asignation row exists for that desktop;
+            // GetHistoryAsync always treats the latest row as the current holder. No separate
+            // "Disponible" row is inserted for the previous holder — this single insert is the
+            // whole operation. Still wrapped in Serializable isolation (via CreateExecutionStrategy)
+            // so it can run inline inside DesktopService.DeactivateAsync's own transaction (the
+            // RAES retirement path) without nesting a second BeginTransactionAsync on the same
+            // context.
+            async Task InsertAsync()
             {
-                var currentAsignation = await _dbContext.Asignations
-                    .Where(a => a.DesktopId == desktopId)
-                    .Include(a => a.User)
-                    .OrderByDescending(a => a.DateAsignation)
-                    .ThenByDescending(a => a.Id)
-                    .FirstOrDefaultAsync();
-
-                if (!isSystemAssignment && currentAsignation is not null && currentAsignation.User.Activo && currentAsignation.UserId != userId)
-                {
-                    throw new InvalidOperationException(
-                        $"Este equipo ya está asignado a {currentAsignation.User.Name} {currentAsignation.User.LastName}. " +
-                        "Debe quedar Disponible antes de asignarlo a otra persona.");
-                }
-
                 _dbContext.Asignations.Add(new Asignation
                 {
                     DesktopId = desktopId,
@@ -80,7 +70,7 @@ namespace Gestor_Equipos.Services.Implementations
 
             if (_dbContext.Database.CurrentTransaction is not null)
             {
-                await CheckAndInsertAsync();
+                await InsertAsync();
                 return;
             }
 
@@ -88,7 +78,7 @@ namespace Gestor_Equipos.Services.Implementations
             await strategy.ExecuteAsync(async () =>
             {
                 await using var transaction = await _dbContext.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
-                await CheckAndInsertAsync();
+                await InsertAsync();
                 await transaction.CommitAsync();
             });
         }
@@ -117,7 +107,7 @@ namespace Gestor_Equipos.Services.Implementations
             await AssignAsync(desktopId, unassignedUser.Id);
         }
 
-        public async Task<List<Asignation>> GetHistoryAsync(int desktopId)
+        public async Task<List<Asignation>> GetHistoryAsync(int desktopId, CancellationToken cancellationToken = default)
         {
             return await _dbContext.Asignations
                 .Where(a => a.DesktopId == desktopId)
@@ -125,7 +115,7 @@ namespace Gestor_Equipos.Services.Implementations
                 .Include(a => a.User).ThenInclude(u => u.Regional)
                 .OrderByDescending(a => a.DateAsignation)
                 .ThenByDescending(a => a.Id)
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
         }
     }
 }

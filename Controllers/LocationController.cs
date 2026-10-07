@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Gestor_Equipos.Controllers
 {
-    [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
+    [Authorize(Roles = AuthBootstrapper.AdminOrTecnicoRoles)]
     public class LocationController : Controller
     {
         private readonly ILocationService _locationService;
@@ -25,11 +25,13 @@ namespace Gestor_Equipos.Controllers
             return View();
         }
 
+        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
         public IActionResult CreateArea()
         {
             return View(new LocationFormViewModel());
         }
 
+        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> CreateArea(LocationFormViewModel vm)
@@ -52,6 +54,7 @@ namespace Gestor_Equipos.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
         public async Task<IActionResult> EditArea(int id)
         {
             var area = await _locationService.GetAreaByIdAsync(id);
@@ -63,6 +66,7 @@ namespace Gestor_Equipos.Controllers
             return View(new LocationFormViewModel { Id = area.Id, Name = area.Name });
         }
 
+        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> EditArea(int id, LocationFormViewModel vm)
@@ -85,6 +89,7 @@ namespace Gestor_Equipos.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteArea(int id, string adminPassword)
@@ -101,11 +106,13 @@ namespace Gestor_Equipos.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
         public IActionResult CreateRegional()
         {
             return View(new LocationFormViewModel());
         }
 
+        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> CreateRegional(LocationFormViewModel vm)
@@ -128,6 +135,7 @@ namespace Gestor_Equipos.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
         public async Task<IActionResult> EditRegional(int id)
         {
             var regional = await _locationService.GetRegionalByIdAsync(id);
@@ -139,6 +147,7 @@ namespace Gestor_Equipos.Controllers
             return View(new LocationFormViewModel { Id = regional.Id, Name = regional.Name });
         }
 
+        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> EditRegional(int id, LocationFormViewModel vm)
@@ -161,6 +170,7 @@ namespace Gestor_Equipos.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteRegional(int id, string adminPassword)

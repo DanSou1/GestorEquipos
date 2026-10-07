@@ -1,147 +1,144 @@
 using System.Text;
 using Gestor_Equipos.Services.Implementations;
-using GestorEquipos.Models;
 using GestorEquipos.Models.ViewModels.Maintenance;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.FileProviders;
 using Xunit;
 
 namespace GestorEquipos.Tests.Services
 {
     public class MaintenancePdfServiceTests
     {
-        private static MaintenancePdfViewModel BuildCorrectivo() => new()
+        // No se referencia ningún logo real: GenerateExroActaPdf solo agrega la imagen si el
+        // archivo existe en WebRootPath, así que un directorio inexistente es válido aquí.
+        private class FakeWebHostEnvironment : IWebHostEnvironment
         {
-            DesktopName = "PC-001",
-            SerialNumber = "SN-001",
-            Brand = "Dell",
-            Model = "OptiPlex",
-            Date = new DateOnly(2026, 1, 15),
-            Category = MaintenanceCategory.Correctivo,
-            MaintenanceTypeName = "Correctivo",
-            Description = "Cambio de fuente de poder",
-            TechnicianName = "Carlos Ruiz"
-        };
+            public string WebRootPath { get; set; } = Path.Combine(Path.GetTempPath(), "no-such-wwwroot");
+            public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
+            public string ApplicationName { get; set; } = "GestorEquipos.Tests";
+            public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+            public string ContentRootPath { get; set; } = Path.GetTempPath();
+            public string EnvironmentName { get; set; } = "Testing";
+        }
 
-        private static MaintenancePdfViewModel BuildPreventivoConChecklistCompleto() => new()
+        private static MaintenanceExroActaViewModel BuildDetail(List<MaintenanceChecklistItem>? checklist = null, List<MaintenanceEquipmentRow>? equipment = null)
         {
-            DesktopName = "PC-002",
-            SerialNumber = "SN-002",
-            Brand = "HP",
-            Model = "ProDesk",
-            Date = new DateOnly(2026, 2, 1),
-            Category = MaintenanceCategory.Preventivo,
-            MaintenanceTypeName = "Preventivo",
-            Description = "Mantenimiento preventivo trimestral",
-            TechnicianName = "Ana Gomez",
-            CurrentUserName = "Juan Perez",
-            CurrentAreaName = "Sistemas",
-            Equipment = new List<MaintenanceEquipmentRow>
+            return new MaintenanceExroActaViewModel
             {
-                new() { Label = "Desktop", Brand = "HP", Model = "ProDesk", Serial = "SN-002" },
-                new() { Label = "Mouse", Brand = "Logitech", Model = "M100", Serial = "MS-1" },
-                new() { Label = "Teclado", Brand = "Logitech", Model = "K120", Serial = "KB-1" }
-            },
-            Checklist = new List<MaintenanceChecklistItem>
+                Date = new DateOnly(2026, 6, 15),
+                UsuarioNombre = "Ana Pérez",
+                Area = "Ventas",
+                DescripcionFalla = "Mantenimiento preventivo 2026-I",
+                TechnicianName = "Carlos Técnico",
+                Equipment = equipment ?? new List<MaintenanceEquipmentRow>
+                {
+                    new() { Label = "Desktop", Brand = "HP", Model = "Compaq 6200", Serial = "ABC123" }
+                },
+                Checklist = checklist ?? new List<MaintenanceChecklistItem>
+                {
+                    new() { Label = "Verificación de sistema mecánico", Checked = true },
+                    new() { Label = "Verificación de sistema eléctrico", Checked = true },
+                    new() { Label = "Verificación de sistema de seguridad", Checked = false },
+                    new() { Label = "Soplado interno", Checked = true },
+                    new() { Label = "Lavado Interno/Externo", Checked = true },
+                    new() { Label = "Lubricación", Checked = false },
+                    new() { Label = "Ajuste de tornillería", Checked = true },
+                    new() { Label = "Cambio de accesorios y repuestos por desgaste", Checked = false }
+                }
+            };
+        }
+
+        private static bool LooksLikePdf(byte[] bytes)
+        {
+            return bytes.Length > 4 && Encoding.ASCII.GetString(bytes, 0, 4) == "%PDF";
+        }
+
+        [Fact]
+        public void GenerateExroActaPdf_ReturnsValidPdfBytes()
+        {
+            var service = new MaintenancePdfService(new FakeWebHostEnvironment());
+
+            var bytes = service.GenerateExroActaPdf(BuildDetail());
+
+            Assert.NotEmpty(bytes);
+            Assert.True(LooksLikePdf(bytes));
+        }
+
+        [Fact]
+        public void GenerateExroActaPdf_DoesNotThrowWithPartialChecklist()
+        {
+            var service = new MaintenancePdfService(new FakeWebHostEnvironment());
+            var partialChecklist = new List<MaintenanceChecklistItem>
             {
                 new() { Label = "Verificación de sistema mecánico", Checked = true },
-                new() { Label = "Verificación de sistema eléctrico", Checked = true },
-                new() { Label = "Verificación de sistema de seguridad", Checked = true },
-                new() { Label = "Soplado interno", Checked = true },
-                new() { Label = "Lavado interno", Checked = true },
-                new() { Label = "Lubricación", Checked = true },
-                new() { Label = "Ajuste de tornillería", Checked = true },
-                new() { Label = "Cambio de accesorios y repuestos por desgaste", Checked = true }
-            }
-        };
+                new() { Label = "Soplado interno", Checked = false }
+            };
 
-        private static MaintenancePdfViewModel BuildPreventivoConChecklistVacio() => new()
+            var bytes = service.GenerateExroActaPdf(BuildDetail(checklist: partialChecklist));
+
+            Assert.True(LooksLikePdf(bytes));
+        }
+
+        [Fact]
+        public void GenerateExroActaPdf_DoesNotThrowWithEmptyEquipmentList()
         {
-            DesktopName = "PC-003",
-            SerialNumber = "SN-003",
-            Brand = "Lenovo",
-            Model = "ThinkCentre",
-            Date = new DateOnly(2026, 3, 1),
-            Category = MaintenanceCategory.Preventivo,
-            MaintenanceTypeName = "Preventivo",
-            Description = "Mantenimiento preventivo sin hallazgos que marcar",
-            TechnicianName = "Maria Lopez",
-            CurrentUserName = "Sin asignar",
-            CurrentAreaName = "-",
-            Equipment = new List<MaintenanceEquipmentRow>
+            var service = new MaintenancePdfService(new FakeWebHostEnvironment());
+
+            var bytes = service.GenerateExroActaPdf(BuildDetail(equipment: new List<MaintenanceEquipmentRow>()));
+
+            Assert.True(LooksLikePdf(bytes));
+        }
+
+        [Fact]
+        public void GenerateMaintenancePdf_StillWorksAfterAddingExroMethod()
+        {
+            var service = new MaintenancePdfService(new FakeWebHostEnvironment());
+            var detail = new MaintenancePdfViewModel
             {
-                new() { Label = "Desktop", Brand = "Lenovo", Model = "ThinkCentre", Serial = "SN-003" }
-            },
-            Checklist = new List<MaintenanceChecklistItem>
+                DesktopName = "PC-1",
+                SerialNumber = "SN-1",
+                Brand = "HP",
+                Model = "Compaq",
+                Date = new DateOnly(2026, 6, 15),
+                Category = GestorEquipos.Models.MaintenanceCategory.Correctivo,
+                Description = "Cambio de fuente",
+                TechnicianName = "Carlos"
+            };
+
+            var bytes = service.GenerateMaintenancePdf(detail);
+
+            Assert.True(LooksLikePdf(bytes));
+        }
+
+        [Fact]
+        public void GenerateMaintenancePdf_IncludesChecklistAndEquipmentForPreventivo()
+        {
+            var service = new MaintenancePdfService(new FakeWebHostEnvironment());
+            var detail = new MaintenancePdfViewModel
             {
-                new() { Label = "Verificación de sistema mecánico", Checked = false },
-                new() { Label = "Verificación de sistema eléctrico", Checked = false },
-                new() { Label = "Verificación de sistema de seguridad", Checked = false },
-                new() { Label = "Soplado interno", Checked = false },
-                new() { Label = "Lavado interno", Checked = false },
-                new() { Label = "Lubricación", Checked = false },
-                new() { Label = "Ajuste de tornillería", Checked = false },
-                new() { Label = "Cambio de accesorios y repuestos por desgaste", Checked = false }
-            }
-        };
+                DesktopName = "PC-1",
+                SerialNumber = "SN-1",
+                Brand = "HP",
+                Model = "Compaq",
+                Date = new DateOnly(2026, 6, 15),
+                Category = GestorEquipos.Models.MaintenanceCategory.Preventivo,
+                Description = "Mantenimiento preventivo 2026-I",
+                TechnicianName = "Carlos",
+                CurrentUserName = "Ana Pérez",
+                CurrentAreaName = "Ventas",
+                Equipment = new List<MaintenanceEquipmentRow>
+                {
+                    new() { Label = "Desktop", Brand = "HP", Model = "Compaq 6200", Serial = "ABC123" }
+                },
+                Checklist = new List<MaintenanceChecklistItem>
+                {
+                    new() { Label = "Soplado interno", Checked = true }
+                }
+            };
 
-        private static MaintenancePdfViewModel BuildPreventivoSinPerifericos() => new()
-        {
-            DesktopName = "PC-004",
-            SerialNumber = "SN-004",
-            Brand = "Acer",
-            Model = "Veriton",
-            Date = new DateOnly(2026, 4, 1),
-            Category = MaintenanceCategory.Preventivo,
-            MaintenanceTypeName = "Preventivo",
-            Description = "Mantenimiento preventivo sin periféricos activos",
-            TechnicianName = "Pedro Diaz",
-            CurrentUserName = "Sin asignar",
-            CurrentAreaName = "-",
-            Equipment = new List<MaintenanceEquipmentRow>(),
-            Checklist = new List<MaintenanceChecklistItem>()
-        };
+            var bytes = service.GenerateMaintenancePdf(detail);
 
-        [Fact]
-        public void GenerateMaintenancePdf_Correctivo_ReturnsValidPdfBytes()
-        {
-            var service = new MaintenancePdfService();
-
-            var bytes = service.GenerateMaintenancePdf(BuildCorrectivo());
-
-            Assert.NotEmpty(bytes);
-            Assert.Equal("%PDF", Encoding.ASCII.GetString(bytes, 0, 4));
-        }
-
-        [Fact]
-        public void GenerateMaintenancePdf_PreventivoConChecklistCompleto_ReturnsValidPdfBytes()
-        {
-            var service = new MaintenancePdfService();
-
-            var bytes = service.GenerateMaintenancePdf(BuildPreventivoConChecklistCompleto());
-
-            Assert.NotEmpty(bytes);
-            Assert.Equal("%PDF", Encoding.ASCII.GetString(bytes, 0, 4));
-        }
-
-        [Fact]
-        public void GenerateMaintenancePdf_PreventivoConChecklistVacio_ReturnsValidPdfBytes()
-        {
-            var service = new MaintenancePdfService();
-
-            var bytes = service.GenerateMaintenancePdf(BuildPreventivoConChecklistVacio());
-
-            Assert.NotEmpty(bytes);
-            Assert.Equal("%PDF", Encoding.ASCII.GetString(bytes, 0, 4));
-        }
-
-        [Fact]
-        public void GenerateMaintenancePdf_PreventivoSinPerifericos_ReturnsValidPdfBytes()
-        {
-            var service = new MaintenancePdfService();
-
-            var bytes = service.GenerateMaintenancePdf(BuildPreventivoSinPerifericos());
-
-            Assert.NotEmpty(bytes);
-            Assert.Equal("%PDF", Encoding.ASCII.GetString(bytes, 0, 4));
+            Assert.True(LooksLikePdf(bytes));
         }
     }
 }

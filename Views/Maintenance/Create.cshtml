@@ -12,13 +12,6 @@
     <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
 
     <div class="mb-3">
-        <label asp-for="MaintenanceTypeId" class="form-label">Tipo de mantenimiento</label>
-        <select asp-for="MaintenanceTypeId" class="form-select" asp-items="ViewBag.MaintenanceTypes">
-            <option value="">-- Selecciona --</option>
-        </select>
-        <span asp-validation-for="MaintenanceTypeId" class="text-danger"></span>
-    </div>
-    <div class="mb-3">
         <label asp-for="Category" class="form-label">Categoría</label>
         <select asp-for="Category" id="categorySelect" class="form-select" asp-items="Html.GetEnumSelectList<MaintenanceCategory>()"></select>
         <span asp-validation-for="Category" class="text-danger"></span>

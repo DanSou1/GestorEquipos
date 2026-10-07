@@ -1,0 +1,85 @@
+@using GestorEquipos.Models.ViewModels.CasoTI
+@using Microsoft.AspNetCore.Mvc.Rendering
+@model CasoTIRatingsViewModel
+@{
+    ViewData["Title"] = "Calificaciones de Casos TI";
+    SelectList? tecnicoOptions = ViewBag.TecnicoOptions;
+    int? tecnicoFiltro = ViewBag.TecnicoFiltro;
+}
+
+<div class="section-header">
+    <h1>Calificaciones de Casos TI</h1>
+</div>
+
+@if (tecnicoOptions is not null)
+{
+    <form method="get" class="app-toolbar">
+        <select name="tecnicoId" class="form-select" style="max-width: 260px;" onchange="this.form.submit()" aria-label="Filtrar por técnico">
+            <option value="" selected="@(tecnicoFiltro == null)">Todos los técnicos</option>
+            @foreach (var item in tecnicoOptions)
+            {
+                <option value="@item.Value" selected="@(tecnicoFiltro.HasValue && tecnicoFiltro.Value.ToString() == item.Value)">@item.Text</option>
+            }
+        </select>
+        <button type="submit" class="btn-app-primary">Filtrar</button>
+    </form>
+}
+
+<div class="app-card mb-3">
+    <table class="app-table">
+        <thead>
+            <tr>
+                <th>Técnico</th>
+                <th>Promedio</th>
+                <th>Casos calificados</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var r in Model.Resumen)
+            {
+                <tr>
+                    <td>@r.TecnicoNombre</td>
+                    <td>@(r.Promedio.HasValue ? r.Promedio.Value.ToString("0.0") + " / 5" : "-")</td>
+                    <td>@r.CantidadCalificados</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (!Model.Resumen.Any())
+    {
+        <p class="text-muted p-3 mb-0">No hay casos resueltos con calificación todavía.</p>
+    }
+</div>
+
+<h2 class="h5">Comentarios recientes</h2>
+<div class="app-card">
+    <table class="app-table">
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Técnico</th>
+                <th>Persona atendida</th>
+                <th>Calificación</th>
+                <th>Comentario</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var c in Model.Comentarios)
+            {
+                <tr>
+                    <td>@c.Fecha.ToString("dd/MM/yyyy")</td>
+                    <td>@c.TecnicoNombre</td>
+                    <td>@c.PersonaNombre</td>
+                    <td>@c.RatingValue / 5</td>
+                    <td>@(string.IsNullOrWhiteSpace(c.RatingComment) ? "-" : c.RatingComment)</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (!Model.Comentarios.Any())
+    {
+        <p class="text-muted p-3 mb-0">No hay comentarios registrados.</p>
+    }
+</div>

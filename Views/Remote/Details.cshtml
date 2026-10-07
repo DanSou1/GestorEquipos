@@ -33,7 +33,7 @@
             <li class="list-group-item"><strong>IP:</strong> @Model.IPAddress</li>
             <li class="list-group-item"><strong>Puerto:</strong> @Model.Port</li>
             <li class="list-group-item"><strong>Usuario:</strong> @Model.Username</li>
-            @if (User.IsInRole("Administrador"))
+            @if (User.IsInRole("Administrador") || User.IsInRole("Técnico en Sistemas"))
             {
                 <li class="list-group-item">
                     <strong>Clave:</strong>
@@ -68,6 +68,12 @@
 {
     <div class="mt-3">
         <a asp-controller="Remote" asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Editar</a>
+    </div>
+}
+
+@if (User.IsInRole("Administrador") || User.IsInRole("Técnico en Sistemas"))
+{
+    <div class="mt-3">
         @if (Model.AssignedDesktops.Any())
         {
             <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#releaseRemoteModal">Liberar</button>
@@ -104,7 +110,7 @@
     }
 }
 
-@if (User.IsInRole("Administrador") && Model.ConnectionType == RemoteConnectionType.EscritorioRemotoWindows)
+@if ((User.IsInRole("Administrador") || User.IsInRole("Técnico en Sistemas")) && Model.ConnectionType == RemoteConnectionType.EscritorioRemotoWindows)
 {
     @section Scripts {
         <script>

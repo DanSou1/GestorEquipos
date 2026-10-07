@@ -12,10 +12,13 @@
 
 <div class="section-header">
     <h1>Tipos de mantenimiento</h1>
-    <a asp-controller="MaintenanceType" asp-action="Create" class="btn-app-primary">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-        Nuevo tipo
-    </a>
+    @if (User.IsInRole("Administrador"))
+    {
+        <a asp-controller="MaintenanceType" asp-action="Create" class="btn-app-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+            Nuevo tipo
+        </a>
+    }
 </div>
 
 <div class="app-card">
@@ -32,12 +35,17 @@
                 <tr>
                     <td>@t.Type</td>
                     <td>
-                        <a asp-controller="MaintenanceType" asp-action="Edit" asp-route-id="@t.Id">Editar</a>
-                        <button type="button" class="btn btn-sm btn-outline-danger ms-2" data-bs-toggle="modal" data-bs-target="#deleteMaintenanceTypeModal-@t.Id">Eliminar</button>
+                        @if (User.IsInRole("Administrador"))
+                        {
+                            <a asp-controller="MaintenanceType" asp-action="Edit" asp-route-id="@t.Id">Editar</a>
+                            <button type="button" class="btn btn-sm btn-outline-danger ms-2" data-bs-toggle="modal" data-bs-target="#deleteMaintenanceTypeModal-@t.Id">Eliminar</button>
+                        }
                     </td>
                 </tr>
 
-                <div class="modal fade" id="deleteMaintenanceTypeModal-@t.Id" tabindex="-1" aria-labelledby="deleteMaintenanceTypeModalLabel-@t.Id" aria-hidden="true">
+                @if (User.IsInRole("Administrador"))
+                {
+                    <div class="modal fade" id="deleteMaintenanceTypeModal-@t.Id" tabindex="-1" aria-labelledby="deleteMaintenanceTypeModalLabel-@t.Id" aria-hidden="true">
                     <div class="modal-dialog">
                         <div class="modal-content">
                             <form asp-controller="MaintenanceType" asp-action="Delete" asp-route-id="@t.Id" method="post">
@@ -62,6 +70,7 @@
                         </div>
                     </div>
                 </div>
+                }
             }
         </tbody>
     </table>

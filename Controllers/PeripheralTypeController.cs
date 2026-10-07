@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Gestor_Equipos.Controllers
 {
-    [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
+    [Authorize(Roles = AuthBootstrapper.AdminOrTecnicoRoles)]
     public class PeripheralTypeController : Controller
     {
         private readonly IPeripheralTypeService _peripheralTypeService;
@@ -24,11 +24,13 @@ namespace Gestor_Equipos.Controllers
             return View(types);
         }
 
+        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
         public IActionResult Create()
         {
             return View(new PeripheralTypeCreateViewModel());
         }
 
+        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(PeripheralTypeCreateViewModel vm)
@@ -51,6 +53,7 @@ namespace Gestor_Equipos.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
         public async Task<IActionResult> Edit(int id)
         {
             var type = await _peripheralTypeService.GetByIdAsync(id);
@@ -62,6 +65,7 @@ namespace Gestor_Equipos.Controllers
             return View(new PeripheralTypeEditViewModel { Id = type.Id, Name = type.Name });
         }
 
+        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, PeripheralTypeEditViewModel vm)
@@ -84,6 +88,7 @@ namespace Gestor_Equipos.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Delete(int id, string adminPassword)

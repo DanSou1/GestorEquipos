@@ -5,7 +5,6 @@ using GestorEquipos.Models;
 using GestorEquipos.Models.ViewModels.Maintenance;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
 namespace Gestor_Equipos.Controllers
@@ -38,21 +37,19 @@ namespace Gestor_Equipos.Controllers
             _dbContext = dbContext;
         }
 
-        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
-        public async Task<IActionResult> Create(int desktopId)
+        [Authorize(Roles = AuthBootstrapper.AdminOrTecnicoRoles)]
+        public IActionResult Create(int desktopId)
         {
-            await PopulateDropdownsAsync();
             return View(new MaintenanceCreateViewModel { DesktopId = desktopId, Date = DateOnly.FromDateTime(DateTime.Now) });
         }
 
         [HttpPost]
-        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
+        [Authorize(Roles = AuthBootstrapper.AdminOrTecnicoRoles)]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(MaintenanceCreateViewModel vm)
         {
             if (!ModelState.IsValid)
             {
-                await PopulateDropdownsAsync();
                 return View(vm);
             }
 
@@ -63,7 +60,6 @@ namespace Gestor_Equipos.Controllers
             catch (InvalidOperationException ex)
             {
                 ModelState.AddModelError(string.Empty, ex.Message);
-                await PopulateDropdownsAsync();
                 return View(vm);
             }
 
@@ -73,9 +69,8 @@ namespace Gestor_Equipos.Controllers
         public async Task<IActionResult> DownloadPdf(int id)
         {
             var maintenance = await _dbContext.Maintenances
-                .Include(m => m.MaintenanceType)
                 .Include(m => m.Checklist)
-                .Include(m => m.Desktop)
+                .Include(m => m.Desktop).ThenInclude(d => d.DesktopType)
                 .Include(m => m.EquipmentSnapshot)
                 .SingleOrDefaultAsync(m => m.Id == id);
 
@@ -88,11 +83,10 @@ namespace Gestor_Equipos.Controllers
             {
                 DesktopName = maintenance.Desktop.NameDesktop,
                 SerialNumber = maintenance.Desktop.SerialNumber,
-                Brand = maintenance.Desktop.Brand,
-                Model = maintenance.Desktop.Model,
+                Brand = maintenance.Desktop.DesktopType.Brand,
+                Model = maintenance.Desktop.DesktopType.Model,
                 Date = maintenance.Date,
                 Category = maintenance.Category,
-                MaintenanceTypeName = maintenance.MaintenanceType.Type,
                 Description = maintenance.Description,
                 TechnicianName = maintenance.TechnicianName
             };
@@ -122,11 +116,6 @@ namespace Gestor_Equipos.Controllers
             var pdfBytes = _maintenancePdfService.GenerateMaintenancePdf(vm);
             var fileName = $"Mantenimiento-{maintenance.Id}-{maintenance.Desktop.SerialNumber}.pdf";
             return File(pdfBytes, "application/pdf", fileName);
-        }
-
-        private async Task PopulateDropdownsAsync()
-        {
-            ViewBag.MaintenanceTypes = new SelectList(await _dbContext.MaintenanceTypes.OrderBy(t => t.Type).ToListAsync(), "Id", "Type");
         }
     }
 }

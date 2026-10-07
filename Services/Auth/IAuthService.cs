@@ -2,7 +2,7 @@ namespace Gestor_Equipos.Services.Auth
 {
     public interface IAuthService
     {
-        Task<AuthenticatedUser?> ValidateUserAsync(string email, string password);
+        Task<AuthenticatedUser?> ValidateUserAsync(string email, string password, CancellationToken cancellationToken = default);
     }
 
     public sealed record AuthenticatedUser(

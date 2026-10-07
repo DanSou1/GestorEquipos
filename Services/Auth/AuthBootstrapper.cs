@@ -9,6 +9,12 @@ namespace Gestor_Equipos.Services.Auth
     {
         public const string AdministradorRoleName = "Administrador";
         public const string AuditorRoleName = "Auditor";
+        public const string TecnicoSistemasRoleName = "Técnico en Sistemas";
+        // Roles permitidos para crear/consultar/operar (asignar, devolver, reasignar, liberar,
+        // dar de baja a RAES, desactivar persona) en todos los módulos excepto Cuentas de acceso
+        // y las acciones de Editar/Borrar, que siguen exigiendo AdministradorRoleName a nivel de
+        // método (ver DesktopController, PeripheralController, etc.).
+        public const string AdminOrTecnicoRoles = $"{AdministradorRoleName},{TecnicoSistemasRoleName}";
         public const string RaesUserEmail = "raes@system.local";
         // UX-06: distinct from RaesUserEmail — this represents "returned, equipment still in
         // service" (Desktop.Estado stays true), not "retired". Activo=false so it's picked up
@@ -31,6 +37,7 @@ namespace Gestor_Equipos.Services.Auth
 
             var adminRole = await EnsureRoleAsync(dbContext, AdministradorRoleName);
             await EnsureRoleAsync(dbContext, AuditorRoleName);
+            await EnsureRoleAsync(dbContext, TecnicoSistemasRoleName);
             await dbContext.SaveChangesAsync();
 
             await EnsureRaesUserAsync(dbContext);

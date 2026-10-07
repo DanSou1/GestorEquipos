@@ -12,11 +12,13 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using System.Threading.RateLimiting;
+using Gestor_Equipos.Middleware;
+using Gestor_Equipos.Services.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
 
 var mvcBuilder = builder.Services.AddControllersWithViews();
-if (builder.Environment.IsDevelopment())
+if (builder.Environment.IsDevelopment() && builder.Configuration.GetValue<bool>("Razor:RuntimeCompilation"))
 {
     mvcBuilder.AddRazorRuntimeCompilation();
 }
@@ -28,6 +30,7 @@ builder.Services.AddScoped<IDesktopPdfService, DesktopPdfService>();
 builder.Services.AddScoped<IAsignationService, AsignationService>();
 builder.Services.AddScoped<IPeripheralService, PeripheralService>();
 builder.Services.AddScoped<IPeripheralTypeService, PeripheralTypeService>();
+builder.Services.AddScoped<IDesktopTypeService, DesktopTypeService>();
 builder.Services.AddScoped<IPeripheralAssignmentService, PeripheralAssignmentService>();
 builder.Services.AddScoped<IPeripheralMaintenanceService, PeripheralMaintenanceService>();
 builder.Services.AddScoped<IMaintenanceService, MaintenanceService>();
@@ -36,7 +39,12 @@ builder.Services.AddScoped<IMaintenancePdfService, MaintenancePdfService>();
 builder.Services.AddScoped<ILicenseService, LicenseService>();
 builder.Services.AddScoped<IUserAdminService, UserAdminService>();
 builder.Services.AddScoped<ILocationService, LocationService>();
+builder.Services.AddScoped<ICargoService, CargoService>();
 builder.Services.AddScoped<IRemoteService, RemoteService>();
+builder.Services.AddScoped<IEmailService, SmtpEmailService>();
+builder.Services.AddScoped<IMaintenanceCampaignService, MaintenanceCampaignService>();
+builder.Services.AddScoped<ITipoCasoService, TipoCasoService>();
+builder.Services.AddScoped<ICasoTIService, CasoTIService>();
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
@@ -89,12 +97,23 @@ builder.Services.AddRateLimiter(options =>
         }));
 });
 
-builder.Services.AddDbContext<MyDbContext>(options =>
-    options.UseSqlServer(
+builder.Services.AddSingleton<QueryTimingInterceptor>();
+builder.Services.AddDbContext<MyDbContext>((services, options) =>
+{
+    options.AddInterceptors(services.GetRequiredService<QueryTimingInterceptor>()).UseSqlServer(
         builder.Configuration.GetConnectionString("DefaultConnection"),
         sqlOptions => sqlOptions
             .EnableRetryOnFailure(maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(10), errorNumbersToAdd: null)
-            .CommandTimeout(60)));
+            .CommandTimeout(60));
+
+    if (builder.Environment.IsDevelopment())
+    {
+        // Mensajes de error de EF Core mas detallados (incluye el SQL exacto y el stack
+        // completo de la excepcion) para poder ver en la consola/Output de VS en que paso
+        // exacto falla la conexion durante el login.
+        options.EnableDetailedErrors();
+    }
+});
 
 builder.Services.AddResponseCompression(options =>
 {
@@ -153,6 +172,7 @@ app.UseRouting();
 
 app.UseRateLimiter();
 
+app.UseMiddleware<DatabaseAvailabilityMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 

@@ -1,0 +1,45 @@
+@model GestorEquipos.Models.ViewModels.Cargo.CargoHistoryViewModel
+@{
+    ViewData["Title"] = $"Historial - {Model.CargoName}";
+}
+
+<div class="section-header">
+    <h1>@Model.CargoName</h1>
+    <a asp-controller="Cargo" asp-action="Index" class="btn btn-link">&larr; Volver a Cargos</a>
+</div>
+
+<div class="app-card">
+    <table class="app-table">
+        <thead>
+            <tr>
+                <th>Persona</th>
+                <th>Desde</th>
+                <th>Hasta</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model.Items)
+            {
+                <tr>
+                    <td><a asp-controller="UserAdmin" asp-action="Details" asp-route-id="@item.UserId">@item.UserName</a></td>
+                    <td>@item.StartDate.ToString("yyyy-MM-dd")</td>
+                    <td>
+                        @if (item.IsCurrent)
+                        {
+                            <span class="badge bg-success">Vigente</span>
+                        }
+                        else
+                        {
+                            @item.EndDate!.Value.ToString("yyyy-MM-dd")
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (!Model.Items.Any())
+    {
+        <p class="text-muted p-3 mb-0">Nadie ha tenido este cargo todavía.</p>
+    }
+</div>

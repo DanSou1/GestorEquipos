@@ -1,0 +1,73 @@
+@model MaintenanceCampaignCompleteViewModel
+@{
+    ViewData["Title"] = "Completar mantenimiento obligatorio";
+}
+
+<h1>Completar mantenimiento obligatorio</h1>
+<p class="text-muted">@Model.DesktopName (Serial: @Model.SerialNumber)</p>
+
+<form asp-controller="MaintenanceCampaign" asp-action="Complete" method="post">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="CampaignItemId" />
+    <input type="hidden" asp-for="DesktopName" />
+    <input type="hidden" asp-for="SerialNumber" />
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+    <div class="mb-3">
+        <label asp-for="Date" class="form-label"></label>
+        <input asp-for="Date" type="date" class="form-control" />
+    </div>
+    <div class="mb-3">
+        <label asp-for="TechnicianName" class="form-label">Técnico</label>
+        <input asp-for="TechnicianName" type="text" class="form-control" />
+        <span asp-validation-for="TechnicianName" class="text-danger"></span>
+    </div>
+    <div class="mb-3">
+        <label asp-for="Description" class="form-label">Observación</label>
+        <textarea asp-for="Description" class="form-control" rows="3"></textarea>
+        <span asp-validation-for="Description" class="text-danger"></span>
+    </div>
+
+    <fieldset class="mb-3">
+        <legend class="form-label h6">Checklist de mantenimiento preventivo</legend>
+        <div class="form-check">
+            <input asp-for="ChecklistVerificacionSistemaMecanico" class="form-check-input" />
+            <label asp-for="ChecklistVerificacionSistemaMecanico" class="form-check-label">Verificación de sistema mecánico</label>
+        </div>
+        <div class="form-check">
+            <input asp-for="ChecklistVerificacionSistemaElectrico" class="form-check-input" />
+            <label asp-for="ChecklistVerificacionSistemaElectrico" class="form-check-label">Verificación de sistema eléctrico</label>
+        </div>
+        <div class="form-check">
+            <input asp-for="ChecklistVerificacionSistemaSeguridad" class="form-check-input" />
+            <label asp-for="ChecklistVerificacionSistemaSeguridad" class="form-check-label">Verificación de sistema de seguridad</label>
+        </div>
+        <div class="form-check">
+            <input asp-for="ChecklistSopladoInterno" class="form-check-input" />
+            <label asp-for="ChecklistSopladoInterno" class="form-check-label">Soplado interno</label>
+        </div>
+        <div class="form-check">
+            <input asp-for="ChecklistLavadoInterno" class="form-check-input" />
+            <label asp-for="ChecklistLavadoInterno" class="form-check-label">Lavado interno/externo</label>
+        </div>
+        <div class="form-check">
+            <input asp-for="ChecklistLubricacion" class="form-check-input" />
+            <label asp-for="ChecklistLubricacion" class="form-check-label">Lubricación</label>
+        </div>
+        <div class="form-check">
+            <input asp-for="ChecklistAjusteTornilleria" class="form-check-input" />
+            <label asp-for="ChecklistAjusteTornilleria" class="form-check-label">Ajuste de tornillería</label>
+        </div>
+        <div class="form-check">
+            <input asp-for="ChecklistCambioAccesorios" class="form-check-input" />
+            <label asp-for="ChecklistCambioAccesorios" class="form-check-label">Cambio de accesorios y repuestos por desgaste</label>
+        </div>
+    </fieldset>
+
+    <button type="submit" class="btn btn-primary">Completar y enviar al correo</button>
+    <a asp-controller="MaintenanceCampaign" asp-action="Index" class="btn btn-link">Cancelar</a>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

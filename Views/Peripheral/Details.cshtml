@@ -13,20 +13,23 @@
     <h1>@Model.TypeName — @Model.Brand @Model.Model</h1>
     <div class="d-flex align-items-center gap-2">
         <span class="badge @(Model.Estado == "Activo" ? "bg-success" : Model.Estado == "Raes" ? "bg-dark" : "bg-secondary") fs-6">@Model.Estado</span>
-        @if (User.IsInRole("Administrador"))
+        @if (User.IsInRole("Administrador") || User.IsInRole("Técnico en Sistemas"))
         {
-            <a asp-controller="Peripheral" asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-secondary">Editar</a>
             <a asp-controller="Peripheral" asp-action="Reassign" asp-route-peripheralId="@Model.Id" class="btn btn-sm btn-outline-primary">Reasignar</a>
             @if (Model.Estado != "Raes")
             {
                 <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#retirePeripheralModal">Enviar a RAES</button>
             }
+        }
+        @if (User.IsInRole("Administrador"))
+        {
+            <a asp-controller="Peripheral" asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-secondary">Editar</a>
             <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deletePeripheralModal">Eliminar</button>
         }
     </div>
 </div>
 
-@if (User.IsInRole("Administrador"))
+@if (User.IsInRole("Administrador") || User.IsInRole("Técnico en Sistemas"))
 {
     @if (Model.Estado != "Raes")
     {
@@ -52,7 +55,10 @@
             </div>
         </div>
     }
+}
 
+@if (User.IsInRole("Administrador"))
+{
     <div class="modal fade" id="deletePeripheralModal" tabindex="-1" aria-labelledby="deletePeripheralModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -138,7 +144,7 @@
         <div class="card mb-3">
             <div class="card-header d-flex justify-content-between align-items-center">
                 Historial de mantenimiento
-                @if (User.IsInRole("Administrador"))
+                @if (User.IsInRole("Administrador") || User.IsInRole("Técnico en Sistemas"))
                 {
                     <a asp-controller="PeripheralMaintenance" asp-action="Create" asp-route-peripheralId="@Model.Id" class="btn btn-sm btn-outline-primary">Registrar mantenimiento</a>
                 }

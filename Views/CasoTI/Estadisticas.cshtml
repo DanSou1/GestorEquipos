@@ -1,0 +1,122 @@
+@using GestorEquipos.Models.ViewModels.CasoTI
+@using Microsoft.AspNetCore.Mvc.Rendering
+@model CasoTIStatsViewModel
+@{
+    ViewData["Title"] = "Estadísticas de Casos TI";
+    SelectList? tecnicoOptions = ViewBag.TecnicoOptions;
+    int? tecnicoFiltro = ViewBag.TecnicoFiltro;
+    var meses = new[] { "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre" };
+    var anioActual = DateTime.Now.Year;
+    // Año en que se puso en marcha el módulo de Casos TI — no tiene sentido ofrecer años
+    // anteriores en el filtro porque nunca podrá haber casos registrados ahí.
+    const int CasoTIEpochYear = 2026;
+}
+
+<div class="section-header">
+    <h1>Estadísticas de Casos TI</h1>
+</div>
+
+<form method="get" class="app-toolbar">
+    <select name="granularidad" class="form-select" style="max-width: 200px;" onchange="this.form.submit()" aria-label="Granularidad del gráfico de barras">
+        <option value="@CasoTIGranularidad.DiaSemana" selected="@(Model.Granularidad == CasoTIGranularidad.DiaSemana)">Día de la semana</option>
+        <option value="@CasoTIGranularidad.FechaEspecifica" selected="@(Model.Granularidad == CasoTIGranularidad.FechaEspecifica)">Fecha específica</option>
+        <option value="@CasoTIGranularidad.Semana" selected="@(Model.Granularidad == CasoTIGranularidad.Semana)">Semana</option>
+        <option value="@CasoTIGranularidad.Mes" selected="@(Model.Granularidad == CasoTIGranularidad.Mes)">Mes</option>
+    </select>
+    <select name="mes" class="form-select" style="max-width: 160px;" onchange="this.form.submit()" aria-label="Filtrar por mes">
+        <option value="" selected="@(Model.Mes == null)">Todos los meses</option>
+        @for (var m = 1; m <= 12; m++)
+        {
+            <option value="@m" selected="@(Model.Mes == m)">@meses[m - 1]</option>
+        }
+    </select>
+    <select name="anio" class="form-select" style="max-width: 140px;" onchange="this.form.submit()" aria-label="Filtrar por año">
+        <option value="" selected="@(Model.Anio == null)">Todos los años</option>
+        @for (var a = anioActual; a >= CasoTIEpochYear; a--)
+        {
+            <option value="@a" selected="@(Model.Anio == a)">@a</option>
+        }
+    </select>
+    @if (tecnicoOptions is not null)
+    {
+        <select name="tecnicoId" class="form-select" style="max-width: 260px;" onchange="this.form.submit()" aria-label="Filtrar por técnico">
+            <option value="" selected="@(tecnicoFiltro == null)">Todos los técnicos</option>
+            @foreach (var item in tecnicoOptions)
+            {
+                <option value="@item.Value" selected="@(tecnicoFiltro.HasValue && tecnicoFiltro.Value.ToString() == item.Value)">@item.Text</option>
+            }
+        </select>
+    }
+    <button type="submit" class="btn-app-primary">Filtrar</button>
+</form>
+
+<div class="charts-row">
+    <div class="chart-card">
+        <h2 class="chart-card__title">Casos por período</h2>
+        @if (Model.BarChart.Values.Sum() > 0)
+        {
+            <div class="chart-card__body">
+                <div class="chart-card__canvas-wrap chart-card__canvas-wrap--bar">
+                    <canvas id="casoTIBarChart" role="img" aria-label="Cantidad de casos TI agrupados según la granularidad seleccionada"></canvas>
+                </div>
+            </div>
+            <table class="visually-hidden">
+                <caption>Casos por período</caption>
+                <thead><tr><th scope="col">Período</th><th scope="col">Casos</th></tr></thead>
+                <tbody>
+                    @for (var i = 0; i < Model.BarChart.Labels.Count; i++)
+                    {
+                        <tr><td>@Model.BarChart.Labels[i]</td><td>@Model.BarChart.Values[i]</td></tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <p class="text-muted mb-0">No hay casos registrados para este período.</p>
+        }
+    </div>
+    <div class="chart-card">
+        <h2 class="chart-card__title">Tipos de caso</h2>
+        @if (Model.PieChart.Values.Sum() > 0)
+        {
+            <div class="chart-card__body">
+                <div class="chart-card__canvas-wrap">
+                    <canvas id="casoTIPieChart" role="img" aria-label="Distribución de casos TI por tipo"></canvas>
+                </div>
+            </div>
+            <table class="visually-hidden">
+                <caption>Tipos de caso</caption>
+                <thead><tr><th scope="col">Tipo</th><th scope="col">Casos</th></tr></thead>
+                <tbody>
+                    @for (var i = 0; i < Model.PieChart.Labels.Count; i++)
+                    {
+                        <tr><td>@Model.PieChart.Labels[i]</td><td>@Model.PieChart.Values[i]</td></tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <p class="text-muted mb-0">No hay casos registrados para este período.</p>
+        }
+    </div>
+</div>
+
+<script id="casoTIBarChartData" type="application/json">@Html.Raw(System.Text.Json.JsonSerializer.Serialize(new
+   {
+       labels = Model.BarChart.Labels,
+       values = Model.BarChart.Values
+   }))</script>
+
+<script id="casoTIPieChartData" type="application/json">@Html.Raw(System.Text.Json.JsonSerializer.Serialize(new
+   {
+       labels = Model.PieChart.Labels,
+       values = Model.PieChart.Values,
+       colors = Model.PieColors
+   }))</script>
+
+@section Scripts {
+    <script src="~/lib/chartjs/dist/chart.umd.min.js" asp-append-version="true"></script>
+    <script src="~/js/casoti-charts.js" asp-append-version="true"></script>
+}

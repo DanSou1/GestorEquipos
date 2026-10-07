@@ -22,17 +22,14 @@ namespace GestorEquipos.Models
         [Required]
         public string SerialNumber { get; set; }
         [Required]
-        [MaxLength(100)]
-        public string Brand { get; set; }
-        [Required]
-        [MaxLength(100)]
-        public string Model { get; set; }
-        [Required]
         [MaxLength(200)]
         public string Processor { get; set; }
         [Required]
         [MaxLength(100)]
         public string Disk { get; set; }
+        [Required]
+        [ForeignKey("DesktopType")]
+        public int DesktopTypeId { get; set; }
         [Required]
         [ForeignKey("OSVersion")]
         public int OSVersionId { get; set; }
@@ -47,6 +44,7 @@ namespace GestorEquipos.Models
         public bool Estado { get; set; } = true;
 
         // Navigation properties
+        public DesktopType DesktopType { get; set; }
         public OSVersion OSVersion { get; set; }
         public Ram Ram { get; set; }
         public Remote Remote { get; set; }

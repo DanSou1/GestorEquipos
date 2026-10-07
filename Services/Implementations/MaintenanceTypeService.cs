@@ -77,11 +77,6 @@ namespace Gestor_Equipos.Services.Implementations
                 throw new InvalidOperationException("Contraseña de administrador incorrecta.");
             }
 
-            if (await _dbContext.Maintenances.AnyAsync(m => m.MaintenanceTypeId == id))
-            {
-                throw new InvalidOperationException("No se puede eliminar: hay mantenimientos registrados con este tipo.");
-            }
-
             if (await _dbContext.PeripheralMaintenances.AnyAsync(m => m.MaintenanceTypeId == id))
             {
                 throw new InvalidOperationException("No se puede eliminar: hay mantenimientos de periféricos registrados con este tipo.");

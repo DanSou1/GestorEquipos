@@ -1,0 +1,88 @@
+@using GestorEquipos.Models
+@using GestorEquipos.Models.ViewModels.CasoTI
+@using Microsoft.AspNetCore.Mvc.Rendering
+@model List<CasoTIListItemViewModel>
+@{
+    ViewData["Title"] = "Casos TI";
+    string? error = ViewBag.Error;
+    int? tecnicoFiltro = ViewBag.TecnicoFiltro;
+    SelectList? tecnicoOptions = ViewBag.TecnicoOptions;
+}
+
+@if (!string.IsNullOrWhiteSpace(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
+
+<div class="section-header">
+    <h1>Casos TI</h1>
+    @if (User.IsInRole("Administrador") || User.IsInRole("Técnico en Sistemas"))
+    {
+        <a asp-controller="CasoTI" asp-action="Create" class="btn-app-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+            Registrar caso
+        </a>
+    }
+</div>
+
+@if (tecnicoOptions is not null)
+{
+    <form method="get" class="app-toolbar">
+        <select name="tecnicoId" class="form-select" style="max-width: 260px;" onchange="this.form.submit()" aria-label="Filtrar por técnico">
+            <option value="" selected="@(tecnicoFiltro == null)">Todos los técnicos</option>
+            @foreach (var item in tecnicoOptions)
+            {
+                <option value="@item.Value" selected="@(tecnicoFiltro.HasValue && tecnicoFiltro.Value.ToString() == item.Value)">@item.Text</option>
+            }
+        </select>
+        <button type="submit" class="btn-app-primary">Filtrar</button>
+        @if (tecnicoFiltro != null)
+        {
+            <a asp-controller="CasoTI" asp-action="Index" class="btn btn-outline-secondary">Limpiar</a>
+        }
+    </form>
+}
+
+<div class="app-card">
+    <table class="app-table">
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Técnico</th>
+                <th>Persona atendida</th>
+                <th>Área</th>
+                <th>Tipo de caso</th>
+                <th>Estado</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var c in Model)
+            {
+                <tr>
+                    <td>@c.Fecha.ToString("dd/MM/yyyy")</td>
+                    <td>@c.TecnicoNombre</td>
+                    <td>@c.PersonaNombre</td>
+                    <td>@(c.AreaSnapshot ?? "-")</td>
+                    <td>@c.TipoCasoNombre</td>
+                    <td>
+                        @if (c.Estado == CasoTIEstado.Resuelto)
+                        {
+                            <span class="badge bg-success">Resuelto</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-warning text-dark">Abierto</span>
+                        }
+                    </td>
+                    <td><a asp-controller="CasoTI" asp-action="Details" asp-route-id="@c.Id">Ver</a></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (!Model.Any())
+    {
+        <p class="text-muted p-3 mb-0">No hay casos TI registrados.</p>
+    }
+</div>

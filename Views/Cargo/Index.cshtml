@@ -1,0 +1,83 @@
+@using GestorEquipos.Models
+@model List<Cargo>
+@{
+    ViewData["Title"] = "Cargos";
+    string? error = ViewBag.Error;
+}
+
+@if (!string.IsNullOrWhiteSpace(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
+
+<div class="section-header">
+    <h1>Cargos</h1>
+    @if (User.IsInRole("Administrador"))
+    {
+        <a asp-controller="Cargo" asp-action="Create" class="btn-app-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+            Nuevo cargo
+        </a>
+    }
+</div>
+
+<div class="app-card">
+    <table class="app-table">
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var c in Model)
+            {
+                <tr>
+                    <td>@c.Name</td>
+                    <td>
+                        <a asp-controller="Cargo" asp-action="History" asp-route-id="@c.Id">Ver historial</a>
+                        @if (User.IsInRole("Administrador"))
+                        {
+                            <a asp-controller="Cargo" asp-action="Edit" asp-route-id="@c.Id" class="ms-2">Editar</a>
+                            <button type="button" class="btn btn-sm btn-outline-danger ms-2" data-bs-toggle="modal" data-bs-target="#deleteCargoModal-@c.Id">Eliminar</button>
+                        }
+                    </td>
+                </tr>
+
+                @if (User.IsInRole("Administrador"))
+                {
+                    <div class="modal fade" id="deleteCargoModal-@c.Id" tabindex="-1" aria-labelledby="deleteCargoModalLabel-@c.Id" aria-hidden="true">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <form asp-controller="Cargo" asp-action="Delete" asp-route-id="@c.Id" method="post">
+                                    @Html.AntiForgeryToken()
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="deleteCargoModalLabel-@c.Id">Eliminar cargo</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p>¿Desea eliminar el cargo <strong>@c.Name</strong>?</p>
+                                        <div class="mb-2">
+                                            <label class="form-label">Tu contraseña de Administrador</label>
+                                            <input type="password" name="adminPassword" class="form-control" autocomplete="current-password" required aria-label="Contraseña de administrador" />
+                                            <div class="form-text">Requerida únicamente para confirmar la eliminación.</div>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                        <button type="submit" class="btn btn-danger">Eliminar</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+        </tbody>
+    </table>
+
+    @if (!Model.Any())
+    {
+        <p class="text-muted p-3 mb-0">No hay cargos registrados.</p>
+    }
+</div>

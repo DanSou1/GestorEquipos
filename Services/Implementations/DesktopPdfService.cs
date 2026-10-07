@@ -19,7 +19,7 @@ namespace Gestor_Equipos.Services.Implementations
             GlobalFontSettings.FontResolver ??= new LocalFontResolver();
         }
 
-        public byte[] GenerateHojaDeVidaPdf(DesktopDetailViewModel detail, bool includeRemotePassword)
+        public byte[] GenerateHojaDeVidaPdf(DesktopDetailViewModel detail)
         {
             var document = new Document();
             DefineStyles(document);
@@ -39,7 +39,7 @@ namespace Gestor_Equipos.Services.Implementations
             AddLabelValue(section, "Disco", detail.Disk);
             AddLabelValue(section, "Sistema Operativo", detail.OSVersionName);
             AddLabelValue(section, "RAM", detail.RamSpecification);
-            AddLabelValue(section, "Acceso remoto", BuildRemoteAccessText(detail.RemoteAccess, includeRemotePassword));
+            AddLabelValue(section, "Acceso remoto", BuildRemoteAccessText(detail.RemoteAccess));
 
             AddSectionHeading(section, "Asignación actual");
             AddLabelValue(section, "Usuario", detail.CurrentUserName);
@@ -50,7 +50,6 @@ namespace Gestor_Equipos.Services.Implementations
             AddLicenses(section, detail);
             AddPeripherals(section, detail);
             AddMaintenances(section, detail);
-            AddSpecChangeLogs(section, detail);
 
             var renderer = new PdfDocumentRenderer { Document = document };
             renderer.RenderDocument();
@@ -84,10 +83,19 @@ namespace Gestor_Equipos.Services.Implementations
 
         private static void AddHeader(Section section, DesktopDetailViewModel detail)
         {
-            var title = section.AddParagraph(detail.NameDesktop);
+            var headerTable = section.AddTable();
+            headerTable.Borders.Width = 0;
+            headerTable.AddColumn(Unit.FromCentimeter(11.5));
+            headerTable.AddColumn(Unit.FromCentimeter(5.5));
+
+            var headerRow = headerTable.AddRow();
+            headerRow.VerticalAlignment = VerticalAlignment.Top;
+
+            var titleCell = headerRow.Cells[0];
+            var title = titleCell.AddParagraph(detail.NameDesktop);
             title.Style = "Heading1";
 
-            var meta = section.AddParagraph();
+            var meta = titleCell.AddParagraph();
             meta.Format.SpaceAfter = Unit.FromPoint(4);
             meta.AddFormattedText("Estado: ", TextFormat.Bold);
             var badge = meta.AddFormattedText(detail.Estado ? "Activo" : "Inactivo");
@@ -96,6 +104,17 @@ namespace Gestor_Equipos.Services.Implementations
             meta.AddText("    ");
             meta.AddFormattedText("Generado: ", TextFormat.Bold);
             meta.AddText(DateTime.Now.ToString("yyyy-MM-dd HH:mm"));
+
+            var codeCell = headerRow.Cells[1];
+            codeCell.Format.Alignment = ParagraphAlignment.Right;
+            codeCell.Format.Font.Size = 8;
+            var codeParagraph = codeCell.AddParagraph();
+            codeParagraph.Format.Alignment = ParagraphAlignment.Right;
+            codeParagraph.AddFormattedText("Código: E-FGA-08", TextFormat.Bold);
+            codeParagraph.AddLineBreak();
+            codeParagraph.AddFormattedText("Versión: 02", TextFormat.Bold);
+            codeParagraph.AddLineBreak();
+            codeParagraph.AddFormattedText("Vigente desde: 10/12/2025", TextFormat.Bold);
         }
 
         private static void AddSectionHeading(Section section, string title)
@@ -112,7 +131,7 @@ namespace Gestor_Equipos.Services.Implementations
             paragraph.AddText(value);
         }
 
-        private static string BuildRemoteAccessText(RemoteAccessItem? remoteAccess, bool includePassword)
+        private static string BuildRemoteAccessText(RemoteAccessItem? remoteAccess)
         {
             if (remoteAccess is null)
             {
@@ -124,8 +143,7 @@ namespace Gestor_Equipos.Services.Implementations
                 return $"Aplicativo — {remoteAccess.AppDescription}";
             }
 
-            var text = $"RDP — {remoteAccess.IPAddress}:{remoteAccess.Port} ({remoteAccess.Username})";
-            return includePassword ? $"{text} — Clave: {remoteAccess.Password}" : text;
+            return $"RDP — {remoteAccess.IPAddress}:{remoteAccess.Port} ({remoteAccess.Username})";
         }
 
         private static void AddEmptyNote(Section section, string text)
@@ -186,8 +204,6 @@ namespace Gestor_Equipos.Services.Implementations
                 {
                     line.AddText($" (Serial: {p.Serial})");
                 }
-
-                line.AddText($"  [{p.Estado}]");
             }
         }
 
@@ -200,27 +216,11 @@ namespace Gestor_Equipos.Services.Implementations
                 return;
             }
 
-            var table = AddTable(section, new[] { "Tipo", "Fecha", "Descripción", "Técnico" }, new[] { 3.0, 2.5, 5.5, 4.0 });
+            var table = AddTable(section, new[] { "Categoría", "Fecha", "Descripción", "Técnico" }, new[] { 3.0, 2.5, 5.5, 4.0 });
             foreach (var m in detail.Maintenances)
             {
-                AddRow(table, m.MaintenanceTypeName, m.Date.ToString("yyyy-MM-dd"), m.Description, m.TechnicianName);
-            }
-        }
-
-        private static void AddSpecChangeLogs(Section section, DesktopDetailViewModel detail)
-        {
-            AddSectionHeading(section, "Historial de cambios de especificaciones");
-            if (detail.SpecChangeLogs.Count == 0)
-            {
-                AddEmptyNote(section, "Sin cambios registrados.");
-                return;
-            }
-
-            var table = AddTable(section, new[] { "Campo", "Fecha", "Cambio", "Por" }, new[] { 3.0, 2.5, 6.0, 3.5 });
-            foreach (var s in detail.SpecChangeLogs)
-            {
-                var change = $"{s.OldValue ?? "-"} -> {s.NewValue ?? "-"}";
-                AddRow(table, s.FieldName, s.Date.ToString("yyyy-MM-dd"), change, s.ChangedByName);
+                var categoryName = m.Category == MaintenanceCategory.Preventivo ? "Preventivo" : "Correctivo";
+                AddRow(table, categoryName, m.Date.ToString("yyyy-MM-dd"), m.Description, m.TechnicianName);
             }
         }
 

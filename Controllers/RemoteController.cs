@@ -129,7 +129,7 @@ namespace Gestor_Equipos.Controllers
             return RedirectToAction(nameof(Details), new { id });
         }
 
-        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
+        [Authorize(Roles = AuthBootstrapper.AdminOrTecnicoRoles)]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Release(int id)
@@ -146,14 +146,14 @@ namespace Gestor_Equipos.Controllers
             return RedirectToAction(nameof(Details), new { id });
         }
 
-        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
+        [Authorize(Roles = AuthBootstrapper.AdminOrTecnicoRoles)]
         public async Task<IActionResult> Assign(int remoteId)
         {
             await PopulateAssignDropdownAsync(remoteId);
             return View();
         }
 
-        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
+        [Authorize(Roles = AuthBootstrapper.AdminOrTecnicoRoles)]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Assign(int remoteId, int desktopId)

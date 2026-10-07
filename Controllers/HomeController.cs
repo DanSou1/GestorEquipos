@@ -27,9 +27,9 @@ namespace Gestor_Equipos.Controllers
         {
             var model = new DashboardViewModel
             {
-                EquipmentStats = await _desktopService.GetEquipmentStatsAsync(),
-                PeripheralStats = await _peripheralService.GetInventoryStatsAsync(),
-                UsersByRegional = await _userAdminService.GetUsersByRegionalAsync()
+                EquipmentStats = await _desktopService.GetEquipmentStatsAsync(HttpContext.RequestAborted),
+                PeripheralStats = await _peripheralService.GetInventoryStatsAsync(HttpContext.RequestAborted),
+                UsersByRegional = await _userAdminService.GetUsersByRegionalAsync(HttpContext.RequestAborted)
             };
             return View(model);
         }

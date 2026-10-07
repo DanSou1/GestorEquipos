@@ -82,7 +82,7 @@ namespace Gestor_Equipos.Services.Implementations
             });
         }
 
-        public async Task<List<PeripheralAssignment>> GetHistoryAsync(int peripheralId)
+        public async Task<List<PeripheralAssignment>> GetHistoryAsync(int peripheralId, CancellationToken cancellationToken = default)
         {
             return await _dbContext.PeripheralAssignments
                 .Where(a => a.PeripheralId == peripheralId)
@@ -90,7 +90,7 @@ namespace Gestor_Equipos.Services.Implementations
                 .Include(a => a.User).ThenInclude(u => u.Regional)
                 .OrderByDescending(a => a.DateAsignation)
                 .ThenByDescending(a => a.Id)
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
         }
     }
 }

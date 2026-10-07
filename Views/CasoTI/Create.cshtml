@@ -1,0 +1,61 @@
+@using Microsoft.AspNetCore.Mvc.Rendering
+@model GestorEquipos.Models.ViewModels.CasoTI.CasoTICreateViewModel
+@{
+    ViewData["Title"] = "Registrar caso TI";
+    SelectList personaOptions = ViewBag.PersonaOptions;
+    SelectList tipoCasoOptions = ViewBag.TipoCasoOptions;
+    SelectList? tecnicoOptions = ViewBag.TecnicoOptions;
+}
+
+<h1>Registrar caso TI</h1>
+
+<form asp-controller="CasoTI" asp-action="Create" method="post">
+    @Html.AntiForgeryToken()
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+    <div class="mb-3">
+        <label asp-for="Fecha" class="form-label">Fecha</label>
+        <input asp-for="Fecha" type="date" class="form-control" />
+        <span asp-validation-for="Fecha" class="text-danger"></span>
+    </div>
+
+    @if (tecnicoOptions is not null)
+    {
+        <div class="mb-3">
+            <label asp-for="TecnicoUserSystemId" class="form-label">Técnico</label>
+            <select asp-for="TecnicoUserSystemId" asp-items="tecnicoOptions" class="form-select">
+                <option value="">-- Selecciona un técnico --</option>
+            </select>
+            <span asp-validation-for="TecnicoUserSystemId" class="text-danger"></span>
+        </div>
+    }
+
+    <div class="mb-3">
+        <label asp-for="PersonaUserId" class="form-label">Persona que recibe el soporte</label>
+        <select asp-for="PersonaUserId" asp-items="personaOptions" class="form-select">
+            <option value="">-- Selecciona una persona --</option>
+        </select>
+        <span asp-validation-for="PersonaUserId" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="TipoCasoId" class="form-label">Tipo de caso</label>
+        <select asp-for="TipoCasoId" asp-items="tipoCasoOptions" class="form-select">
+            <option value="">-- Selecciona un tipo --</option>
+        </select>
+        <span asp-validation-for="TipoCasoId" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Notas" class="form-label">Notas adicionales</label>
+        <textarea asp-for="Notas" class="form-control" rows="4"></textarea>
+        <span asp-validation-for="Notas" class="text-danger"></span>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Guardar</button>
+    <a asp-controller="CasoTI" asp-action="Index" class="btn btn-link">Cancelar</a>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

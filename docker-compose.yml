@@ -11,6 +11,8 @@ services:
       ConnectionStrings__DefaultConnection: "Server=host.docker.internal,1433;Database=AssetOps;User Id=${LOCAL_SQL_USER:?Set LOCAL_SQL_USER in .env};Password=${LOCAL_SQL_PASSWORD:?Set LOCAL_SQL_PASSWORD in .env};TrustServerCertificate=True;Connect Timeout=30;"
       BootstrapAdmin__Email: "${BOOTSTRAP_ADMIN_EMAIL:-}"
       BootstrapAdmin__Password: "${BOOTSTRAP_ADMIN_PASSWORD:-}"
+      Smtp__FromAddress: "${SMTP_FROM_ADDRESS:-}"
+      Smtp__Password: "${SMTP_APP_PASSWORD:-}"
     ports:
       - "8080:8080"
     volumes:

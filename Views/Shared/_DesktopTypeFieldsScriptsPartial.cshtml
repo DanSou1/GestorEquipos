@@ -1,0 +1,41 @@
+<script>
+    (function () {
+        var brandSelect = document.getElementById('desktopTypeBrandFilter');
+        var modelSelect = document.getElementById('desktopTypeModelSelect');
+
+        if (!brandSelect || !modelSelect) {
+            return;
+        }
+
+        var modelOptions = Array.prototype.slice.call(modelSelect.options)
+            .filter(function (option) { return option.value !== ''; });
+
+        function applyBrandFilter(preserveSelection) {
+            var selectedBrand = brandSelect.value;
+            var currentValue = modelSelect.value;
+
+            modelOptions.forEach(function (option) {
+                option.hidden = selectedBrand !== '' && option.dataset.brand !== selectedBrand;
+            });
+
+            var currentOptionStillValid = preserveSelection
+                && currentValue !== ''
+                && modelOptions.some(function (option) { return option.value === currentValue && !option.hidden; });
+
+            if (!currentOptionStillValid) {
+                modelSelect.value = '';
+            }
+        }
+
+        brandSelect.addEventListener('change', function () {
+            applyBrandFilter(false);
+        });
+
+        // On load: infer the brand from the model already selected (Edit) and filter accordingly.
+        var initiallySelected = modelOptions.filter(function (option) { return option.selected; })[0];
+        if (initiallySelected) {
+            brandSelect.value = initiallySelected.dataset.brand;
+        }
+        applyBrandFilter(true);
+    })();
+</script>

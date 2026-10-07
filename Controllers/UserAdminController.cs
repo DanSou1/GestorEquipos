@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Gestor_Equipos.Controllers
 {
-    [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
+    [Authorize(Roles = AuthBootstrapper.AdminOrTecnicoRoles)]
     public class UserAdminController : Controller
     {
         private readonly IUserAdminService _userAdminService;
@@ -23,7 +23,7 @@ namespace Gestor_Equipos.Controllers
 
         public async Task<IActionResult> Index(string? search, bool? showInactive)
         {
-            var users = await _userAdminService.GetAllAsync(includeInactive: showInactive == true);
+            var users = await _userAdminService.GetAllAsync(includeInactive: showInactive == true, cancellationToken: HttpContext.RequestAborted);
 
             ViewBag.Error = TempData["Error"];
             ViewBag.TotalCount = users.Count;
@@ -82,6 +82,7 @@ namespace Gestor_Equipos.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
         public async Task<IActionResult> Edit(int id)
         {
             var user = await _userAdminService.GetByIdAsync(id);
@@ -89,6 +90,13 @@ namespace Gestor_Equipos.Controllers
             {
                 return NotFound();
             }
+
+            var currentCargoId = await _dbContext.CargoAssignments
+                .Where(a => a.UserId == id)
+                .OrderByDescending(a => a.DateAsignation)
+                .ThenByDescending(a => a.Id)
+                .Select(a => (int?)a.CargoId)
+                .FirstOrDefaultAsync();
 
             var vm = new UserCreateViewModel
             {
@@ -98,13 +106,16 @@ namespace Gestor_Equipos.Controllers
                 Email = user.Email,
                 EmailTeams = user.EmailTeams,
                 AreaId = user.AreaId,
-                RegionalId = user.RegionalId
+                RegionalId = user.RegionalId,
+                CargoId = currentCargoId
             };
 
             await PopulateDropdownsAsync();
+            ViewBag.HasCargoAssigned = currentCargoId.HasValue;
             return View(vm);
         }
 
+        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, UserCreateViewModel vm)
@@ -112,6 +123,7 @@ namespace Gestor_Equipos.Controllers
             if (!ModelState.IsValid)
             {
                 await PopulateDropdownsAsync();
+                ViewBag.HasCargoAssigned = vm.CargoId.HasValue;
                 return View(vm);
             }
 
@@ -123,6 +135,7 @@ namespace Gestor_Equipos.Controllers
             {
                 ModelState.AddModelError(string.Empty, ex.Message);
                 await PopulateDropdownsAsync();
+                ViewBag.HasCargoAssigned = vm.CargoId.HasValue;
                 return View(vm);
             }
 
@@ -149,6 +162,7 @@ namespace Gestor_Equipos.Controllers
         {
             ViewBag.Areas = new SelectList(await _dbContext.Areas.OrderBy(a => a.Name).ToListAsync(), "Id", "Name");
             ViewBag.Regionals = new SelectList(await _dbContext.Regionals.OrderBy(r => r.Name).ToListAsync(), "Id", "Name");
+            ViewBag.Cargos = new SelectList(await _dbContext.Cargos.OrderBy(c => c.Name).ToListAsync(), "Id", "Name");
         }
     }
 }

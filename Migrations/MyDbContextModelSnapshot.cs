@@ -100,6 +100,115 @@ namespace GestorEquipos.Migrations
                     b.ToTable("AuditLogEntry", (string)null);
                 });
 
+            modelBuilder.Entity("GestorEquipos.Models.Cargo", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Cargo", (string)null);
+                });
+
+            modelBuilder.Entity("GestorEquipos.Models.CargoAssignment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CargoId")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly>("DateAsignation")
+                        .HasColumnType("date");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CargoId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("CargoAssignment", (string)null);
+                });
+
+            modelBuilder.Entity("GestorEquipos.Models.CasoTI", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AreaSnapshot")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Estado")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly>("Fecha")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Notas")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<int>("PersonaUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RatingComment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("RatingSubmittedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("RatingToken")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("RatingValue")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ResolvedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("TecnicoUserSystemId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TipoCasoId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PersonaUserId");
+
+                    b.HasIndex("RatingToken")
+                        .IsUnique()
+                        .HasFilter("[RatingToken] IS NOT NULL");
+
+                    b.HasIndex("TecnicoUserSystemId");
+
+                    b.HasIndex("TipoCasoId");
+
+                    b.ToTable("CasoTI", (string)null);
+                });
+
             modelBuilder.Entity("GestorEquipos.Models.Desktop", b =>
                 {
                     b.Property<int>("Id")
@@ -108,10 +217,8 @@ namespace GestorEquipos.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Brand")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                    b.Property<int>("DesktopTypeId")
+                        .HasColumnType("int");
 
                     b.Property<string>("Disk")
                         .IsRequired()
@@ -122,11 +229,6 @@ namespace GestorEquipos.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
-
-                    b.Property<string>("Model")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("NameDesktop")
                         .IsRequired()
@@ -157,6 +259,8 @@ namespace GestorEquipos.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("DesktopTypeId");
+
                     b.HasIndex("OSVersionId");
 
                     b.HasIndex("RamId");
@@ -167,6 +271,32 @@ namespace GestorEquipos.Migrations
                         .IsUnique();
 
                     b.ToTable("Desktop", (string)null);
+                });
+
+            modelBuilder.Entity("GestorEquipos.Models.DesktopType", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Brand")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Brand", "Model")
+                        .IsUnique();
+
+                    b.ToTable("DesktopType", (string)null);
                 });
 
             modelBuilder.Entity("GestorEquipos.Models.License", b =>
@@ -221,9 +351,6 @@ namespace GestorEquipos.Migrations
                     b.Property<int>("DesktopId")
                         .HasColumnType("int");
 
-                    b.Property<int>("MaintenanceTypeId")
-                        .HasColumnType("int");
-
                     b.Property<string>("SnapshotHolderArea")
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
@@ -241,9 +368,65 @@ namespace GestorEquipos.Migrations
 
                     b.HasIndex("DesktopId");
 
-                    b.HasIndex("MaintenanceTypeId");
-
                     b.ToTable("Maintenance", (string)null);
+                });
+
+            modelBuilder.Entity("GestorEquipos.Models.MaintenanceCampaignItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("DesktopId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("EmailSentAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("EmailSentToAddress")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int?>("MaintenanceId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PeriodMonth")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PeriodYear")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("SignedPdfContent")
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<string>("SignedPdfFileName")
+                        .HasMaxLength(260)
+                        .HasColumnType("nvarchar(260)");
+
+                    b.Property<DateTime?>("SignedPdfUploadedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("SignedPdfUploadedByUserSystemId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MaintenanceId");
+
+                    b.HasIndex("SignedPdfUploadedByUserSystemId");
+
+                    b.HasIndex("DesktopId", "PeriodYear", "PeriodMonth")
+                        .IsUnique();
+
+                    b.ToTable("MaintenanceCampaignItem", (string)null);
                 });
 
             modelBuilder.Entity("GestorEquipos.Models.MaintenanceChecklist", b =>
@@ -631,6 +814,27 @@ namespace GestorEquipos.Migrations
                     b.ToTable("SpecChangeLog", (string)null);
                 });
 
+            modelBuilder.Entity("GestorEquipos.Models.TipoCaso", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Nombre")
+                        .IsUnique();
+
+                    b.ToTable("TipoCaso", (string)null);
+                });
+
             modelBuilder.Entity("GestorEquipos.Models.UserSystem", b =>
                 {
                     b.Property<int>("Id")
@@ -746,8 +950,60 @@ namespace GestorEquipos.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("GestorEquipos.Models.CargoAssignment", b =>
+                {
+                    b.HasOne("GestorEquipos.Models.Cargo", "Cargo")
+                        .WithMany("Assignments")
+                        .HasForeignKey("CargoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GestorEquipos.Models.Users", "User")
+                        .WithMany("CargoAssignments")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Cargo");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("GestorEquipos.Models.CasoTI", b =>
+                {
+                    b.HasOne("GestorEquipos.Models.Users", "Persona")
+                        .WithMany()
+                        .HasForeignKey("PersonaUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GestorEquipos.Models.UserSystem", "Tecnico")
+                        .WithMany()
+                        .HasForeignKey("TecnicoUserSystemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GestorEquipos.Models.TipoCaso", "TipoCaso")
+                        .WithMany("Casos")
+                        .HasForeignKey("TipoCasoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Persona");
+
+                    b.Navigation("Tecnico");
+
+                    b.Navigation("TipoCaso");
+                });
+
             modelBuilder.Entity("GestorEquipos.Models.Desktop", b =>
                 {
+                    b.HasOne("GestorEquipos.Models.DesktopType", "DesktopType")
+                        .WithMany("Desktops")
+                        .HasForeignKey("DesktopTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("GestorEquipos.Models.OSVersion", "OSVersion")
                         .WithMany()
                         .HasForeignKey("OSVersionId")
@@ -764,6 +1020,8 @@ namespace GestorEquipos.Migrations
                         .WithMany()
                         .HasForeignKey("RemoteId")
                         .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("DesktopType");
 
                     b.Navigation("OSVersion");
 
@@ -791,15 +1049,32 @@ namespace GestorEquipos.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("GestorEquipos.Models.MaintenanceType", "MaintenanceType")
-                        .WithMany("Maintenances")
-                        .HasForeignKey("MaintenanceTypeId")
+                    b.Navigation("Desktop");
+                });
+
+            modelBuilder.Entity("GestorEquipos.Models.MaintenanceCampaignItem", b =>
+                {
+                    b.HasOne("GestorEquipos.Models.Desktop", "Desktop")
+                        .WithMany()
+                        .HasForeignKey("DesktopId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("GestorEquipos.Models.Maintenance", "Maintenance")
+                        .WithMany()
+                        .HasForeignKey("MaintenanceId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GestorEquipos.Models.UserSystem", "SignedPdfUploadedByUserSystem")
+                        .WithMany()
+                        .HasForeignKey("SignedPdfUploadedByUserSystemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Desktop");
 
-                    b.Navigation("MaintenanceType");
+                    b.Navigation("Maintenance");
+
+                    b.Navigation("SignedPdfUploadedByUserSystem");
                 });
 
             modelBuilder.Entity("GestorEquipos.Models.MaintenanceChecklist", b =>
@@ -935,6 +1210,11 @@ namespace GestorEquipos.Migrations
                     b.Navigation("Regional");
                 });
 
+            modelBuilder.Entity("GestorEquipos.Models.Cargo", b =>
+                {
+                    b.Navigation("Assignments");
+                });
+
             modelBuilder.Entity("GestorEquipos.Models.Desktop", b =>
                 {
                     b.Navigation("Asignations");
@@ -948,6 +1228,11 @@ namespace GestorEquipos.Migrations
                     b.Navigation("SpecChangeLogs");
                 });
 
+            modelBuilder.Entity("GestorEquipos.Models.DesktopType", b =>
+                {
+                    b.Navigation("Desktops");
+                });
+
             modelBuilder.Entity("GestorEquipos.Models.Maintenance", b =>
                 {
                     b.Navigation("Checklist");
@@ -957,8 +1242,6 @@ namespace GestorEquipos.Migrations
 
             modelBuilder.Entity("GestorEquipos.Models.MaintenanceType", b =>
                 {
-                    b.Navigation("Maintenances");
-
                     b.Navigation("PeripheralMaintenances");
                 });
 
@@ -974,9 +1257,16 @@ namespace GestorEquipos.Migrations
                     b.Navigation("Peripherals");
                 });
 
+            modelBuilder.Entity("GestorEquipos.Models.TipoCaso", b =>
+                {
+                    b.Navigation("Casos");
+                });
+
             modelBuilder.Entity("GestorEquipos.Models.Users", b =>
                 {
                     b.Navigation("Asignations");
+
+                    b.Navigation("CargoAssignments");
 
                     b.Navigation("UserSystems");
                 });

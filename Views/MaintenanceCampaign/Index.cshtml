@@ -1,0 +1,138 @@
+@using GestorEquipos.Models.ViewModels.Maintenance
+@model MaintenanceCampaignIndexViewModel
+@{
+    ViewData["Title"] = "Mantenimientos obligatorios";
+    string? error = ViewBag.Error;
+    string? success = ViewBag.Success;
+    bool isAuditor = User.IsInRole("Auditor");
+}
+
+@if (!string.IsNullOrWhiteSpace(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
+@if (!string.IsNullOrWhiteSpace(success))
+{
+    <div class="alert alert-success">@success</div>
+}
+
+<div class="section-header">
+    <h1>Mantenimientos obligatorios</h1>
+</div>
+
+@if (!isAuditor)
+{
+    <div class="app-card mb-3">
+        <div class="card-header">Pendientes</div>
+        <table class="app-table">
+            <thead>
+                <tr>
+                    <th>Equipo</th>
+                    <th>Serial</th>
+                    <th>Período</th>
+                    <th>Estado</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Model.Pendientes)
+                {
+                    <tr>
+                        <td>@item.DesktopName</td>
+                        <td>@item.SerialNumber</td>
+                        <td>@item.PeriodLabel</td>
+                        <td>
+                            @if (item.EsAtrasado)
+                            {
+                                <span class="badge-estado badge-estado--inactivo">Atrasado</span>
+                            }
+                            else
+                            {
+                                <span class="badge-estado badge-estado--activo">Pendiente</span>
+                            }
+                        </td>
+                        <td>
+                            <a asp-controller="MaintenanceCampaign" asp-action="Complete" asp-route-id="@item.Id">Completar y enviar</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        @if (!Model.Pendientes.Any())
+        {
+            <p class="text-muted p-3 mb-0">No hay equipos pendientes de mantenimiento obligatorio.</p>
+        }
+    </div>
+
+    <div class="app-card mb-3">
+        <div class="card-header">Correo enviado</div>
+        <table class="app-table">
+            <thead>
+                <tr>
+                    <th>Equipo</th>
+                    <th>Serial</th>
+                    <th>Período</th>
+                    <th>Usuario</th>
+                    <th>Correo enviado</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Model.CorreoEnviado)
+                {
+                    <tr>
+                        <td>@item.DesktopName</td>
+                        <td>@item.SerialNumber</td>
+                        <td>@item.PeriodLabel</td>
+                        <td>@(item.HolderName ?? "-")</td>
+                        <td>@(item.EmailSentAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "-")</td>
+                        <td>
+                            <a asp-controller="MaintenanceCampaign" asp-action="Upload" asp-route-id="@item.Id">Subir PDF firmado</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        @if (!Model.CorreoEnviado.Any())
+        {
+            <p class="text-muted p-3 mb-0">No hay actas esperando la firma del usuario.</p>
+        }
+    </div>
+}
+
+<div class="app-card mb-3">
+    <div class="card-header">Realizados</div>
+    <table class="app-table">
+        <thead>
+            <tr>
+                <th>Equipo</th>
+                <th>Serial</th>
+                <th>Período</th>
+                <th>Usuario</th>
+                <th>Firmado</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model.Realizados)
+            {
+                <tr>
+                    <td>@item.DesktopName</td>
+                    <td>@item.SerialNumber</td>
+                    <td>@item.PeriodLabel</td>
+                    <td>@(item.HolderName ?? "-")</td>
+                    <td>@(item.SignedPdfUploadedAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "-")</td>
+                    <td>
+                        <a asp-controller="MaintenanceCampaign" asp-action="DownloadSignedPdf" asp-route-id="@item.Id">Descargar PDF firmado</a>
+                        <span class="text-muted mx-1">|</span>
+                        <a asp-controller="MaintenanceCampaign" asp-action="PreviewSignedPdf" asp-route-id="@item.Id" target="_blank" rel="noopener">Vista previa</a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (!Model.Realizados.Any())
+    {
+        <p class="text-muted p-3 mb-0">No hay mantenimientos obligatorios completados todavía.</p>
+    }
+</div>

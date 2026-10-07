@@ -7,9 +7,6 @@ namespace GestorEquipos.Models.ViewModels.Maintenance
         [Required]
         public int DesktopId { get; set; }
 
-        [Required(ErrorMessage = "Selecciona el tipo de mantenimiento.")]
-        public int MaintenanceTypeId { get; set; }
-
         [Required(ErrorMessage = "Selecciona la categoría del mantenimiento.")]
         public MaintenanceCategory Category { get; set; }
 

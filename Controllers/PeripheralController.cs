@@ -26,10 +26,23 @@ namespace Gestor_Equipos.Controllers
 
         public async Task<IActionResult> Index(int? peripheralTypeId, string? estado, string? search)
         {
-            var stats = await _peripheralService.GetInventoryStatsAsync();
-            var all = await _peripheralService.GetInventoryAsync();
+            var all = await _peripheralService.GetInventoryAsync(HttpContext.RequestAborted);
 
-            ViewBag.Stats = stats;
+            // PERF-01: GetInventoryStatsAsync() internally re-materializes the whole inventory —
+            // compute the same totals from the list already loaded above instead of fetching twice.
+            ViewBag.Stats = new PeripheralInventoryStatsViewModel
+            {
+                Total = all.Count,
+                Activos = all.Count(i => i.Estado == "Activo"),
+                Disponibles = all.Count(i => i.Estado == "Disponible"),
+                Raes = all.Count(i => i.Estado == "Raes"),
+                ByType = all
+                    .GroupBy(i => i.TypeName)
+                    .Select(g => new PeripheralTypeCountItem { TypeName = g.Key, Count = g.Count() })
+                    .OrderByDescending(t => t.Count)
+                    .ThenBy(t => t.TypeName)
+                    .ToList()
+            };
             ViewBag.TotalCount = all.Count;
 
             var items = all.AsEnumerable();
@@ -56,14 +69,14 @@ namespace Gestor_Equipos.Controllers
             ViewBag.PeripheralTypeFiltro = peripheralTypeId;
             ViewBag.EstadoFiltro = estado;
             ViewBag.SearchTerm = search;
-            ViewBag.PeripheralTypes = new SelectList(await _dbContext.PeripheralTypes.OrderBy(t => t.Name).ToListAsync(), "Id", "Name", peripheralTypeId);
+            ViewBag.PeripheralTypes = new SelectList(await _dbContext.PeripheralTypes.OrderBy(t => t.Name).ToListAsync(HttpContext.RequestAborted), "Id", "Name", peripheralTypeId);
 
             return View(items.ToList());
         }
 
         public async Task<IActionResult> Details(int id)
         {
-            var detail = await _peripheralService.GetDetailAsync(id);
+            var detail = await _peripheralService.GetDetailAsync(id, HttpContext.RequestAborted);
             if (detail is null)
             {
                 return NotFound();
@@ -73,14 +86,14 @@ namespace Gestor_Equipos.Controllers
             return View(detail);
         }
 
-        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
+        [Authorize(Roles = AuthBootstrapper.AdminOrTecnicoRoles)]
         public async Task<IActionResult> Create(int desktopId)
         {
             await PopulateTypesAsync();
             return View(new PeripheralCreateViewModel { DesktopId = desktopId });
         }
 
-        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
+        [Authorize(Roles = AuthBootstrapper.AdminOrTecnicoRoles)]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(PeripheralCreateViewModel vm)
@@ -184,14 +197,14 @@ namespace Gestor_Equipos.Controllers
                 : RedirectToAction(nameof(Index));
         }
 
-        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
+        [Authorize(Roles = AuthBootstrapper.AdminOrTecnicoRoles)]
         public async Task<IActionResult> Reassign(int peripheralId)
         {
             await PopulateReassignDropdownAsync(peripheralId);
             return View();
         }
 
-        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
+        [Authorize(Roles = AuthBootstrapper.AdminOrTecnicoRoles)]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Reassign(int peripheralId, int userId)
@@ -210,7 +223,7 @@ namespace Gestor_Equipos.Controllers
             return RedirectToAction(nameof(Details), new { id = peripheralId });
         }
 
-        [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
+        [Authorize(Roles = AuthBootstrapper.AdminOrTecnicoRoles)]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> RetireToRaes(int id)

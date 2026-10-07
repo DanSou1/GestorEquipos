@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Gestor_Equipos.Controllers
 {
-    [Authorize(Roles = AuthBootstrapper.AdministradorRoleName)]
+    [Authorize(Roles = AuthBootstrapper.AdminOrTecnicoRoles)]
     public class LicenseController : Controller
     {
         private readonly ILicenseService _licenseService;
