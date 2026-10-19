@@ -141,7 +141,7 @@ namespace Gestor_Equipos.Services.Implementations
                     EsAtrasado = item.Status != MaintenanceCampaignStatus.Realizado && today > periodEnd,
                     HolderName = item.Maintenance?.SnapshotHolderName,
                     EmailSentAtUtc = item.EmailSentAtUtc,
-                    SignedPdfUploadedAtUtc = item.SignedPdfUploadedAtUtc
+                    SignedAtUtc = item.SignedAtUtc
                 };
 
                 switch (item.Status)
@@ -168,7 +168,7 @@ namespace Gestor_Equipos.Services.Implementations
                 .SingleOrDefaultAsync(c => c.Id == campaignItemId, cancellationToken);
         }
 
-        public async Task<int> CompleteAndSendAsync(int campaignItemId, MaintenanceCreateViewModel maintenanceVm)
+        public async Task<int> CompleteAndSendAsync(int campaignItemId, MaintenanceCreateViewModel maintenanceVm, Func<int, string> buildSignUrl)
         {
             var item = await _dbContext.MaintenanceCampaignItems
                 .Include(c => c.Desktop)
@@ -204,40 +204,24 @@ namespace Gestor_Equipos.Services.Implementations
                 await using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
                 var createdMaintenanceId = await _maintenanceService.CreateAsync(maintenanceVm);
-
-                var maintenance = await _dbContext.Maintenances
-                    .Include(m => m.Checklist)
-                    .Include(m => m.EquipmentSnapshot)
-                    .SingleAsync(m => m.Id == createdMaintenanceId);
-
                 var usuarioNombre = $"{currentAsignation.User.Name} {currentAsignation.User.LastName}";
-                var actaVm = new MaintenanceExroActaViewModel
-                {
-                    Date = maintenance.Date,
-                    UsuarioNombre = usuarioNombre,
-                    Area = currentAsignation.User.Area?.Name ?? "-",
-                    DescripcionFalla = maintenance.Description,
-                    TechnicianName = maintenance.TechnicianName,
-                    Equipment = maintenance.EquipmentSnapshot
-                        .Select(s => new MaintenanceEquipmentRow { Label = s.Label, Brand = s.Brand, Model = s.Model, Serial = s.Serial })
-                        .ToList(),
-                    Checklist = BuildChecklist(maintenance.Checklist)
-                };
 
-                var pdfBytes = _pdfService.GenerateExroActaPdf(actaVm);
-                var fileName = $"E-FGA-07 Control Mantenimiento V04 - {SanitizeFileName(usuarioNombre)}.pdf";
-
+                // El correo se envía antes de mutar/guardar el ítem: si falla, no queda nada
+                // para revertir y el ítem permanece Pendiente (ver CasoTIService.ResolveAsync,
+                // mismo criterio).
                 await _emailService.SendAsync(
                     currentAsignation.User.Email,
                     usuarioNombre,
-                    "Mantenimiento preventivo",
-                    BuildEmailBody(usuarioNombre, item.Desktop.NameDesktop),
-                    new[] { new EmailAttachment(fileName, pdfBytes, "application/pdf") });
+                    "Mantenimiento preventivo programado",
+                    BuildEmailBody(usuarioNombre, item.Desktop.NameDesktop, buildSignUrl(item.Id)),
+                    Array.Empty<EmailAttachment>());
 
                 item.MaintenanceId = createdMaintenanceId;
                 item.Status = MaintenanceCampaignStatus.CorreoEnviado;
                 item.EmailSentAtUtc = DateTime.UtcNow;
                 item.EmailSentToAddress = currentAsignation.User.Email;
+                // Snapshot de quién puede firmar — ver comentario en MaintenanceCampaignItem.
+                item.AssignedSignerUsersId = currentAsignation.User.Id;
                 await _dbContext.SaveChangesAsync();
 
                 await transaction.CommitAsync();
@@ -245,40 +229,123 @@ namespace Gestor_Equipos.Services.Implementations
             });
         }
 
-        public async Task UploadSignedPdfAsync(int campaignItemId, Stream fileStream, string fileName, int uploadedByUserSystemId)
+        public async Task<MaintenanceSignViewModel?> GetSignPromptAsync(int campaignItemId, int actingUsersId, CancellationToken cancellationToken = default)
         {
-            var item = await _dbContext.MaintenanceCampaignItems.SingleOrDefaultAsync(c => c.Id == campaignItemId)
+            var item = await _dbContext.MaintenanceCampaignItems
+                .AsNoTracking()
+                .Include(c => c.Desktop)
+                .SingleOrDefaultAsync(c => c.Id == campaignItemId, cancellationToken);
+
+            if (item is null || item.Status != MaintenanceCampaignStatus.CorreoEnviado || item.AssignedSignerUsersId != actingUsersId)
+            {
+                return null;
+            }
+
+            var savedSignature = await _dbContext.UserSavedSignatures
+                .AsNoTracking()
+                .SingleOrDefaultAsync(s => s.UserId == actingUsersId, cancellationToken);
+
+            return new MaintenanceSignViewModel
+            {
+                CampaignItemId = item.Id,
+                DesktopName = item.Desktop.NameDesktop,
+                HasSavedSignature = savedSignature is not null,
+                SavedSignatureData = savedSignature?.SignatureData
+            };
+        }
+
+        public async Task SignAsync(
+            int campaignItemId, int actingUsersId, int actingUserSystemId, string signatureData,
+            MaintenanceSignatureMethod method, bool saveSignature, CancellationToken cancellationToken = default)
+        {
+            var item = await _dbContext.MaintenanceCampaignItems.SingleOrDefaultAsync(c => c.Id == campaignItemId, cancellationToken)
                 ?? throw new InvalidOperationException("El ítem de campaña no existe.");
 
             if (item.Status != MaintenanceCampaignStatus.CorreoEnviado)
             {
-                throw new InvalidOperationException("Este mantenimiento no está en estado 'Correo enviado'.");
+                throw new InvalidOperationException("Este mantenimiento no está esperando firma.");
             }
 
-            using var memoryStream = new MemoryStream();
-            await fileStream.CopyToAsync(memoryStream);
+            if (item.AssignedSignerUsersId != actingUsersId)
+            {
+                throw new InvalidOperationException("No puedes firmar un acta que no te corresponde.");
+            }
 
-            item.SignedPdfContent = memoryStream.ToArray();
-            item.SignedPdfFileName = fileName;
-            item.SignedPdfUploadedAtUtc = DateTime.UtcNow;
-            item.SignedPdfUploadedByUserSystemId = uploadedByUserSystemId;
+            if (string.IsNullOrWhiteSpace(signatureData))
+            {
+                throw new InvalidOperationException("Debes dibujar tu firma o usar tu firma guardada.");
+            }
+
+            item.SignatureData = signatureData;
+            item.SignatureMethod = method;
+            item.SignedAtUtc = DateTime.UtcNow;
+            item.SignerUserSystemId = actingUserSystemId;
             item.Status = MaintenanceCampaignStatus.Realizado;
 
-            await _dbContext.SaveChangesAsync();
+            if (saveSignature)
+            {
+                var saved = await _dbContext.UserSavedSignatures.SingleOrDefaultAsync(s => s.UserId == actingUsersId, cancellationToken);
+                if (saved is null)
+                {
+                    _dbContext.UserSavedSignatures.Add(new UserSavedSignature
+                    {
+                        UserId = actingUsersId,
+                        SignatureData = signatureData,
+                        SavedAtUtc = DateTime.UtcNow
+                    });
+                }
+                else
+                {
+                    saved.SignatureData = signatureData;
+                    saved.SavedAtUtc = DateTime.UtcNow;
+                }
+            }
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
         }
 
-        public async Task<(byte[] Content, string FileName)?> GetSignedPdfAsync(int campaignItemId, CancellationToken cancellationToken = default)
+        public async Task<byte[]?> RegeneratePdfAsync(int campaignItemId, CancellationToken cancellationToken = default)
         {
             var item = await _dbContext.MaintenanceCampaignItems
                 .AsNoTracking()
                 .SingleOrDefaultAsync(c => c.Id == campaignItemId, cancellationToken);
 
-            if (item?.SignedPdfContent is null || item.SignedPdfFileName is null)
+            if (item?.MaintenanceId is null)
             {
                 return null;
             }
 
-            return (item.SignedPdfContent, item.SignedPdfFileName);
+            var actaVm = await BuildActaViewModelAsync(item, cancellationToken);
+            return _pdfService.GenerateExroActaPdf(actaVm);
+        }
+
+        private async Task<MaintenanceExroActaViewModel> BuildActaViewModelAsync(MaintenanceCampaignItem item, CancellationToken ct)
+        {
+            var maintenance = await _dbContext.Maintenances
+                .Include(m => m.Checklist)
+                .Include(m => m.EquipmentSnapshot)
+                .SingleAsync(m => m.Id == item.MaintenanceId!.Value, ct);
+
+            var signer = await _dbContext.Users
+                .Include(u => u.Area)
+                .SingleAsync(u => u.Id == item.AssignedSignerUsersId, ct);
+            var usuarioNombre = $"{signer.Name} {signer.LastName}";
+
+            return new MaintenanceExroActaViewModel
+            {
+                Date = maintenance.Date,
+                UsuarioNombre = usuarioNombre,
+                Area = signer.Area?.Name ?? "-",
+                DescripcionFalla = maintenance.Description,
+                TechnicianName = maintenance.TechnicianName,
+                Equipment = maintenance.EquipmentSnapshot
+                    .Select(s => new MaintenanceEquipmentRow { Label = s.Label, Brand = s.Brand, Model = s.Model, Serial = s.Serial })
+                    .ToList(),
+                Checklist = BuildChecklist(maintenance.Checklist),
+                SignatureData = item.SignatureData,
+                SignerName = usuarioNombre,
+                SignedAtUtc = item.SignedAtUtc
+            };
         }
 
         private static List<MaintenanceChecklistItem> BuildChecklist(MaintenanceChecklist? checklist)
@@ -296,22 +363,13 @@ namespace Gestor_Equipos.Services.Implementations
             };
         }
 
-        private static string SanitizeFileName(string name)
-        {
-            var invalid = Path.GetInvalidFileNameChars();
-            var sanitized = new string(name.Where(c => !invalid.Contains(c)).ToArray()).Trim();
-            return string.IsNullOrWhiteSpace(sanitized) ? "Usuario" : sanitized;
-        }
-
-        private static string BuildEmailBody(string userName, string desktopName)
+        private static string BuildEmailBody(string userName, string desktopName, string signUrl)
         {
             return $"""
                 <p>Hola {userName},</p>
-                <p>Se realizó el mantenimiento preventivo obligatorio de tu equipo <strong>{desktopName}</strong>.</p>
-                <p>Adjunto encontrarás el acta de mantenimiento en PDF. Por favor imprímela (o fírmala digitalmente),
-                firma en el campo "Nombre de la persona que recibe a conformidad" confirmando que el equipo quedó
-                operativo a tu satisfacción, y envíala de vuelta respondiendo este correo o entregándola al área de
-                sistemas.</p>
+                <p>Se realizó el mantenimiento preventivo programado de tu equipo <strong>{desktopName}</strong>.</p>
+                <p>Ingresa a la plataforma para firmar el acta de conformidad (necesitas iniciar sesión con tu cuenta):
+                <a href="{signUrl}">firmar el acta</a>.</p>
                 <p>Gracias.</p>
                 """;
         }

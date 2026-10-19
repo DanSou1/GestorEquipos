@@ -1,7 +1,7 @@
 @using GestorEquipos.Models.ViewModels.Maintenance
 @model MaintenanceCampaignIndexViewModel
 @{
-    ViewData["Title"] = "Mantenimientos obligatorios";
+    ViewData["Title"] = "Mantenimientos Programados";
     string? error = ViewBag.Error;
     string? success = ViewBag.Success;
     bool isAuditor = User.IsInRole("Auditor");
@@ -17,7 +17,7 @@
 }
 
 <div class="section-header">
-    <h1>Mantenimientos obligatorios</h1>
+    <h1>Mantenimientos Programados</h1>
 </div>
 
 @if (!isAuditor)
@@ -60,7 +60,7 @@
         </table>
         @if (!Model.Pendientes.Any())
         {
-            <p class="text-muted p-3 mb-0">No hay equipos pendientes de mantenimiento obligatorio.</p>
+            <p class="text-muted p-3 mb-0">No hay equipos pendientes de mantenimiento programado.</p>
         }
     </div>
 
@@ -74,7 +74,6 @@
                     <th>Período</th>
                     <th>Usuario</th>
                     <th>Correo enviado</th>
-                    <th></th>
                 </tr>
             </thead>
             <tbody>
@@ -86,9 +85,6 @@
                         <td>@item.PeriodLabel</td>
                         <td>@(item.HolderName ?? "-")</td>
                         <td>@(item.EmailSentAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "-")</td>
-                        <td>
-                            <a asp-controller="MaintenanceCampaign" asp-action="Upload" asp-route-id="@item.Id">Subir PDF firmado</a>
-                        </td>
                     </tr>
                 }
             </tbody>
@@ -96,6 +92,10 @@
         @if (!Model.CorreoEnviado.Any())
         {
             <p class="text-muted p-3 mb-0">No hay actas esperando la firma del usuario.</p>
+        }
+        else
+        {
+            <p class="text-muted p-3 mb-0">El usuario firma directamente desde el link que recibió por correo.</p>
         }
     </div>
 }
@@ -121,7 +121,7 @@
                     <td>@item.SerialNumber</td>
                     <td>@item.PeriodLabel</td>
                     <td>@(item.HolderName ?? "-")</td>
-                    <td>@(item.SignedPdfUploadedAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "-")</td>
+                    <td>@(item.SignedAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "-")</td>
                     <td>
                         <a asp-controller="MaintenanceCampaign" asp-action="DownloadSignedPdf" asp-route-id="@item.Id">Descargar PDF firmado</a>
                         <span class="text-muted mx-1">|</span>
@@ -133,6 +133,6 @@
     </table>
     @if (!Model.Realizados.Any())
     {
-        <p class="text-muted p-3 mb-0">No hay mantenimientos obligatorios completados todavía.</p>
+        <p class="text-muted p-3 mb-0">No hay mantenimientos programados completados todavía.</p>
     }
 </div>

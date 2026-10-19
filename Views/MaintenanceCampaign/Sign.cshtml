@@ -1,0 +1,103 @@
+@model GestorEquipos.Models.ViewModels.Maintenance.MaintenanceSignViewModel
+@{
+    ViewData["Title"] = "Firmar acta de mantenimiento";
+}
+
+<h1>Firmar acta de mantenimiento</h1>
+<p class="text-muted">@Model.DesktopName</p>
+
+<div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+<form id="signForm" asp-controller="MaintenanceCampaign" asp-action="SignSubmit" method="post">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="CampaignItemId" value="@Model.CampaignItemId" />
+    <input type="hidden" id="SignatureData" name="SignatureData" />
+    <input type="hidden" id="Method" name="Method" value="0" />
+
+    @if (Model.HasSavedSignature)
+    {
+        <div class="mb-3" id="signOptionWrap">
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="signOption" id="optSaved" value="saved" checked />
+                <label class="form-check-label" for="optSaved">Usar mi firma guardada</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="signOption" id="optNew" value="new" />
+                <label class="form-check-label" for="optNew">Firmar de nuevo</label>
+            </div>
+        </div>
+    }
+
+    <div class="mb-3" id="savedPreviewWrap" data-saved-signature="@Model.SavedSignatureData" style="@(Model.HasSavedSignature ? "" : "display:none;")">
+        <canvas id="savedPreview" style="border:1px solid #ccc; width:100%; max-width:600px; touch-action:none;"></canvas>
+    </div>
+
+    <div class="mb-3" id="drawWrap" style="@(Model.HasSavedSignature ? "display:none;" : "")">
+        <canvas id="signCanvas" style="border:1px solid #ccc; width:100%; max-width:600px; touch-action:none;"></canvas>
+        <button type="button" id="clearBtn" class="btn btn-outline-secondary btn-sm mt-2">Borrar</button>
+    </div>
+
+    <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" id="SaveSignature" name="SaveSignature" value="true" />
+        <label class="form-check-label" for="SaveSignature">Guardar mi firma para futuros mantenimientos</label>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Firmar y confirmar</button>
+    <a asp-controller="CasoTI" asp-action="Index" class="btn btn-link">Cancelar</a>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/signature-capture.js" asp-append-version="true"></script>
+    <script>
+        (function () {
+            const drawCanvas = document.getElementById('signCanvas');
+            const drawable = SignatureCapture.setupDrawableCanvas(drawCanvas);
+
+            const savedWrap = document.getElementById('savedPreviewWrap');
+            const savedCanvas = document.getElementById('savedPreview');
+            const savedSignatureData = savedWrap ? savedWrap.dataset.savedSignature : null;
+            if (savedSignatureData) {
+                SignatureCapture.drawReadOnly(savedCanvas, savedSignatureData);
+            }
+
+            const drawWrap = document.getElementById('drawWrap');
+            const optSaved = document.getElementById('optSaved');
+            const optNew = document.getElementById('optNew');
+
+            function usingSaved() {
+                return optSaved ? optSaved.checked : false;
+            }
+
+            if (optSaved && optNew) {
+                optSaved.addEventListener('change', function () {
+                    savedWrap.style.display = '';
+                    drawWrap.style.display = 'none';
+                });
+                optNew.addEventListener('change', function () {
+                    savedWrap.style.display = 'none';
+                    drawWrap.style.display = '';
+                });
+            }
+
+            document.getElementById('clearBtn').addEventListener('click', function () {
+                drawable.clear();
+            });
+
+            document.getElementById('signForm').addEventListener('submit', function (evt) {
+                if (usingSaved()) {
+                    document.getElementById('SignatureData').value = savedSignatureData || '';
+                    document.getElementById('Method').value = '1'; // FirmaGuardada
+                } else {
+                    if (drawable.isEmpty()) {
+                        evt.preventDefault();
+                        alert('Dibuja tu firma antes de continuar.');
+                        return;
+                    }
+                    document.getElementById('SignatureData').value = drawable.toJson();
+                    document.getElementById('Method').value = '0'; // Manuscrita
+                }
+            });
+        })();
+    </script>
+}

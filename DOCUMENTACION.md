@@ -20,7 +20,7 @@ Hay tres tipos de cuenta ("roles"):
 |---|---|
 | **Administrador** | Todo: crear, editar y borrar equipos, usuarios, periféricos, licencias, catálogos, cuentas de acceso, etc. |
 | **Técnico en Sistemas** | El trabajo operativo del día a día: crear equipos/periféricos/usuarios/licencias/mantenimientos, asignar y devolver equipos, dar de baja a RAES, etc. — pero no puede editar ni borrar nada ya creado, no puede agregar entradas nuevas a los catálogos (tipos, áreas/regionales, cargos), y no tiene ningún acceso a "Cuentas de acceso". |
-| **Auditor** | Solo puede **ver** equipos, periféricos y accesos remotos (y el Tablero), más la lista de mantenimientos obligatorios ya **completados** (no ve los pendientes ni los que esperan firma). El menú le oculta todo lo demás, porque ni siquiera tiene permiso para abrir esas pantallas. |
+| **Auditor** | Solo puede **ver** equipos, periféricos y accesos remotos (y el Tablero), más la lista de mantenimientos programados ya **completados** (no ve los pendientes ni los que esperan firma). El menú le oculta todo lo demás, porque ni siquiera tiene permiso para abrir esas pantallas. |
 
 Ver el documento **INSTRUCTIVO_USUARIO.md** para el detalle de qué puede hacer cada rol, pantalla por pantalla.
 
@@ -45,7 +45,7 @@ Esto evita tener que inventar reglas especiales para "equipo sin dueño" — sie
 | **Tipos de periférico** | Catálogo de categorías de periférico (mouse, teclado, monitor, etc.). |
 | **Mantenimiento de periféricos** | Registrar que a un periférico se le hizo un mantenimiento, usando el catálogo de "Tipos de mantenimiento". |
 | **Mantenimiento de equipos** | Registrar que a un equipo de escritorio se le hizo un mantenimiento **Correctivo** (se arregló algo que falló) o **Preventivo** (revisión de rutina). El Preventivo genera automáticamente una lista de chequeo y guarda una "foto" de quién tenía el equipo y qué incluía en ese momento — esa foto no cambia después, aunque luego el equipo se reasigne. También se puede descargar un PDF con el acta del mantenimiento. |
-| **Mantenimientos obligatorios** | Control de los dos mantenimientos preventivos obligatorios del año (junio y diciembre) de cada equipo activo. Muestra tres listas: **Pendientes**, **Correo enviado** y **Realizados**. Desde un pendiente se completa el formulario de mantenimiento preventivo y, al guardar, el sistema genera el acta en PDF con el formato oficial de la empresa y la envía por correo al usuario asignado al equipo, pidiéndole que la firme. Cuando alguien del área de sistemas sube de vuelta esa acta ya firmada, el ítem pasa a "Realizado". Si un mes se cierra sin completar el mantenimiento, el equipo sigue apareciendo pendiente ("atrasado") hasta que se haga. |
+| **Mantenimientos Programados** | Control de los dos mantenimientos preventivos obligatorios del año (junio y diciembre) de cada equipo activo. Muestra tres listas: **Pendientes**, **Correo enviado** y **Realizados**. Desde un pendiente se completa el formulario de mantenimiento preventivo y, al guardar, el sistema genera el acta en PDF con el formato oficial de la empresa y la envía por correo al usuario asignado al equipo, pidiéndole que la firme. Cuando alguien del área de sistemas sube de vuelta esa acta ya firmada, el ítem pasa a "Realizado". Si un mes se cierra sin completar el mantenimiento, el equipo sigue apareciendo pendiente ("atrasado") hasta que se haga. |
 | **Tipos de mantenimiento** | Catálogo de categorías de mantenimiento, usado solo por el módulo de periféricos. |
 | **Licencias** | Registrar qué software (y su clave, si aplica) tiene instalado un equipo, o marcar que no tiene licencia. |
 | **Accesos remotos** | Registrar cómo se puede acceder remotamente a un equipo: por un aplicativo específico, o por Escritorio Remoto de Windows (con IP, puerto, usuario y contraseña). Se puede asignar a un equipo o liberar. |
@@ -100,7 +100,7 @@ Dentro de `Services/` hay dos tipos de archivo para cada funcionalidad:
 
 ¿Para qué sirve separarlo así? Para poder cambiar "cómo se hace el trabajo" sin tener que cambiar a todos los meseros (`Controllers/`) que lo piden — a ellos solo les importa el contrato, no la receta interna. También permite, en las pruebas automáticas, usar una versión de prueba de la "cocina" sin tocar la base de datos real.
 
-En este proyecto hay contratos (y su cumplimiento) para: equipos, tipos de equipo, asignaciones, periféricos, tipos de periférico, asignación de periféricos, mantenimiento de periféricos, accesos remotos, mantenimientos, mantenimientos obligatorios, tipos de mantenimiento, licencias, usuarios/cuentas, áreas/regionales, cargos, casos TI, tipos de caso, envío de correo, y generación de PDF (dos: uno para la hoja de vida del equipo, otro para las actas de mantenimiento).
+En este proyecto hay contratos (y su cumplimiento) para: equipos, tipos de equipo, asignaciones, periféricos, tipos de periférico, asignación de periféricos, mantenimiento de periféricos, accesos remotos, mantenimientos, mantenimientos programados, tipos de mantenimiento, licencias, usuarios/cuentas, áreas/regionales, cargos, casos TI, tipos de caso, envío de correo, y generación de PDF (dos: uno para la hoja de vida del equipo, otro para las actas de mantenimiento).
 
 ---
 
@@ -117,7 +117,7 @@ Una librería es un **pedazo de código ya hecho por otra persona/empresa**, que
 | **Microsoft.Data.SqlClient** | El "cable" de conexión de red hacia SQL Server. |
 | **Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation** | Permite ver los cambios de una pantalla al instante mientras se programa (solo durante desarrollo, no en producción). |
 | **PDFsharp-MigraDoc** | La herramienta que construye los documentos PDF (hoja de vida del equipo, actas de mantenimiento). |
-| **MailKit** | Envía los correos del módulo de Mantenimientos obligatorios (el acta pidiendo firma) y del módulo de Casos TI (el aviso de caso resuelto con el enlace de calificación), a través de una cuenta de Gmail. |
+| **MailKit** | Envía los correos del módulo de Mantenimientos Programados (el acta pidiendo firma) y del módulo de Casos TI (el aviso de caso resuelto con el enlace de calificación), a través de una cuenta de Gmail. |
 
 ### Del lado del navegador (lo que se ve y se siente)
 
@@ -150,13 +150,13 @@ Para que esta aplicación arranque por primera vez en una computadora o servidor
    - En el servidor con Docker: en un archivo `.env` (que no se sube nunca al repositorio) con `BOOTSTRAP_ADMIN_EMAIL` y `BOOTSTRAP_ADMIN_PASSWORD`.
 4. **Los roles y las cuentas especiales** — el propio sistema, al arrancar, se asegura de que existan los roles `Administrador`/`Auditor` y las cuentas ficticias RAES/"Disponible" explicadas en la sección 2. Esto no requiere que nadie haga nada manualmente.
 5. **Catálogos que no tienen pantalla propia** — `Ram` (tipos de memoria) y `OSVersion` (versiones de sistema operativo) no tienen un formulario de "crear" dentro de la aplicación. Si la base de datos es nueva, alguien con acceso directo a la base de datos debe insertar al menos algunos valores ahí manualmente, o el formulario de "crear equipo" se va a ver con esas listas vacías. (Área, Regional, Tipos de equipo/periférico/mantenimiento y Cargos sí se crean desde la propia aplicación — un Administrador los agrega la primera vez que los necesite.)
-6. **La cuenta de correo para Mantenimientos obligatorios y Casos TI** — para que el botón "Completar y enviar al correo" (Mantenimientos obligatorios) y el botón "Resolver" (Casos TI) funcionen, hace falta una cuenta Gmail con verificación en dos pasos activada y una "contraseña de aplicación" generada en `myaccount.google.com/apppasswords`. El correo (no es secreto) va en `appsettings.json` → `Smtp:FromAddress`; la contraseña de aplicación (sí es secreta) se guarda aparte, igual que la del primer administrador: `dotnet user-secrets set "Smtp:Password" "..."` en desarrollo, o `SMTP_APP_PASSWORD` en el `.env` de Docker. Si no se configura, el resto del sistema funciona igual — solo falla al intentar enviar un correo desde esos dos módulos.
+6. **La cuenta de correo para Mantenimientos Programados y Casos TI** — para que el botón "Completar y enviar al correo" (Mantenimientos Programados) y el botón "Resolver" (Casos TI) funcionen, hace falta una cuenta Gmail con verificación en dos pasos activada y una "contraseña de aplicación" generada en `myaccount.google.com/apppasswords`. El correo (no es secreto) va en `appsettings.json` → `Smtp:FromAddress`; la contraseña de aplicación (sí es secreta) se guarda aparte, igual que la del primer administrador: `dotnet user-secrets set "Smtp:Password" "..."` en desarrollo, o `SMTP_APP_PASSWORD` en el `.env` de Docker. Si no se configura, el resto del sistema funciona igual — solo falla al intentar enviar un correo desde esos dos módulos.
 7. **Si se despliega con Docker** — además de los puntos anteriores, hace falta:
    - Un archivo `.env` (copiado de `.env.example`) con el usuario/contraseña del SQL Server (`LOCAL_SQL_USER`/`LOCAL_SQL_PASSWORD`).
    - El contenedor espera que el SQL Server ya esté corriendo en la máquina anfitriona (no crea uno propio dentro de Docker).
    - Un espacio de almacenamiento ("volumen") para que las "llaves" que firman las cookies de sesión no se pierdan si el contenedor se reinicia — si se pierden, todas las sesiones activas se invalidarían de golpe.
 
-En resumen: **antes del primer uso**, hace falta decirle al sistema dónde está la base de datos, crear las tablas, darle un correo/contraseña para el primer administrador, y llenar a mano los catálogos básicos (Ram, sistema operativo, áreas, regionales). La cuenta de correo (punto 6) solo es necesaria si se va a usar el módulo de Mantenimientos obligatorios. Después de eso, todo lo demás (otros administradores, equipos, usuarios, etc.) se crea desde la propia aplicación.
+En resumen: **antes del primer uso**, hace falta decirle al sistema dónde está la base de datos, crear las tablas, darle un correo/contraseña para el primer administrador, y llenar a mano los catálogos básicos (Ram, sistema operativo, áreas, regionales). La cuenta de correo (punto 6) solo es necesaria si se va a usar el módulo de Mantenimientos Programados. Después de eso, todo lo demás (otros administradores, equipos, usuarios, etc.) se crea desde la propia aplicación.
 
 ---
 

@@ -1,9 +1,9 @@
 @model MaintenanceCampaignCompleteViewModel
 @{
-    ViewData["Title"] = "Completar mantenimiento obligatorio";
+    ViewData["Title"] = "Completar mantenimiento programado";
 }
 
-<h1>Completar mantenimiento obligatorio</h1>
+<h1>Completar mantenimiento programado</h1>
 <p class="text-muted">@Model.DesktopName (Serial: @Model.SerialNumber)</p>
 
 <form asp-controller="MaintenanceCampaign" asp-action="Complete" method="post">

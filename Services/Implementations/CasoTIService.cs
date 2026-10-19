@@ -17,34 +17,24 @@ namespace Gestor_Equipos.Services.Implementations
             _emailService = emailService;
         }
 
-        public async Task<int> CreateAsync(CasoTICreateViewModel vm, int actingUserSystemId, string actingUserRole, CancellationToken ct = default)
+        public async Task<int> CreateAsync(CasoTICreateViewModel vm, int actingUserSystemId, int actingUsersId, string actingUserRole, CancellationToken ct = default)
         {
-            int tecnicoUserSystemId;
+            int personaUserId;
 
-            // Nunca confiar en lo que mande el cliente: si quien crea el caso es Técnico,
-            // el técnico del caso es siempre él mismo, sin importar lo que venga en el vm.
-            if (actingUserRole == AuthBootstrapper.TecnicoSistemasRoleName)
+            // Nunca confiar en lo que mande el cliente: un Colaborador solo puede registrar
+            // casos sobre sí mismo.
+            if (actingUserRole == AuthBootstrapper.ColaboradorRoleName)
             {
-                tecnicoUserSystemId = actingUserSystemId;
+                personaUserId = actingUsersId;
             }
             else
             {
-                if (!vm.TecnicoUserSystemId.HasValue)
+                if (!vm.PersonaUserId.HasValue)
                 {
-                    throw new InvalidOperationException("Debes seleccionar un técnico.");
+                    throw new InvalidOperationException("Selecciona la persona que recibió el soporte.");
                 }
 
-                var tecnicoValido = await _dbContext.UserSystems
-                    .Include(us => us.Rol)
-                    .AnyAsync(us => us.Id == vm.TecnicoUserSystemId.Value &&
-                        (us.Rol.Name == AuthBootstrapper.AdministradorRoleName || us.Rol.Name == AuthBootstrapper.TecnicoSistemasRoleName), ct);
-
-                if (!tecnicoValido)
-                {
-                    throw new InvalidOperationException("Técnico inválido.");
-                }
-
-                tecnicoUserSystemId = vm.TecnicoUserSystemId.Value;
+                personaUserId = vm.PersonaUserId.Value;
             }
 
             if (vm.Fecha > DateOnly.FromDateTime(DateTime.Now))
@@ -54,7 +44,7 @@ namespace Gestor_Equipos.Services.Implementations
 
             var persona = await _dbContext.Users
                 .Include(u => u.Area)
-                .SingleOrDefaultAsync(u => u.Id == vm.PersonaUserId, ct)
+                .SingleOrDefaultAsync(u => u.Id == personaUserId, ct)
                 ?? throw new InvalidOperationException("Persona no encontrada.");
 
             var tipoCasoExiste = await _dbContext.TiposCaso.AnyAsync(t => t.Id == vm.TipoCasoId, ct);
@@ -66,7 +56,11 @@ namespace Gestor_Equipos.Services.Implementations
             var caso = new CasoTI
             {
                 Fecha = vm.Fecha,
-                TecnicoUserSystemId = tecnicoUserSystemId,
+                Asunto = vm.Asunto,
+                // Todo caso nace sin técnico asignado, sin importar quién lo crea — queda
+                // asignado a quien lo resuelva (ver ResolveAsync), para que cualquier
+                // técnico/admin pueda entrar y resolverlo.
+                TecnicoUserSystemId = null,
                 PersonaUserId = persona.Id,
                 AreaSnapshot = persona.Area?.Name,
                 TipoCasoId = vm.TipoCasoId,
@@ -80,10 +74,10 @@ namespace Gestor_Equipos.Services.Implementations
             return caso.Id;
         }
 
-        public async Task<CasoTIDetailViewModel?> GetDetailAsync(int id, int actingUserSystemId, string actingUserRole, CancellationToken ct = default)
+        public async Task<CasoTIDetailViewModel?> GetDetailAsync(int id, int actingUserSystemId, int actingUsersId, string actingUserRole, CancellationToken ct = default)
         {
             var caso = await _dbContext.CasosTI
-                .Include(c => c.Tecnico).ThenInclude(t => t.User)
+                .Include(c => c.Tecnico).ThenInclude(t => t!.User)
                 .Include(c => c.Persona)
                 .Include(c => c.TipoCaso)
                 .SingleOrDefaultAsync(c => c.Id == id, ct);
@@ -93,8 +87,8 @@ namespace Gestor_Equipos.Services.Implementations
                 return null;
             }
 
-            // Un técnico no puede ver el detalle de un caso ajeno, aunque conozca el id.
-            if (actingUserRole == AuthBootstrapper.TecnicoSistemasRoleName && caso.TecnicoUserSystemId != actingUserSystemId)
+            // Un Colaborador no puede ver el detalle de un caso ajeno, aunque conozca el id.
+            if (actingUserRole == AuthBootstrapper.ColaboradorRoleName && caso.PersonaUserId != actingUsersId)
             {
                 return null;
             }
@@ -105,47 +99,91 @@ namespace Gestor_Equipos.Services.Implementations
             }
 
             var canResolve = caso.Estado == CasoTIEstado.Abierto &&
-                (actingUserRole == AuthBootstrapper.AdministradorRoleName || caso.TecnicoUserSystemId == actingUserSystemId);
+                (actingUserRole == AuthBootstrapper.AdministradorRoleName || actingUserRole == AuthBootstrapper.TecnicoSistemasRoleName);
+
+            var canDelete = caso.Estado == CasoTIEstado.Abierto &&
+                actingUserRole == AuthBootstrapper.ColaboradorRoleName && caso.PersonaUserId == actingUsersId;
 
             return new CasoTIDetailViewModel
             {
                 Id = caso.Id,
                 Fecha = caso.Fecha,
+                Asunto = caso.Asunto ?? "-",
                 TecnicoUserSystemId = caso.TecnicoUserSystemId,
-                TecnicoNombre = $"{caso.Tecnico.User.Name} {caso.Tecnico.User.LastName}",
+                TecnicoNombre = caso.Tecnico is null ? "Sin asignar" : $"{caso.Tecnico.User.Name} {caso.Tecnico.User.LastName}",
                 PersonaNombre = $"{caso.Persona.Name} {caso.Persona.LastName}",
                 AreaSnapshot = caso.AreaSnapshot,
                 TipoCasoNombre = caso.TipoCaso.Nombre,
                 Notas = caso.Notas,
                 Estado = caso.Estado,
                 ResolvedAtUtc = caso.ResolvedAtUtc,
-                CanResolve = canResolve
+                CanResolve = canResolve,
+                CanDelete = canDelete
             };
         }
 
-        public async Task<List<CasoTIListItemViewModel>> GetIndexAsync(int actingUserSystemId, string actingUserRole, int? tecnicoFilterUserSystemId, CancellationToken ct = default)
+        public async Task<List<CasoTIListItemViewModel>> GetIndexAsync(
+            int actingUserSystemId, int actingUsersId, string actingUserRole, CasoTIIndexFilterViewModel filter, CancellationToken ct = default)
         {
             var query = ApplyRoleScope(
                 _dbContext.CasosTI
-                    .Include(c => c.Tecnico).ThenInclude(t => t.User)
+                    .Include(c => c.Tecnico).ThenInclude(t => t!.User)
                     .Include(c => c.Persona)
                     .Include(c => c.TipoCaso),
-                actingUserSystemId, actingUserRole, tecnicoFilterUserSystemId);
+                actingUserSystemId, actingUsersId, actingUserRole, filter.TecnicoUserSystemId);
+
+            if (filter.FechaDesde.HasValue)
+            {
+                query = query.Where(c => c.Fecha >= filter.FechaDesde.Value);
+            }
+
+            if (filter.FechaHasta.HasValue)
+            {
+                query = query.Where(c => c.Fecha <= filter.FechaHasta.Value);
+            }
+
+            if (filter.Estado.HasValue)
+            {
+                query = query.Where(c => c.Estado == filter.Estado.Value);
+            }
+
+            if (filter.TipoCasoId.HasValue)
+            {
+                query = query.Where(c => c.TipoCasoId == filter.TipoCasoId.Value);
+            }
 
             var casos = await query
                 .OrderByDescending(c => c.Fecha)
                 .ThenByDescending(c => c.Id)
                 .ToListAsync(ct);
 
+            // Búsqueda de texto insensible a mayúsculas, aplicada en memoria (igual criterio que
+            // UserAdminController.Index) — las comparaciones de texto insensibles a mayúsculas no
+            // se traducen de forma confiable a nivel de IQueryable en todos los proveedores de EF.
+            if (!string.IsNullOrWhiteSpace(filter.Asunto))
+            {
+                casos = casos.Where(c => c.Asunto != null && c.Asunto.Contains(filter.Asunto, StringComparison.OrdinalIgnoreCase)).ToList();
+            }
+
+            if (!string.IsNullOrWhiteSpace(filter.PersonaNombre))
+            {
+                casos = casos.Where(c =>
+                    c.Persona.Name.Contains(filter.PersonaNombre, StringComparison.OrdinalIgnoreCase) ||
+                    c.Persona.LastName.Contains(filter.PersonaNombre, StringComparison.OrdinalIgnoreCase)).ToList();
+            }
+
             return casos.Select(c => new CasoTIListItemViewModel
             {
                 Id = c.Id,
                 Fecha = c.Fecha,
-                TecnicoNombre = $"{c.Tecnico.User.Name} {c.Tecnico.User.LastName}",
+                Asunto = c.Asunto ?? "-",
+                TecnicoNombre = c.Tecnico is null ? "Sin asignar" : $"{c.Tecnico.User.Name} {c.Tecnico.User.LastName}",
                 PersonaNombre = $"{c.Persona.Name} {c.Persona.LastName}",
                 AreaSnapshot = c.AreaSnapshot,
                 TipoCasoNombre = c.TipoCaso.Nombre,
-                Estado = c.Estado
+                Estado = c.Estado,
+                CanDelete = c.Estado == CasoTIEstado.Abierto
+                    && actingUserRole == AuthBootstrapper.ColaboradorRoleName && c.PersonaUserId == actingUsersId
             }).ToList();
         }
 
@@ -159,12 +197,6 @@ namespace Gestor_Equipos.Services.Implementations
             if (caso.Estado != CasoTIEstado.Abierto)
             {
                 throw new InvalidOperationException("Este caso ya fue resuelto.");
-            }
-
-            // Un técnico no puede cerrar un caso ajeno, aunque conozca el id.
-            if (actingUserRole == AuthBootstrapper.TecnicoSistemasRoleName && caso.TecnicoUserSystemId != actingUserSystemId)
-            {
-                throw new InvalidOperationException("No puedes resolver un caso de otro técnico.");
             }
 
             if (string.IsNullOrWhiteSpace(notasFinal))
@@ -201,10 +233,32 @@ namespace Gestor_Equipos.Services.Implementations
                 caso.Estado = CasoTIEstado.Resuelto;
                 caso.ResolvedAtUtc = DateTime.UtcNow;
                 caso.RatingToken = token;
+                // Cualquier técnico/admin que resuelva un caso (propio o ajeno) queda asignado
+                // como su técnico — "auto-asignación al que resuelve", sin dropdown de selección.
+                caso.TecnicoUserSystemId = actingUserSystemId;
                 await _dbContext.SaveChangesAsync(ct);
 
                 await transaction.CommitAsync(ct);
             });
+        }
+
+        public async Task DeleteAsync(int casoId, int actingUsersId, CancellationToken ct = default)
+        {
+            var caso = await _dbContext.CasosTI.SingleOrDefaultAsync(c => c.Id == casoId, ct)
+                ?? throw new InvalidOperationException("El caso no existe.");
+
+            if (caso.PersonaUserId != actingUsersId)
+            {
+                throw new InvalidOperationException("No puedes eliminar un caso que no es tuyo.");
+            }
+
+            if (caso.Estado != CasoTIEstado.Abierto)
+            {
+                throw new InvalidOperationException("No se puede eliminar un caso ya resuelto.");
+            }
+
+            _dbContext.CasosTI.Remove(caso);
+            await _dbContext.SaveChangesAsync(ct);
         }
 
         public async Task<CasoTIRatingPromptViewModel?> GetRatingPromptAsync(Guid token, CancellationToken ct = default)
@@ -247,10 +301,10 @@ namespace Gestor_Equipos.Services.Implementations
         }
 
         public async Task<CasoTIStatsViewModel> GetStatsAsync(
-            int actingUserSystemId, string actingUserRole, int? tecnicoFilterUserSystemId,
+            int actingUserSystemId, int actingUsersId, string actingUserRole, int? tecnicoFilterUserSystemId,
             CasoTIGranularidad granularidad, int? mes, int? anio, CancellationToken ct = default)
         {
-            var query = ApplyRoleScope(_dbContext.CasosTI.Include(c => c.TipoCaso), actingUserSystemId, actingUserRole, tecnicoFilterUserSystemId);
+            var query = ApplyRoleScope(_dbContext.CasosTI.Include(c => c.TipoCaso), actingUserSystemId, actingUsersId, actingUserRole, tecnicoFilterUserSystemId);
 
             if (anio.HasValue)
             {
@@ -286,27 +340,28 @@ namespace Gestor_Equipos.Services.Implementations
             return vm;
         }
 
-        public async Task<CasoTIRatingsViewModel> GetRatingsAsync(int actingUserSystemId, string actingUserRole, int? tecnicoFilterUserSystemId, CancellationToken ct = default)
+        public async Task<CasoTIRatingsViewModel> GetRatingsAsync(int actingUserSystemId, int actingUsersId, string actingUserRole, int? tecnicoFilterUserSystemId, CancellationToken ct = default)
         {
             // Estado == Resuelto como defensa adicional explícita: en la práctica solo los
-            // casos resueltos tienen RatingToken/RatingValue, pero un Auditor nunca debe
-            // depender implícitamente de eso para quedar protegido.
+            // casos resueltos tienen RatingToken/RatingValue (y TecnicoUserSystemId asignado),
+            // pero un Auditor nunca debe depender implícitamente de eso para quedar protegido.
             var query = ApplyRoleScope(
-                _dbContext.CasosTI.Include(c => c.Tecnico).ThenInclude(t => t.User).Include(c => c.Persona),
-                actingUserSystemId, actingUserRole, tecnicoFilterUserSystemId)
+                _dbContext.CasosTI.Include(c => c.Tecnico).ThenInclude(t => t!.User).Include(c => c.Persona),
+                actingUserSystemId, actingUsersId, actingUserRole, tecnicoFilterUserSystemId)
                 .Where(c => c.Estado == CasoTIEstado.Resuelto);
 
             var casos = await query.ToListAsync(ct);
 
             var resumen = casos
-                .GroupBy(c => c.TecnicoUserSystemId)
+                .Where(c => c.TecnicoUserSystemId.HasValue)
+                .GroupBy(c => c.TecnicoUserSystemId!.Value)
                 .Select(g =>
                 {
                     var calificados = g.Where(c => c.RatingValue.HasValue).ToList();
                     return new CasoTITecnicoRatingSummary
                     {
                         TecnicoUserSystemId = g.Key,
-                        TecnicoNombre = $"{g.First().Tecnico.User.Name} {g.First().Tecnico.User.LastName}",
+                        TecnicoNombre = $"{g.First().Tecnico!.User.Name} {g.First().Tecnico!.User.LastName}",
                         Promedio = calificados.Count > 0 ? calificados.Average(c => c.RatingValue!.Value) : null,
                         CantidadCalificados = calificados.Count
                     };
@@ -322,7 +377,7 @@ namespace Gestor_Equipos.Services.Implementations
                 {
                     CasoId = c.Id,
                     Fecha = c.Fecha,
-                    TecnicoNombre = $"{c.Tecnico.User.Name} {c.Tecnico.User.LastName}",
+                    TecnicoNombre = c.Tecnico is null ? "Sin asignar" : $"{c.Tecnico.User.Name} {c.Tecnico.User.LastName}",
                     PersonaNombre = $"{c.Persona.Name} {c.Persona.LastName}",
                     RatingValue = c.RatingValue!.Value,
                     RatingComment = c.RatingComment
@@ -408,11 +463,11 @@ namespace Gestor_Equipos.Services.Implementations
             }
         }
 
-        private static IQueryable<CasoTI> ApplyRoleScope(IQueryable<CasoTI> query, int actingUserSystemId, string actingUserRole, int? tecnicoFilterUserSystemId)
+        private static IQueryable<CasoTI> ApplyRoleScope(IQueryable<CasoTI> query, int actingUserSystemId, int actingUsersId, string actingUserRole, int? tecnicoFilterUserSystemId)
         {
-            if (actingUserRole == AuthBootstrapper.TecnicoSistemasRoleName)
+            if (actingUserRole == AuthBootstrapper.ColaboradorRoleName)
             {
-                return query.Where(c => c.TecnicoUserSystemId == actingUserSystemId);
+                return query.Where(c => c.PersonaUserId == actingUsersId);
             }
 
             if (actingUserRole == AuthBootstrapper.AuditorRoleName)
@@ -420,6 +475,7 @@ namespace Gestor_Equipos.Services.Implementations
                 return query.Where(c => c.Estado == CasoTIEstado.Resuelto);
             }
 
+            // Técnico y Administrador comparten alcance: ven todos los casos, con filtro opcional.
             if (tecnicoFilterUserSystemId.HasValue)
             {
                 return query.Where(c => c.TecnicoUserSystemId == tecnicoFilterUserSystemId.Value);

@@ -7,12 +7,13 @@ namespace GestorEquipos.Models.ViewModels.CasoTI
         [Required(ErrorMessage = "La fecha es obligatoria.")]
         public DateOnly Fecha { get; set; } = DateOnly.FromDateTime(DateTime.Now);
 
-        // Solo relevante cuando el Administrador crea el caso; si lo crea un Técnico,
-        // el servicio ignora este valor y usa siempre al técnico autenticado.
-        public int? TecnicoUserSystemId { get; set; }
+        [Required(ErrorMessage = "El asunto es obligatorio.")]
+        [MaxLength(150)]
+        public string Asunto { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Selecciona la persona que recibió el soporte.")]
-        public int PersonaUserId { get; set; }
+        // Ignorado para un Colaborador: el servicio fuerza PersonaUserId al propio actor
+        // (nunca confiar en lo que mande el cliente). Requerido cuando crea Admin/Técnico.
+        public int? PersonaUserId { get; set; }
 
         [Required(ErrorMessage = "Selecciona el tipo de caso.")]
         public int TipoCasoId { get; set; }

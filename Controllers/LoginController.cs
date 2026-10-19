@@ -27,7 +27,7 @@ namespace Gestor_Equipos.Controllers
         {
             if (User.Identity?.IsAuthenticated == true)
             {
-                return RedirectToAction("Index", "Home");
+                return RedirectToDefaultForRole(User.FindFirstValue(ClaimTypes.Role));
             }
 
             return View(new LoginViewModel { ReturnUrl = returnUrl });
@@ -101,6 +101,20 @@ namespace Gestor_Equipos.Controllers
             if (!string.IsNullOrWhiteSpace(model.ReturnUrl) && Url.IsLocalUrl(model.ReturnUrl))
             {
                 return Redirect(model.ReturnUrl);
+            }
+
+            return RedirectToDefaultForRole(authenticatedUser.RoleName);
+        }
+
+        // Colaborador no tiene acceso a HomeController (AllStaffRoles) y caería en AccessDenied
+        // antes de que MustChangePasswordFilter llegue a correr, porque la autorización por rol
+        // se evalúa antes que los filtros de acción. Mandarlo directo a su única pantalla permitida
+        // evita ese choque y deja que el filtro de cambio de contraseña se dispare ahí si corresponde.
+        private IActionResult RedirectToDefaultForRole(string? roleName)
+        {
+            if (roleName == Gestor_Equipos.Services.Auth.AuthBootstrapper.ColaboradorRoleName)
+            {
+                return RedirectToAction("Index", "CasoTI");
             }
 
             return RedirectToAction("Index", "Home");

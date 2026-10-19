@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace GestorEquipos.Models.ViewModels.Maintenance
 {
-    // Formulario de "Completar y enviar al correo" del módulo de Mantenimientos obligatorios.
+    // Formulario de "Completar y enviar al correo" del módulo de Mantenimientos Programados.
     // A propósito NO incluye DesktopId ni Category: el controller/servicio los fija a partir
     // del MaintenanceCampaignItem server-side, nunca desde lo que mande el cliente.
     public class MaintenanceCampaignCompleteViewModel

@@ -196,6 +196,9 @@ namespace Gestor_Equipos.Services.Implementations
         // FK violation (500). Validate existence up front and fail with a normal form error.
         public async Task<int> CreateAsync(DesktopCreateViewModel vm)
         {
+            vm.NameDesktop = vm.NameDesktop.ToUpperInvariant();
+            vm.Disk = vm.Disk.ToUpperInvariant();
+
             if (!await _dbContext.DesktopTypes.AnyAsync(t => t.Id == vm.DesktopTypeId))
             {
                 throw new InvalidOperationException("El tipo de equipo seleccionado no existe.");
@@ -242,6 +245,9 @@ namespace Gestor_Equipos.Services.Implementations
         {
             var desktop = await _dbContext.Desktops.SingleOrDefaultAsync(d => d.Id == desktopId)
                 ?? throw new InvalidOperationException("Equipo no encontrado.");
+
+            vm.NameDesktop = vm.NameDesktop.ToUpperInvariant();
+            vm.Disk = vm.Disk.ToUpperInvariant();
 
             if (!await _dbContext.DesktopTypes.AnyAsync(t => t.Id == vm.DesktopTypeId))
             {

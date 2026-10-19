@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Gestor_Equipos.Services;
+using Gestor_Equipos.Services.Auth;
 using GestorEquipos.Models;
 using GestorEquipos.Models.ViewModels.Home;
 using Microsoft.AspNetCore.Authorization;
@@ -7,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Gestor_Equipos.Controllers
 {
-    [Authorize]
+    [Authorize(Roles = AuthBootstrapper.AllStaffRoles)]
     public class HomeController : Controller
     {
         private readonly ILogger<HomeController> _logger;

@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Gestor_Equipos.Controllers
 {
-    [Authorize]
+    [Authorize(Roles = AuthBootstrapper.AllStaffRoles)]
     public class PeripheralController : Controller
     {
         private readonly IPeripheralService _peripheralService;

@@ -2,9 +2,8 @@
 @model GestorEquipos.Models.ViewModels.CasoTI.CasoTICreateViewModel
 @{
     ViewData["Title"] = "Registrar caso TI";
-    SelectList personaOptions = ViewBag.PersonaOptions;
+    SelectList? personaOptions = ViewBag.PersonaOptions;
     SelectList tipoCasoOptions = ViewBag.TipoCasoOptions;
-    SelectList? tecnicoOptions = ViewBag.TecnicoOptions;
 }
 
 <h1>Registrar caso TI</h1>
@@ -19,24 +18,22 @@
         <span asp-validation-for="Fecha" class="text-danger"></span>
     </div>
 
-    @if (tecnicoOptions is not null)
+    <div class="mb-3">
+        <label asp-for="Asunto" class="form-label">Asunto</label>
+        <input asp-for="Asunto" class="form-control" placeholder="Ej. Impresora no imprime" />
+        <span asp-validation-for="Asunto" class="text-danger"></span>
+    </div>
+
+    @if (personaOptions is not null)
     {
         <div class="mb-3">
-            <label asp-for="TecnicoUserSystemId" class="form-label">Técnico</label>
-            <select asp-for="TecnicoUserSystemId" asp-items="tecnicoOptions" class="form-select">
-                <option value="">-- Selecciona un técnico --</option>
+            <label asp-for="PersonaUserId" class="form-label">Persona que recibe el soporte</label>
+            <select asp-for="PersonaUserId" asp-items="personaOptions" class="form-select">
+                <option value="">-- Selecciona una persona --</option>
             </select>
-            <span asp-validation-for="TecnicoUserSystemId" class="text-danger"></span>
+            <span asp-validation-for="PersonaUserId" class="text-danger"></span>
         </div>
     }
-
-    <div class="mb-3">
-        <label asp-for="PersonaUserId" class="form-label">Persona que recibe el soporte</label>
-        <select asp-for="PersonaUserId" asp-items="personaOptions" class="form-select">
-            <option value="">-- Selecciona una persona --</option>
-        </select>
-        <span asp-validation-for="PersonaUserId" class="text-danger"></span>
-    </div>
 
     <div class="mb-3">
         <label asp-for="TipoCasoId" class="form-label">Tipo de caso</label>

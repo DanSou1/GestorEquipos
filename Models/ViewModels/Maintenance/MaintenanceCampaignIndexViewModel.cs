@@ -19,6 +19,6 @@ namespace GestorEquipos.Models.ViewModels.Maintenance
         public bool EsAtrasado { get; set; }
         public string? HolderName { get; set; }
         public DateTime? EmailSentAtUtc { get; set; }
-        public DateTime? SignedPdfUploadedAtUtc { get; set; }
+        public DateTime? SignedAtUtc { get; set; }
     }
 }

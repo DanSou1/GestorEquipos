@@ -18,6 +18,11 @@ namespace GestorEquipos.Models
 
         public Guid SecurityStamp { get; set; } = Guid.NewGuid();
 
+        // true por defecto para toda cuenta Colaborador creada automáticamente (ver
+        // UserAdminService.CreateUserWithLoginAsync y AuthBootstrapper.EnsureColaboradorLoginsBackfilledAsync);
+        // las cuentas Admin/Técnico/Auditor creadas manualmente por AccessAccountController quedan en false.
+        public bool MustChangePassword { get; set; }
+
         [Required]
         [ForeignKey("Rol")]
         public int RolId { get; set; }

@@ -36,6 +36,7 @@ public class MyDbContext : DbContext
     public DbSet<MaintenanceCampaignItem> MaintenanceCampaignItems { get; set; }
     public DbSet<TipoCaso> TiposCaso { get; set; }
     public DbSet<CasoTI> CasosTI { get; set; }
+    public DbSet<UserSavedSignature> UserSavedSignatures { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -72,6 +73,7 @@ public class MyDbContext : DbContext
         modelBuilder.Entity<MaintenanceCampaignItem>().ToTable("MaintenanceCampaignItem");
         modelBuilder.Entity<TipoCaso>().ToTable("TipoCaso");
         modelBuilder.Entity<CasoTI>().ToTable("CasoTI");
+        modelBuilder.Entity<UserSavedSignature>().ToTable("UserSavedSignature");
 
         modelBuilder.Entity<Users>()
             .HasIndex(u => u.Email)
@@ -88,6 +90,10 @@ public class MyDbContext : DbContext
         modelBuilder.Entity<UserSystem>()
             .Property(us => us.SecurityStamp)
             .HasDefaultValueSql("NEWID()");
+
+        modelBuilder.Entity<UserSystem>()
+            .Property(us => us.MustChangePassword)
+            .HasDefaultValue(true);
 
         modelBuilder.Entity<Rol>()
             .HasIndex(r => r.Name)
@@ -305,10 +311,29 @@ public class MyDbContext : DbContext
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<MaintenanceCampaignItem>()
-            .HasOne(c => c.SignedPdfUploadedByUserSystem)
+            .HasOne(c => c.SignerUserSystem)
             .WithMany()
-            .HasForeignKey(c => c.SignedPdfUploadedByUserSystemId)
+            .HasForeignKey(c => c.SignerUserSystemId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // Restrict (no Cascade): es quien recibió el link de firma, no debe desaparecer en
+        // silencio si la persona se borra (en la práctica Users nunca se borra, solo se
+        // desactiva — ver UserAdminService.DeactivateAsync).
+        modelBuilder.Entity<MaintenanceCampaignItem>()
+            .HasOne(c => c.AssignedSigner)
+            .WithMany()
+            .HasForeignKey(c => c.AssignedSignerUsersId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<UserSavedSignature>()
+            .HasIndex(s => s.UserId)
+            .IsUnique();
+
+        modelBuilder.Entity<UserSavedSignature>()
+            .HasOne(s => s.User)
+            .WithMany()
+            .HasForeignKey(s => s.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<CasoTI>()
             .HasOne(c => c.Tecnico)

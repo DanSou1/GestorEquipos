@@ -24,28 +24,28 @@ namespace Gestor_Equipos.Controllers
             _dbContext = dbContext;
         }
 
-        public async Task<IActionResult> Index(int? tecnicoId)
+        public async Task<IActionResult> Index([FromQuery] CasoTIIndexFilterViewModel filter)
         {
             ViewBag.Error = TempData["Error"];
-            var vm = await _casoTIService.GetIndexAsync(GetCurrentUserSystemId(), GetCurrentRole(), tecnicoId, HttpContext.RequestAborted);
+            ViewBag.Success = TempData["Success"];
+            var vm = await _casoTIService.GetIndexAsync(GetCurrentUserSystemId(), GetCurrentUsersId(), GetCurrentRole(), filter, HttpContext.RequestAborted);
 
-            if (User.IsInRole(AuthBootstrapper.AdministradorRoleName))
+            if (CanFilterByTecnico())
             {
-                ViewBag.TecnicoFiltro = tecnicoId;
                 ViewBag.TecnicoOptions = await GetTecnicoSelectListAsync();
             }
 
+            ViewBag.TipoCasoOptions = new SelectList(await _dbContext.TiposCaso.OrderBy(t => t.Nombre).ToListAsync(), "Id", "Nombre");
+            ViewBag.Filter = filter;
             return View(vm);
         }
 
-        [Authorize(Roles = AuthBootstrapper.AdminOrTecnicoRoles)]
         public async Task<IActionResult> Create()
         {
             await PopulateCreateDropdownsAsync();
             return View(new CasoTICreateViewModel());
         }
 
-        [Authorize(Roles = AuthBootstrapper.AdminOrTecnicoRoles)]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(CasoTICreateViewModel vm)
@@ -58,7 +58,7 @@ namespace Gestor_Equipos.Controllers
 
             try
             {
-                var id = await _casoTIService.CreateAsync(vm, GetCurrentUserSystemId(), GetCurrentRole(), HttpContext.RequestAborted);
+                var id = await _casoTIService.CreateAsync(vm, GetCurrentUserSystemId(), GetCurrentUsersId(), GetCurrentRole(), HttpContext.RequestAborted);
                 return RedirectToAction(nameof(Details), new { id });
             }
             catch (InvalidOperationException ex)
@@ -72,7 +72,7 @@ namespace Gestor_Equipos.Controllers
         public async Task<IActionResult> Details(int id)
         {
             ViewBag.Error = TempData["Error"];
-            var vm = await _casoTIService.GetDetailAsync(id, GetCurrentUserSystemId(), GetCurrentRole(), HttpContext.RequestAborted);
+            var vm = await _casoTIService.GetDetailAsync(id, GetCurrentUserSystemId(), GetCurrentUsersId(), GetCurrentRole(), HttpContext.RequestAborted);
             if (vm is null)
             {
                 return NotFound();
@@ -104,12 +104,31 @@ namespace Gestor_Equipos.Controllers
             return RedirectToAction(nameof(Details), new { id });
         }
 
+        // Cualquier rol puede llegar aquí (un Colaborador debe poder borrar su propio caso) —
+        // la verificación real de dueño/estado vive en CasoTIService.DeleteAsync.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Delete(int id)
+        {
+            try
+            {
+                await _casoTIService.DeleteAsync(id, GetCurrentUsersId(), HttpContext.RequestAborted);
+                TempData["Success"] = "Caso eliminado.";
+            }
+            catch (InvalidOperationException ex)
+            {
+                TempData["Error"] = ex.Message;
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
         public async Task<IActionResult> Estadisticas(CasoTIGranularidad granularidad = CasoTIGranularidad.Mes, int? mes = null, int? anio = null, int? tecnicoId = null)
         {
             var vm = await _casoTIService.GetStatsAsync(
-                GetCurrentUserSystemId(), GetCurrentRole(), tecnicoId, granularidad, mes, anio, HttpContext.RequestAborted);
+                GetCurrentUserSystemId(), GetCurrentUsersId(), GetCurrentRole(), tecnicoId, granularidad, mes, anio, HttpContext.RequestAborted);
 
-            if (User.IsInRole(AuthBootstrapper.AdministradorRoleName))
+            if (CanFilterByTecnico())
             {
                 ViewBag.TecnicoFiltro = tecnicoId;
                 ViewBag.TecnicoOptions = await GetTecnicoSelectListAsync();
@@ -120,9 +139,9 @@ namespace Gestor_Equipos.Controllers
 
         public async Task<IActionResult> Calificaciones(int? tecnicoId = null)
         {
-            var vm = await _casoTIService.GetRatingsAsync(GetCurrentUserSystemId(), GetCurrentRole(), tecnicoId, HttpContext.RequestAborted);
+            var vm = await _casoTIService.GetRatingsAsync(GetCurrentUserSystemId(), GetCurrentUsersId(), GetCurrentRole(), tecnicoId, HttpContext.RequestAborted);
 
-            if (User.IsInRole(AuthBootstrapper.AdministradorRoleName))
+            if (CanFilterByTecnico())
             {
                 ViewBag.TecnicoFiltro = tecnicoId;
                 ViewBag.TecnicoOptions = await GetTecnicoSelectListAsync();
@@ -131,11 +150,21 @@ namespace Gestor_Equipos.Controllers
             return View(vm);
         }
 
+        private bool CanFilterByTecnico() =>
+            User.IsInRole(AuthBootstrapper.AdministradorRoleName) || User.IsInRole(AuthBootstrapper.TecnicoSistemasRoleName);
+
         private async Task PopulateCreateDropdownsAsync()
         {
-            // Solo personas "normales" (sin cuenta de acceso, sin contar RAES/"sin asignar"):
-            // misma definición canónica que UserAdminService.GetAllAsync, para que Administrador,
-            // Técnico, Auditor y las pseudo-cuentas reservadas nunca aparezcan como receptores de soporte.
+            if (User.IsInRole(AuthBootstrapper.ColaboradorRoleName))
+            {
+                // El Colaborador no elige persona: el servicio la fuerza a sí mismo.
+                ViewBag.TipoCasoOptions = new SelectList(
+                    await _dbContext.TiposCaso.OrderBy(t => t.Nombre).ToListAsync(), "Id", "Nombre");
+                return;
+            }
+
+            // Solo personas "normales" (sin cuenta de personal, sin contar RAES/"sin asignar"):
+            // misma definición canónica que UserAdminService.GetAllAsync.
             var personas = await _userAdminService.GetAllAsync(includeInactive: false, HttpContext.RequestAborted);
             ViewBag.PersonaOptions = new SelectList(
                 personas
@@ -146,11 +175,6 @@ namespace Gestor_Equipos.Controllers
             ViewBag.TipoCasoOptions = new SelectList(
                 await _dbContext.TiposCaso.OrderBy(t => t.Nombre).ToListAsync(),
                 "Id", "Nombre");
-
-            if (User.IsInRole(AuthBootstrapper.AdministradorRoleName))
-            {
-                ViewBag.TecnicoOptions = await GetTecnicoSelectListAsync();
-            }
         }
 
         private async Task<SelectList> GetTecnicoSelectListAsync()
@@ -172,10 +196,17 @@ namespace Gestor_Equipos.Controllers
             return int.Parse(claim!);
         }
 
+        private int GetCurrentUsersId()
+        {
+            var claim = User.FindFirst("UserId")?.Value;
+            return int.Parse(claim!);
+        }
+
         private string GetCurrentRole()
         {
             if (User.IsInRole(AuthBootstrapper.AdministradorRoleName)) return AuthBootstrapper.AdministradorRoleName;
             if (User.IsInRole(AuthBootstrapper.TecnicoSistemasRoleName)) return AuthBootstrapper.TecnicoSistemasRoleName;
+            if (User.IsInRole(AuthBootstrapper.ColaboradorRoleName)) return AuthBootstrapper.ColaboradorRoleName;
             return AuthBootstrapper.AuditorRoleName;
         }
     }

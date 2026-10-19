@@ -156,6 +156,10 @@ namespace GestorEquipos.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
 
+                    b.Property<string>("Asunto")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("datetime2");
 
@@ -188,7 +192,7 @@ namespace GestorEquipos.Migrations
                     b.Property<DateTime?>("ResolvedAtUtc")
                         .HasColumnType("datetime2");
 
-                    b.Property<int>("TecnicoUserSystemId")
+                    b.Property<int?>("TecnicoUserSystemId")
                         .HasColumnType("int");
 
                     b.Property<int>("TipoCasoId")
@@ -379,6 +383,9 @@ namespace GestorEquipos.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("AssignedSignerUsersId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("datetime2");
 
@@ -401,17 +408,16 @@ namespace GestorEquipos.Migrations
                     b.Property<int>("PeriodYear")
                         .HasColumnType("int");
 
-                    b.Property<byte[]>("SignedPdfContent")
-                        .HasColumnType("varbinary(max)");
+                    b.Property<string>("SignatureData")
+                        .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("SignedPdfFileName")
-                        .HasMaxLength(260)
-                        .HasColumnType("nvarchar(260)");
+                    b.Property<int?>("SignatureMethod")
+                        .HasColumnType("int");
 
-                    b.Property<DateTime?>("SignedPdfUploadedAtUtc")
+                    b.Property<DateTime?>("SignedAtUtc")
                         .HasColumnType("datetime2");
 
-                    b.Property<int?>("SignedPdfUploadedByUserSystemId")
+                    b.Property<int?>("SignerUserSystemId")
                         .HasColumnType("int");
 
                     b.Property<int>("Status")
@@ -419,9 +425,11 @@ namespace GestorEquipos.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AssignedSignerUsersId");
+
                     b.HasIndex("MaintenanceId");
 
-                    b.HasIndex("SignedPdfUploadedByUserSystemId");
+                    b.HasIndex("SignerUserSystemId");
 
                     b.HasIndex("DesktopId", "PeriodYear", "PeriodMonth")
                         .IsUnique();
@@ -835,6 +843,32 @@ namespace GestorEquipos.Migrations
                     b.ToTable("TipoCaso", (string)null);
                 });
 
+            modelBuilder.Entity("GestorEquipos.Models.UserSavedSignature", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("SavedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SignatureData")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("UserSavedSignature", (string)null);
+                });
+
             modelBuilder.Entity("GestorEquipos.Models.UserSystem", b =>
                 {
                     b.Property<int>("Id")
@@ -842,6 +876,11 @@ namespace GestorEquipos.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("MustChangePassword")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
@@ -980,8 +1019,7 @@ namespace GestorEquipos.Migrations
                     b.HasOne("GestorEquipos.Models.UserSystem", "Tecnico")
                         .WithMany()
                         .HasForeignKey("TecnicoUserSystemId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("GestorEquipos.Models.TipoCaso", "TipoCaso")
                         .WithMany("Casos")
@@ -1054,6 +1092,11 @@ namespace GestorEquipos.Migrations
 
             modelBuilder.Entity("GestorEquipos.Models.MaintenanceCampaignItem", b =>
                 {
+                    b.HasOne("GestorEquipos.Models.Users", "AssignedSigner")
+                        .WithMany()
+                        .HasForeignKey("AssignedSignerUsersId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("GestorEquipos.Models.Desktop", "Desktop")
                         .WithMany()
                         .HasForeignKey("DesktopId")
@@ -1065,16 +1108,18 @@ namespace GestorEquipos.Migrations
                         .HasForeignKey("MaintenanceId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("GestorEquipos.Models.UserSystem", "SignedPdfUploadedByUserSystem")
+                    b.HasOne("GestorEquipos.Models.UserSystem", "SignerUserSystem")
                         .WithMany()
-                        .HasForeignKey("SignedPdfUploadedByUserSystemId")
+                        .HasForeignKey("SignerUserSystemId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AssignedSigner");
 
                     b.Navigation("Desktop");
 
                     b.Navigation("Maintenance");
 
-                    b.Navigation("SignedPdfUploadedByUserSystem");
+                    b.Navigation("SignerUserSystem");
                 });
 
             modelBuilder.Entity("GestorEquipos.Models.MaintenanceChecklist", b =>
@@ -1172,6 +1217,17 @@ namespace GestorEquipos.Migrations
                     b.Navigation("ChangedByUserSystem");
 
                     b.Navigation("Desktop");
+                });
+
+            modelBuilder.Entity("GestorEquipos.Models.UserSavedSignature", b =>
+                {
+                    b.HasOne("GestorEquipos.Models.Users", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("GestorEquipos.Models.UserSystem", b =>

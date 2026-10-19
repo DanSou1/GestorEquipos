@@ -21,9 +21,11 @@ namespace GestorEquipos.Models
         [Required]
         public DateOnly Fecha { get; set; }
 
-        [Required]
+        // Nullable: todo caso nace sin técnico asignado (sin importar quién lo crea) y solo se
+        // llena cuando alguien lo resuelve (ver CasoTIService.ResolveAsync) — así "cualquier
+        // técnico puede entrar y resolverlo" no depende de quién lo haya registrado.
         [ForeignKey("Tecnico")]
-        public int TecnicoUserSystemId { get; set; }
+        public int? TecnicoUserSystemId { get; set; }
 
         [Required]
         [ForeignKey("Persona")]
@@ -31,6 +33,11 @@ namespace GestorEquipos.Models
 
         [MaxLength(150)]
         public string? AreaSnapshot { get; set; }
+
+        // Nullable en BD para no inventar datos falsos en casos ya existentes antes de este
+        // campo; CasoTICreateViewModel.Asunto sí lo exige para casos nuevos.
+        [MaxLength(150)]
+        public string? Asunto { get; set; }
 
         [Required]
         [ForeignKey("TipoCaso")]
@@ -59,7 +66,7 @@ namespace GestorEquipos.Models
         public string? RatingComment { get; set; }
 
         // Navigation properties
-        public UserSystem Tecnico { get; set; } = null!;
+        public UserSystem? Tecnico { get; set; }
         public Users Persona { get; set; } = null!;
         public TipoCaso TipoCaso { get; set; } = null!;
     }

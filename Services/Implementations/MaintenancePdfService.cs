@@ -1,3 +1,4 @@
+using System.Text.Json;
 using GestorEquipos.Models;
 using GestorEquipos.Models.ViewModels.Maintenance;
 using Microsoft.AspNetCore.Hosting;
@@ -5,6 +6,7 @@ using MigraDoc.DocumentObjectModel;
 using MigraDoc.DocumentObjectModel.Tables;
 using MigraDoc.Rendering;
 using PdfSharp.Fonts;
+using SkiaSharp;
 
 namespace Gestor_Equipos.Services.Implementations
 {
@@ -66,7 +68,7 @@ namespace Gestor_Equipos.Services.Implementations
 
         // Acta en el formato oficial de la empresa ("E-FGA-07 Control Mantenimiento V04"),
         // la misma plantilla que ya se llenaba a mano por fuera del sistema. Usado solo por
-        // el módulo de Mantenimientos obligatorios (junio/diciembre).
+        // el módulo de Mantenimientos Programados (junio/diciembre).
         public byte[] GenerateExroActaPdf(MaintenanceExroActaViewModel detail)
         {
             var document = new Document();
@@ -236,6 +238,19 @@ namespace Gestor_Equipos.Services.Implementations
             spaceRow.Cells[2].Borders.Bottom.Width = Unit.FromPoint(0.75);
             spaceRow.Cells[2].Borders.Bottom.Color = BorderColor;
 
+            // Mientras no se ha firmado (acta previsualizada antes de Realizado), se mantiene
+            // la línea en blanco de siempre; una vez firmada, se dibuja la firma guardada.
+            if (!string.IsNullOrWhiteSpace(detail.SignatureData))
+            {
+                var base64Png = RenderSignatureToBase64Png(detail.SignatureData);
+                if (base64Png is not null)
+                {
+                    var image = spaceRow.Cells[2].AddParagraph().AddImage("base64:" + base64Png);
+                    image.Width = Unit.FromCentimeter(8);
+                    image.LockAspectRatio = true;
+                }
+            }
+
             var labelRow = table.AddRow();
             labelRow.Format.SpaceBefore = Unit.FromPoint(4);
             labelRow.Cells[0].AddParagraph("Realizado por");
@@ -243,6 +258,77 @@ namespace Gestor_Equipos.Services.Implementations
             technicianName.Format.Font.Size = 8;
             technicianName.Format.Font.Italic = true;
             labelRow.Cells[2].AddParagraph("Nombre de la persona que recibe a conformidad");
+            if (!string.IsNullOrWhiteSpace(detail.SignerName))
+            {
+                var signerName = labelRow.Cells[2].AddParagraph(detail.SignerName);
+                signerName.Format.Font.Size = 8;
+                signerName.Format.Font.Italic = true;
+            }
+        }
+
+        // SignatureData es un JSON de trazos (array de arrays de {X,Y}, normalizados a un
+        // lienzo de 600x200 por wwwroot/js/signature-capture.js) — se rasteriza a PNG pequeño
+        // solo al generar el PDF, nunca se guarda como imagen en la base de datos.
+        private static string? RenderSignatureToBase64Png(string signatureDataJson)
+        {
+            List<List<SignaturePoint>>? strokes;
+            try
+            {
+                strokes = JsonSerializer.Deserialize<List<List<SignaturePoint>>>(signatureDataJson);
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
+
+            if (strokes is null || strokes.Count == 0)
+            {
+                return null;
+            }
+
+            const int width = 600;
+            const int height = 200;
+
+            using var bitmap = new SKBitmap(width, height, SKColorType.Rgba8888, SKAlphaType.Premul);
+            using var canvas = new SKCanvas(bitmap);
+            canvas.Clear(SKColors.Transparent);
+
+            using var paint = new SKPaint
+            {
+                Color = SKColors.Black,
+                StrokeWidth = 3,
+                IsAntialias = true,
+                Style = SKPaintStyle.Stroke,
+                StrokeCap = SKStrokeCap.Round,
+                StrokeJoin = SKStrokeJoin.Round
+            };
+
+            foreach (var stroke in strokes)
+            {
+                if (stroke.Count < 2)
+                {
+                    continue;
+                }
+
+                using var path = new SKPath();
+                path.MoveTo((float)stroke[0].X, (float)stroke[0].Y);
+                for (var i = 1; i < stroke.Count; i++)
+                {
+                    path.LineTo((float)stroke[i].X, (float)stroke[i].Y);
+                }
+
+                canvas.DrawPath(path, paint);
+            }
+
+            using var image = SKImage.FromBitmap(bitmap);
+            using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+            return Convert.ToBase64String(data.ToArray());
+        }
+
+        private sealed class SignaturePoint
+        {
+            public double X { get; set; }
+            public double Y { get; set; }
         }
 
         private static void DefineStyles(Document document)

@@ -90,6 +90,32 @@ namespace GestorEquipos.Tests.Services
         }
 
         [Fact]
+        public void GenerateExroActaPdf_WithSignatureData_ProducesNonEmptyPdf()
+        {
+            var service = new MaintenancePdfService(new FakeWebHostEnvironment());
+            var detail = BuildDetail();
+            detail.SignatureData = "[[{\"x\":10,\"y\":10},{\"x\":50,\"y\":60},{\"x\":90,\"y\":20}]]";
+            detail.SignerName = "Ana Pérez";
+            detail.SignedAtUtc = DateTime.UtcNow;
+
+            var bytes = service.GenerateExroActaPdf(detail);
+
+            Assert.True(LooksLikePdf(bytes));
+        }
+
+        [Fact]
+        public void GenerateExroActaPdf_WithMalformedSignatureData_FallsBackToBlankLine()
+        {
+            var service = new MaintenancePdfService(new FakeWebHostEnvironment());
+            var detail = BuildDetail();
+            detail.SignatureData = "no es json válido";
+
+            var bytes = service.GenerateExroActaPdf(detail);
+
+            Assert.True(LooksLikePdf(bytes));
+        }
+
+        [Fact]
         public void GenerateMaintenancePdf_StillWorksAfterAddingExroMethod()
         {
             var service = new MaintenancePdfService(new FakeWebHostEnvironment());

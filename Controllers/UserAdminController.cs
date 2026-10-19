@@ -26,6 +26,7 @@ namespace Gestor_Equipos.Controllers
             var users = await _userAdminService.GetAllAsync(includeInactive: showInactive == true, cancellationToken: HttpContext.RequestAborted);
 
             ViewBag.Error = TempData["Error"];
+            ViewBag.Success = TempData["Success"];
             ViewBag.TotalCount = users.Count;
             ViewBag.SearchTerm = search;
             ViewBag.ShowInactive = showInactive == true;
@@ -70,7 +71,7 @@ namespace Gestor_Equipos.Controllers
 
             try
             {
-                await _userAdminService.CreateUserAsync(vm);
+                await _userAdminService.CreateUserWithLoginAsync(vm);
             }
             catch (InvalidOperationException ex)
             {
@@ -79,6 +80,7 @@ namespace Gestor_Equipos.Controllers
                 return View(vm);
             }
 
+            TempData["Success"] = "Persona registrada. Se envió un correo con su acceso a la plataforma.";
             return RedirectToAction(nameof(Index));
         }
 

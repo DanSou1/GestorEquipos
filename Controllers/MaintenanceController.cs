@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Gestor_Equipos.Controllers
 {
+    [Authorize(Roles = AuthBootstrapper.AllStaffRoles)]
     public class MaintenanceController : Controller
     {
         private readonly IMaintenanceService _maintenanceService;

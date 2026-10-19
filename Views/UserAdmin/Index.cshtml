@@ -4,11 +4,16 @@
     string? searchTerm = ViewBag.SearchTerm;
     bool showInactive = ViewBag.ShowInactive;
     string? error = ViewBag.Error;
+    string? success = ViewBag.Success;
 }
 
 @if (!string.IsNullOrWhiteSpace(error))
 {
     <div class="alert alert-danger">@error</div>
+}
+@if (!string.IsNullOrWhiteSpace(success))
+{
+    <div class="alert alert-success">@success</div>
 }
 
 <div class="section-header">

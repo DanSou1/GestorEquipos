@@ -11,8 +11,6 @@ namespace Gestor_Equipos.Controllers
     [Authorize]
     public class MaintenanceCampaignController : Controller
     {
-        private const long MaxSignedPdfBytes = 10 * 1024 * 1024;
-
         private readonly IMaintenanceCampaignService _campaignService;
 
         public MaintenanceCampaignController(IMaintenanceCampaignService campaignService)
@@ -20,6 +18,7 @@ namespace Gestor_Equipos.Controllers
             _campaignService = campaignService;
         }
 
+        [Authorize(Roles = AuthBootstrapper.AllStaffRoles)]
         public async Task<IActionResult> Index()
         {
             ViewBag.Error = TempData["Error"];
@@ -81,7 +80,10 @@ namespace Gestor_Equipos.Controllers
 
             try
             {
-                await _campaignService.CompleteAndSendAsync(vm.CampaignItemId, maintenanceVm);
+                await _campaignService.CompleteAndSendAsync(
+                    vm.CampaignItemId,
+                    maintenanceVm,
+                    campaignItemId => Url.Action("Sign", "MaintenanceCampaign", new { id = campaignItemId }, Request.Scheme)!);
             }
             catch (InvalidOperationException ex)
             {
@@ -89,105 +91,107 @@ namespace Gestor_Equipos.Controllers
                 return View(vm);
             }
 
-            TempData["Success"] = "Mantenimiento completado. Se envió el acta por correo al usuario asignado.";
+            TempData["Success"] = "Mantenimiento completado. Se envió el enlace de firma por correo al usuario asignado.";
             return RedirectToAction(nameof(Index));
         }
 
-        [Authorize(Roles = AuthBootstrapper.AdminOrTecnicoRoles)]
-        public async Task<IActionResult> Upload(int id)
+        // Cualquier rol puede llegar aquí — es una excepción puntual para que un Colaborador
+        // (cuyo nav solo muestra Casos TI) pueda abrir el link de firma que recibió por correo.
+        // La verificación real de dueño/estado vive en MaintenanceCampaignService.GetSignPromptAsync.
+        [Authorize]
+        public async Task<IActionResult> Sign(int id)
         {
-            var item = await _campaignService.GetByIdAsync(id);
-            if (item is null)
+            var vm = await _campaignService.GetSignPromptAsync(id, GetCurrentUsersId(), HttpContext.RequestAborted);
+            if (vm is null)
             {
                 return NotFound();
             }
 
-            if (item.Status != MaintenanceCampaignStatus.CorreoEnviado)
-            {
-                TempData["Error"] = "Este mantenimiento no está esperando la subida del acta firmada.";
-                return RedirectToAction(nameof(Index));
-            }
-
-            ViewBag.DesktopName = item.Desktop.NameDesktop;
-            ViewBag.CampaignItemId = item.Id;
-            return View();
+            return View(vm);
         }
 
         [HttpPost]
-        [Authorize(Roles = AuthBootstrapper.AdminOrTecnicoRoles)]
+        [Authorize]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Upload(int id, IFormFile? signedPdf)
+        public async Task<IActionResult> SignSubmit(MaintenanceSignSubmitViewModel vm)
         {
-            if (signedPdf is null || signedPdf.Length == 0)
-            {
-                ModelState.AddModelError(string.Empty, "Selecciona el PDF firmado para subir.");
-            }
-            else if (!string.Equals(Path.GetExtension(signedPdf.FileName), ".pdf", StringComparison.OrdinalIgnoreCase)
-                || !string.Equals(signedPdf.ContentType, "application/pdf", StringComparison.OrdinalIgnoreCase))
-            {
-                ModelState.AddModelError(string.Empty, "El archivo debe ser un PDF.");
-            }
-            else if (signedPdf.Length > MaxSignedPdfBytes)
-            {
-                ModelState.AddModelError(string.Empty, "El PDF no puede superar los 10 MB.");
-            }
-
             if (!ModelState.IsValid)
             {
-                var item = await _campaignService.GetByIdAsync(id);
-                if (item is null)
+                var prompt = await _campaignService.GetSignPromptAsync(vm.CampaignItemId, GetCurrentUsersId(), HttpContext.RequestAborted);
+                if (prompt is null)
                 {
                     return NotFound();
                 }
 
-                ViewBag.DesktopName = item.Desktop.NameDesktop;
-                ViewBag.CampaignItemId = item.Id;
-                return View();
+                return View(nameof(Sign), prompt);
             }
 
             try
             {
-                await using var stream = signedPdf!.OpenReadStream();
-                await _campaignService.UploadSignedPdfAsync(id, stream, signedPdf.FileName, GetCurrentUserSystemId());
+                await _campaignService.SignAsync(
+                    vm.CampaignItemId, GetCurrentUsersId(), GetCurrentUserSystemId(),
+                    vm.SignatureData, vm.Method, vm.SaveSignature, HttpContext.RequestAborted);
             }
             catch (InvalidOperationException ex)
             {
                 ModelState.AddModelError(string.Empty, ex.Message);
-                var item = await _campaignService.GetByIdAsync(id);
-                ViewBag.DesktopName = item?.Desktop.NameDesktop;
-                ViewBag.CampaignItemId = id;
-                return View();
+                var prompt = await _campaignService.GetSignPromptAsync(vm.CampaignItemId, GetCurrentUsersId(), HttpContext.RequestAborted);
+                if (prompt is null)
+                {
+                    return NotFound();
+                }
+
+                return View(nameof(Sign), prompt);
             }
 
-            TempData["Success"] = "Acta firmada subida. El mantenimiento quedó marcado como realizado.";
-            return RedirectToAction(nameof(Index));
+            TempData["Success"] = "Firma registrada. El mantenimiento quedó marcado como realizado.";
+            // No se redirige a Home: un Colaborador no tiene acceso a ese controller (su nav
+            // solo muestra Casos TI), y esta acción debe ser alcanzable por cualquier rol.
+            return RedirectToAction("Index", "CasoTI");
         }
 
+        [Authorize(Roles = AuthBootstrapper.AllStaffRoles)]
         public async Task<IActionResult> DownloadSignedPdf(int id)
         {
-            var result = await _campaignService.GetSignedPdfAsync(id);
-            if (result is null)
+            var item = await _campaignService.GetByIdAsync(id);
+            var pdfBytes = await _campaignService.RegeneratePdfAsync(id);
+            if (item is null || pdfBytes is null)
             {
                 return NotFound();
             }
 
-            return File(result.Value.Content, "application/pdf", result.Value.FileName);
+            var fileName = $"E-FGA-07 Control Mantenimiento V04 - {SanitizeFileName(item.Desktop.NameDesktop)}.pdf";
+            return File(pdfBytes, "application/pdf", fileName);
         }
 
+        [Authorize(Roles = AuthBootstrapper.AllStaffRoles)]
         public async Task<IActionResult> PreviewSignedPdf(int id)
         {
-            var result = await _campaignService.GetSignedPdfAsync(id);
-            if (result is null)
+            var pdfBytes = await _campaignService.RegeneratePdfAsync(id);
+            if (pdfBytes is null)
             {
                 return NotFound();
             }
 
-            return File(result.Value.Content, "application/pdf");
+            return File(pdfBytes, "application/pdf");
+        }
+
+        private static string SanitizeFileName(string name)
+        {
+            var invalid = Path.GetInvalidFileNameChars();
+            var sanitized = new string(name.Where(c => !invalid.Contains(c)).ToArray()).Trim();
+            return string.IsNullOrWhiteSpace(sanitized) ? "Equipo" : sanitized;
         }
 
         private int GetCurrentUserSystemId()
         {
             var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            return int.Parse(claim!);
+        }
+
+        private int GetCurrentUsersId()
+        {
+            var claim = User.FindFirst("UserId")?.Value;
             return int.Parse(claim!);
         }
     }

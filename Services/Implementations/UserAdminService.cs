@@ -12,11 +12,13 @@ namespace Gestor_Equipos.Services.Implementations
     {
         private readonly MyDbContext _dbContext;
         private readonly IPasswordHasher<UserSystem> _passwordHasher;
+        private readonly IEmailService _emailService;
 
-        public UserAdminService(MyDbContext dbContext, IPasswordHasher<UserSystem> passwordHasher)
+        public UserAdminService(MyDbContext dbContext, IPasswordHasher<UserSystem> passwordHasher, IEmailService emailService)
         {
             _dbContext = dbContext;
             _passwordHasher = passwordHasher;
+            _emailService = emailService;
         }
 
         public async Task<int> CreateUserAsync(UserCreateViewModel vm)
@@ -141,6 +143,16 @@ namespace Gestor_Equipos.Services.Implementations
             };
             _dbContext.Users.Add(user);
 
+            if (personVm.CargoId.HasValue)
+            {
+                _dbContext.CargoAssignments.Add(new CargoAssignment
+                {
+                    User = user,
+                    CargoId = personVm.CargoId.Value,
+                    DateAsignation = DateOnly.FromDateTime(DateTime.Now)
+                });
+            }
+
             var userSystem = new UserSystem
             {
                 Username = normalizedUsername,
@@ -153,6 +165,51 @@ namespace Gestor_Equipos.Services.Implementations
 
             await _dbContext.SaveChangesAsync();
             return user.Id;
+        }
+
+        // Toda persona nueva registrada desde UserAdminController.Create recibe automáticamente
+        // login (usuario = correo, contraseña temporal) con rol Colaborador y un correo de
+        // bienvenida. Reutiliza CreateAccountAsync (ya crea Users+UserSystem en un solo
+        // SaveChangesAsync, LOG-01) envuelto en una transacción explícita: si el correo falla, no
+        // se confirma — no queremos una cuenta creada sin que la persona haya recibido su clave
+        // (mismo patrón de reversión que MaintenanceCampaignService.CompleteAndSendAsync).
+        public async Task<int> CreateUserWithLoginAsync(UserCreateViewModel vm)
+        {
+            var colaboradorRoleId = await _dbContext.Rols
+                .Where(r => r.Name == AuthBootstrapper.ColaboradorRoleName)
+                .Select(r => r.Id)
+                .SingleAsync();
+
+            var normalizedEmail = vm.Email.Trim().ToLowerInvariant();
+            var password = TemporaryPasswordGenerator.Generate();
+
+            var strategy = _dbContext.Database.CreateExecutionStrategy();
+            return await strategy.ExecuteAsync(async () =>
+            {
+                await using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+                var userId = await CreateAccountAsync(vm, normalizedEmail, password, colaboradorRoleId);
+
+                var userSystem = await _dbContext.UserSystems.SingleAsync(us => us.UserId == userId);
+                userSystem.MustChangePassword = true;
+                await _dbContext.SaveChangesAsync();
+
+                await _emailService.SendAsync(
+                    normalizedEmail,
+                    $"{vm.Name} {vm.LastName}",
+                    "Tu acceso a AssetOps",
+                    $"""
+                    <p>Hola {vm.Name},</p>
+                    <p>Se creó tu acceso a la plataforma AssetOps.</p>
+                    <p>Usuario: <strong>{normalizedEmail}</strong><br/>
+                    Contraseña temporal: <strong>{password}</strong></p>
+                    <p>Deberás cambiarla la primera vez que inicies sesión.</p>
+                    """,
+                    Array.Empty<EmailAttachment>());
+
+                await transaction.CommitAsync();
+                return userId;
+            });
         }
 
         public async Task CreateLoginAsync(int userId, string username, string password, int rolId)
@@ -289,10 +346,10 @@ namespace Gestor_Equipos.Services.Implementations
                 throw new InvalidOperationException("No se puede eliminar: esta cuenta es autora de cambios registrados en el historial de equipos. Desactívala en vez de eliminarla para conservar esa autoría.");
             }
 
-            // MaintenanceCampaignItem.SignedPdfUploadedByUserSystemId es Restrict por el mismo motivo.
-            if (await _dbContext.MaintenanceCampaignItems.AnyAsync(c => c.SignedPdfUploadedByUserSystemId == userSystem.Id))
+            // MaintenanceCampaignItem.SignerUserSystemId es Restrict por el mismo motivo.
+            if (await _dbContext.MaintenanceCampaignItems.AnyAsync(c => c.SignerUserSystemId == userSystem.Id))
             {
-                throw new InvalidOperationException("No se puede eliminar: esta cuenta subió actas de mantenimiento obligatorio firmadas. Desactívala en vez de eliminarla para conservar esa autoría.");
+                throw new InvalidOperationException("No se puede eliminar: esta cuenta firmó actas de mantenimiento programado. Desactívala en vez de eliminarla para conservar esa autoría.");
             }
 
             await RunWithAdminInvariantAsync(async adminRoleId =>
@@ -306,6 +363,21 @@ namespace Gestor_Equipos.Services.Implementations
                 _dbContext.UserSystems.Remove(userSystem);
                 await _dbContext.SaveChangesAsync();
             });
+        }
+
+        // Distinto de UpdateAccountAsync/DeleteAccountAsync (un admin actuando sobre OTRA cuenta):
+        // aquí el actor cambia su propia contraseña, por eso no recibe adminPassword ni valida el
+        // invariante de "al menos un Administrador habilitado".
+        public async Task<Guid> ChangeOwnPasswordAsync(int userSystemId, string newPassword)
+        {
+            var userSystem = await _dbContext.UserSystems.SingleOrDefaultAsync(us => us.Id == userSystemId)
+                ?? throw new InvalidOperationException("Cuenta no encontrada.");
+
+            userSystem.PasswordHash = _passwordHasher.HashPassword(userSystem, newPassword);
+            userSystem.MustChangePassword = false;
+            userSystem.SecurityStamp = Guid.NewGuid();
+            await _dbContext.SaveChangesAsync();
+            return userSystem.SecurityStamp;
         }
 
         private async Task RunWithAdminInvariantAsync(Func<int, Task> mutateAndSaveAsync)
@@ -345,10 +417,14 @@ namespace Gestor_Equipos.Services.Implementations
 
         public async Task<List<Users>> GetAllAsync(bool includeInactive = false, CancellationToken cancellationToken = default)
         {
+            // Antes de que toda persona nueva recibiera login automático, "sin cuenta" bastaba
+            // para no duplicar con Cuentas de acceso (GetAccountsAsync). Ahora que cada persona
+            // nueva SIEMPRE tiene un login Colaborador, se excluye solo a quien tenga una cuenta
+            // de personal (Admin/Técnico/Auditor) — esas sí se gestionan desde Cuentas de acceso.
             return await _dbContext.Users
                 .Where(u => u.Email != AuthBootstrapper.RaesUserEmail
                     && u.Email != AuthBootstrapper.UnassignedUserEmail
-                    && !u.UserSystems.Any()
+                    && !u.UserSystems.Any(us => us.Rol.Name != AuthBootstrapper.ColaboradorRoleName)
                     && (includeInactive || u.Activo))
                 .Include(u => u.Area)
                 .Include(u => u.Regional)

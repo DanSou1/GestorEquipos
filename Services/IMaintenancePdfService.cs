@@ -7,7 +7,7 @@ namespace Gestor_Equipos.Services
         byte[] GenerateMaintenancePdf(MaintenancePdfViewModel detail);
 
         // Acta en el formato oficial de la empresa ("E-FGA-07 Control Mantenimiento V04"),
-        // usada por el módulo de Mantenimientos obligatorios (junio/diciembre).
+        // usada por el módulo de Mantenimientos Programados (junio/diciembre).
         byte[] GenerateExroActaPdf(MaintenanceExroActaViewModel detail);
     }
 }

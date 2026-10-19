@@ -17,13 +17,17 @@ using Gestor_Equipos.Services.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var mvcBuilder = builder.Services.AddControllersWithViews();
+var mvcBuilder = builder.Services.AddControllersWithViews(options =>
+{
+    options.Filters.Add<MustChangePasswordFilter>();
+});
 if (builder.Environment.IsDevelopment() && builder.Configuration.GetValue<bool>("Razor:RuntimeCompilation"))
 {
     mvcBuilder.AddRazorRuntimeCompilation();
 }
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<SessionCookieEvents>();
+builder.Services.AddScoped<MustChangePasswordFilter>();
 builder.Services.AddScoped<IPasswordHasher<UserSystem>, PasswordHasher<UserSystem>>();
 builder.Services.AddScoped<IDesktopService, DesktopService>();
 builder.Services.AddScoped<IDesktopPdfService, DesktopPdfService>();
