@@ -74,7 +74,7 @@
                         {
                             @foreach (var us in u.UserSystems)
                             {
-                                <div>@us.Username (@us.Rol?.Name)</div>
+                                <div>@us.Username@(us.Rol?.Name == "Colaborador" ? "" : $" ({us.Rol?.Name})")</div>
                             }
                         }
                         else

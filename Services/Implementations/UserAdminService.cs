@@ -352,6 +352,13 @@ namespace Gestor_Equipos.Services.Implementations
                 throw new InvalidOperationException("No se puede eliminar: esta cuenta firmó actas de mantenimiento programado. Desactívala en vez de eliminarla para conservar esa autoría.");
             }
 
+            // CasoTI.TecnicoUserSystemId es Restrict por el mismo motivo: no perder la autoría
+            // de quién resolvió un caso de soporte.
+            if (await _dbContext.CasosTI.AnyAsync(c => c.TecnicoUserSystemId == userSystem.Id))
+            {
+                throw new InvalidOperationException("No se puede eliminar: esta cuenta tiene Casos TI resueltos a su nombre. Desactívala en vez de eliminarla para conservar esa autoría.");
+            }
+
             await RunWithAdminInvariantAsync(async adminRoleId =>
             {
                 if (userSystem.RolId == adminRoleId && !await HasOtherEnabledAdminAsync(adminRoleId, userSystem.Id))
@@ -434,8 +441,12 @@ namespace Gestor_Equipos.Services.Implementations
 
         public async Task<List<Users>> GetAccountsAsync(CancellationToken cancellationToken = default)
         {
+            // Espejo de la exclusión en GetAllAsync: un Colaborador (login automático del alta en
+            // "Usuarios") no debe listarse también aquí, o parecería que la misma persona/correo
+            // está duplicada entre los dos módulos.
             return await _dbContext.Users
-                .Where(u => u.Email != AuthBootstrapper.RaesUserEmail && u.UserSystems.Any())
+                .Where(u => u.Email != AuthBootstrapper.RaesUserEmail
+                    && u.UserSystems.Any(us => us.Rol.Name != AuthBootstrapper.ColaboradorRoleName))
                 .Include(u => u.Area)
                 .Include(u => u.Regional)
                 .Include(u => u.UserSystems).ThenInclude(us => us.Rol)

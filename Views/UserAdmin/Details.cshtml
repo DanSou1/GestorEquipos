@@ -63,7 +63,7 @@
                     <strong>Usuario / Rol:</strong>
                     @if (Model.Username is not null)
                     {
-                        @($"{Model.Username} ({Model.RolName})")
+                        @(Model.RolName == "Colaborador" ? Model.Username : $"{Model.Username} ({Model.RolName})")
                     }
                     else
                     {
