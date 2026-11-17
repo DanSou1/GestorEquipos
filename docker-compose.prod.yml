@@ -1,0 +1,36 @@
+# Override para servidores sin un SQL Server propio en el host (p.ej. el servidor de
+# pruebas Ubuntu): levanta SQL Server 2025 Express en su propio contenedor "db" y hace
+# que "web" se conecte a él por nombre de servicio, en vez de host.docker.internal.
+#
+# Uso: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# No reemplaza docker-compose.yml (ese sigue siendo el flujo de desarrollo local contra
+# el SQLEXPRESS que ya corre en el host, ver CLAUDE.md).
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2025-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Express
+      MSSQL_SA_PASSWORD: "${SA_PASSWORD:?Set SA_PASSWORD in .env}"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqldata:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  web:
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__DefaultConnection: "Server=db,1433;Database=AssetOps;User Id=${LOCAL_SQL_USER:?Set LOCAL_SQL_USER in .env};Password=${LOCAL_SQL_PASSWORD:?Set LOCAL_SQL_PASSWORD in .env};TrustServerCertificate=True;Connect Timeout=30;"
+
+volumes:
+  sqldata:
