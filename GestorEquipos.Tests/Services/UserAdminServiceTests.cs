@@ -1,5 +1,6 @@
 using Gestor_Equipos.Data;
 using Gestor_Equipos.Services;
+using Gestor_Equipos.Services.Auth;
 using Gestor_Equipos.Services.Implementations;
 using GestorEquipos.Models;
 using GestorEquipos.Models.ViewModels.UserAdmin;
@@ -230,6 +231,164 @@ namespace GestorEquipos.Tests.Services
             await service.DeleteAccountAsync(tecnico.UserId, admin.Id, "ClaveAdmin123");
 
             Assert.False(db.UserSystems.Any(us => us.Id == tecnico.Id));
+        }
+
+        [Fact]
+        public async Task CreateUserWithLoginAsync_ReactivatesInactivePersonWithExistingLogin()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            SeedColaboradorRole(db);
+            SeedRole(db, AuthBootstrapper.AdministradorRoleName);
+            var service = CreateService(db);
+
+            var userId = await service.CreateUserWithLoginAsync(NewPersonVm("reactivar@empresa.local"));
+            var original = db.UserSystems.Single(us => us.UserId == userId);
+            var originalId = original.Id;
+            var originalHash = original.PasswordHash;
+            var originalStamp = original.SecurityStamp;
+
+            await service.DeactivateAsync(userId);
+
+            var reactivatedVm = NewPersonVm("reactivar@empresa.local");
+            reactivatedVm.Name = "OtroNombre";
+            var reactivatedId = await service.CreateUserWithLoginAsync(reactivatedVm);
+
+            Assert.Equal(userId, reactivatedId);
+            var person = db.Users.Single(u => u.Id == userId);
+            Assert.True(person.Activo);
+            Assert.Null(person.DeactivatedAt);
+            Assert.Equal("OtroNombre", person.Name);
+
+            var systems = db.UserSystems.Where(us => us.UserId == userId).ToList();
+            var system = Assert.Single(systems);
+            Assert.Equal(originalId, system.Id);
+            Assert.True(system.MustChangePassword);
+            Assert.NotEqual(originalHash, system.PasswordHash);
+            Assert.NotEqual(originalStamp, system.SecurityStamp);
+        }
+
+        [Fact]
+        public async Task CreateUserWithLoginAsync_ReactivationOnlyAddsCargoAssignmentWhenCargoChanges()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            SeedColaboradorRole(db);
+            SeedRole(db, AuthBootstrapper.AdministradorRoleName);
+            var cargo1 = new Cargo { Name = "Analista" };
+            var cargo2 = new Cargo { Name = "Coordinador" };
+            db.Cargos.AddRange(cargo1, cargo2);
+            db.SaveChanges();
+            var service = CreateService(db);
+
+            var createVm = NewPersonVm("cargo@empresa.local");
+            createVm.CargoId = cargo1.Id;
+            var userId = await service.CreateUserWithLoginAsync(createVm);
+            await service.DeactivateAsync(userId);
+
+            var sameCargoVm = NewPersonVm("cargo@empresa.local");
+            sameCargoVm.CargoId = cargo1.Id;
+            await service.CreateUserWithLoginAsync(sameCargoVm);
+            Assert.Single(db.CargoAssignments.Where(a => a.UserId == userId));
+
+            await service.DeactivateAsync(userId);
+            var newCargoVm = NewPersonVm("cargo@empresa.local");
+            newCargoVm.CargoId = cargo2.Id;
+            await service.CreateUserWithLoginAsync(newCargoVm);
+            Assert.Equal(2, db.CargoAssignments.Count(a => a.UserId == userId));
+        }
+
+        [Fact]
+        public async Task CreateUserWithLoginAsync_ReactivatesInactivePersonWithoutLogin_CreatesNewAccount()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            SeedColaboradorRole(db);
+            var adminRoleId = SeedRole(db, AuthBootstrapper.AdministradorRoleName);
+            var admin = SeedAccount(db, "Admin1", adminRoleId, "ClaveAdmin123");
+            var service = CreateService(db);
+
+            var userId = await service.CreateUserWithLoginAsync(NewPersonVm("sinlogin@empresa.local"));
+            await service.DeleteAccountAsync(userId, admin.Id, "ClaveAdmin123");
+            await service.DeactivateAsync(userId);
+
+            Assert.False(db.UserSystems.Any(us => us.UserId == userId));
+
+            var reactivatedId = await service.CreateUserWithLoginAsync(NewPersonVm("sinlogin@empresa.local"));
+
+            Assert.Equal(userId, reactivatedId);
+            Assert.True(db.Users.Single(u => u.Id == userId).Activo);
+            var created = db.UserSystems.Single(us => us.UserId == userId);
+            Assert.Equal("sinlogin@empresa.local", created.Username);
+            Assert.True(created.MustChangePassword);
+        }
+
+        [Fact]
+        public async Task CreateUserWithLoginAsync_DoesNotReactivateReservedUnassignedEmail()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            SeedColaboradorRole(db);
+            TestHelpers.CreateReservedUser(db, AuthBootstrapper.UnassignedUserEmail);
+            var service = CreateService(db);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(
+                () => service.CreateUserWithLoginAsync(NewPersonVm(AuthBootstrapper.UnassignedUserEmail)));
+
+            var reserved = db.Users.Single(u => u.Email == AuthBootstrapper.UnassignedUserEmail);
+            Assert.False(reserved.Activo);
+            Assert.False(db.UserSystems.Any(us => us.UserId == reserved.Id));
+        }
+
+        [Fact]
+        public async Task CreateUserWithLoginAsync_ReactivationPropagatesExceptionWhenEmailFails()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            SeedColaboradorRole(db);
+            SeedRole(db, AuthBootstrapper.AdministradorRoleName);
+            var service = CreateService(db);
+
+            var userId = await service.CreateUserWithLoginAsync(NewPersonVm("fallareactivar@empresa.local"));
+            await service.DeactivateAsync(userId);
+
+            var failingEmailService = new RecordingEmailService { ThrowOnSend = true };
+            var failingService = CreateService(db, failingEmailService);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(
+                () => failingService.CreateUserWithLoginAsync(NewPersonVm("fallareactivar@empresa.local")));
+        }
+
+        [Fact]
+        public async Task CreateAccountAsync_RejectsUsernameTakenByAnotherAccountDuringReactivation()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var tecnicoRoleId = SeedRole(db, "Técnico en Sistemas");
+            SeedRole(db, AuthBootstrapper.AdministradorRoleName);
+            var service = CreateService(db);
+            SeedAccount(db, "Ocupado", tecnicoRoleId, "Clave123456"); // username = ocupado@empresa.local
+
+            var userId = await service.CreateAccountAsync(NewPersonVm("reactivarconflicto@empresa.local"), "reactivarconflicto@empresa.local", "Clave123456", tecnicoRoleId);
+            await service.DeactivateAsync(userId);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                service.CreateAccountAsync(NewPersonVm("reactivarconflicto@empresa.local"), "ocupado@empresa.local", "OtraClave789", tecnicoRoleId));
+        }
+
+        [Fact]
+        public async Task CreateAccountAsync_ReactivatesInactivePersonForAccessAccountFlow()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var tecnicoRoleId = SeedRole(db, "Técnico en Sistemas");
+            var auditorRoleId = SeedRole(db, "Auditor");
+            SeedRole(db, AuthBootstrapper.AdministradorRoleName);
+            var service = CreateService(db);
+
+            var userId = await service.CreateAccountAsync(NewPersonVm("personal@empresa.local"), "personal@empresa.local", "Clave123456", tecnicoRoleId);
+            await service.DeactivateAsync(userId);
+
+            var reactivatedId = await service.CreateAccountAsync(NewPersonVm("personal@empresa.local"), "personal.auditor", "OtraClave789", auditorRoleId);
+
+            Assert.Equal(userId, reactivatedId);
+            Assert.True(db.Users.Single(u => u.Id == userId).Activo);
+            var account = db.UserSystems.Single(us => us.UserId == userId);
+            Assert.Equal("personal.auditor", account.Username);
+            Assert.Equal(auditorRoleId, account.RolId);
         }
     }
 }

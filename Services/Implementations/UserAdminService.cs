@@ -92,24 +92,33 @@ namespace Gestor_Equipos.Services.Implementations
             // actual, se agrega una fila nueva solo si el valor elegido cambió. Si vm.CargoId viene
             // null (nada seleccionado) no se toca el historial — no tiene sentido un registro sin
             // CargoId, así que no hay forma de "quitar" un cargo ya asignado desde aquí.
+            await AddCargoAssignmentIfChangedAsync(id, vm.CargoId);
+
+            await _dbContext.SaveChangesAsync();
+        }
+
+        // Extraído de UpdateUserAsync: agrega un CargoAssignment nuevo solo si el cargo elegido
+        // difiere del vigente (el más reciente por fecha/Id). También lo usa ReactivateExistingPersonAsync.
+        private async Task AddCargoAssignmentIfChangedAsync(int userId, int? newCargoId)
+        {
+            if (!newCargoId.HasValue) return;
+
             var currentCargoId = await _dbContext.CargoAssignments
-                .Where(a => a.UserId == id)
+                .Where(a => a.UserId == userId)
                 .OrderByDescending(a => a.DateAsignation)
                 .ThenByDescending(a => a.Id)
                 .Select(a => (int?)a.CargoId)
                 .FirstOrDefaultAsync();
 
-            if (vm.CargoId.HasValue && vm.CargoId != currentCargoId)
+            if (newCargoId != currentCargoId)
             {
                 _dbContext.CargoAssignments.Add(new CargoAssignment
                 {
-                    UserId = id,
-                    CargoId = vm.CargoId.Value,
+                    UserId = userId,
+                    CargoId = newCargoId.Value,
                     DateAsignation = DateOnly.FromDateTime(DateTime.Now)
                 });
             }
-
-            await _dbContext.SaveChangesAsync();
         }
 
         // LOG-01: CreateUserAsync + CreateLoginAsync run as two separate SaveChangesAsync calls;
@@ -119,15 +128,40 @@ namespace Gestor_Equipos.Services.Implementations
         public async Task<int> CreateAccountAsync(UserCreateViewModel personVm, string username, string password, int rolId)
         {
             var normalizedEmail = personVm.Email.Trim().ToLowerInvariant();
-            if (await _dbContext.Users.AnyAsync(u => u.Email.ToLower() == normalizedEmail))
+
+            // UX-07: "eliminar" una persona en realidad solo la desactiva (DeactivateAsync), nunca
+            // borra la fila Users ni su UserSystem. Si el correo pertenece a alguien inactivo, en
+            // vez de rechazar por duplicado se reactiva esa misma persona (reusando su Id, para no
+            // perder el historial con FK hacia ella) y se actualiza con los datos nuevos.
+            var existingPerson = await _dbContext.Users
+                .Include(u => u.UserSystems)
+                .SingleOrDefaultAsync(u => u.Email.ToLower() == normalizedEmail);
+
+            if (existingPerson is { Activo: true })
             {
                 throw new InvalidOperationException("Ya existe un usuario con ese correo.");
             }
 
+            // LOG-03-style guard: los pseudo-usuarios reservados (RAES / "sin asignar") se siembran
+            // Activo=false a propósito — nunca deben "revivirse" como si fueran una persona real.
+            if (existingPerson is { } reserved &&
+                reserved.Email is AuthBootstrapper.RaesUserEmail or AuthBootstrapper.UnassignedUserEmail)
+            {
+                throw new InvalidOperationException("Este usuario reservado del sistema no se puede reactivar.");
+            }
+
             var normalizedUsername = username.Trim().ToLowerInvariant();
-            if (await _dbContext.UserSystems.AnyAsync(us => us.Username.ToLower() == normalizedUsername))
+            var ownUserSystemId = existingPerson?.UserSystems.SingleOrDefault()?.Id;
+
+            if (await _dbContext.UserSystems.AnyAsync(us =>
+                    us.Username.ToLower() == normalizedUsername && us.Id != ownUserSystemId))
             {
                 throw new InvalidOperationException("Ya existe una cuenta con ese nombre de usuario.");
+            }
+
+            if (existingPerson is not null)
+            {
+                return await ReactivateExistingPersonAsync(existingPerson, personVm, normalizedEmail, normalizedUsername, password, rolId);
             }
 
             var user = new Users
@@ -165,6 +199,54 @@ namespace Gestor_Equipos.Services.Implementations
 
             await _dbContext.SaveChangesAsync();
             return user.Id;
+        }
+
+        // UX-07: reutiliza la fila Users (y su UserSystem si todavía existe) de una persona
+        // desactivada en vez de crear una nueva — preserva el historial con FK hacia su Id
+        // (CargoAssignment, Asignation, SpecChangeLog, AuditLogEntry, CasoTI, etc.).
+        private async Task<int> ReactivateExistingPersonAsync(Users existingPerson, UserCreateViewModel personVm,
+            string normalizedEmail, string normalizedUsername, string password, int rolId)
+        {
+            existingPerson.Name = personVm.Name;
+            existingPerson.LastName = personVm.LastName;
+            existingPerson.Email = normalizedEmail;
+            existingPerson.EmailTeams = string.IsNullOrWhiteSpace(personVm.EmailTeams)
+                ? normalizedEmail
+                : personVm.EmailTeams.Trim().ToLowerInvariant();
+            existingPerson.AreaId = personVm.AreaId;
+            existingPerson.RegionalId = personVm.RegionalId;
+            existingPerson.Activo = true;
+            existingPerson.DeactivatedAt = null;
+
+            await AddCargoAssignmentIfChangedAsync(existingPerson.Id, personVm.CargoId);
+
+            var userSystem = existingPerson.UserSystems.SingleOrDefault();
+            if (userSystem is null)
+            {
+                // DeleteAccountAsync pudo haber borrado la UserSystem previa sin tocar Users —
+                // crear una cuenta nueva igual que en un alta normal.
+                userSystem = new UserSystem
+                {
+                    Username = normalizedUsername,
+                    UserId = existingPerson.Id,
+                    RolId = rolId,
+                    PasswordHash = string.Empty
+                };
+                userSystem.PasswordHash = _passwordHasher.HashPassword(userSystem, password);
+                _dbContext.UserSystems.Add(userSystem);
+            }
+            else
+            {
+                // "Revivir" la cuenta: username al correo/valor nuevo, password nueva, rol como el
+                // que recibiría un alta nueva. Se rota el SecurityStamp porque la contraseña cambia.
+                userSystem.Username = normalizedUsername;
+                userSystem.RolId = rolId;
+                userSystem.PasswordHash = _passwordHasher.HashPassword(userSystem, password);
+                userSystem.SecurityStamp = Guid.NewGuid();
+            }
+
+            await _dbContext.SaveChangesAsync();
+            return existingPerson.Id;
         }
 
         // Toda persona nueva registrada desde UserAdminController.Create recibe automáticamente
