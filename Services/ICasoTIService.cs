@@ -4,7 +4,7 @@ namespace Gestor_Equipos.Services
 {
     public interface ICasoTIService
     {
-        Task<int> CreateAsync(CasoTICreateViewModel vm, int actingUserSystemId, int actingUsersId, string actingUserRole, CancellationToken ct = default);
+        Task<int> CreateAsync(CasoTICreateViewModel vm, int actingUserSystemId, int actingUsersId, string actingUserRole, Func<int, string>? buildCaseUrl = null, CancellationToken ct = default);
         Task<CasoTIDetailViewModel?> GetDetailAsync(int id, int actingUserSystemId, int actingUsersId, string actingUserRole, CancellationToken ct = default);
 
         Task<List<CasoTIListItemViewModel>> GetIndexAsync(

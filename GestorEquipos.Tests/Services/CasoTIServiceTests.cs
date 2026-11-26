@@ -5,6 +5,7 @@ using Gestor_Equipos.Services.Implementations;
 using GestorEquipos.Models;
 using GestorEquipos.Models.ViewModels.CasoTI;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace GestorEquipos.Tests.Services
@@ -29,7 +30,8 @@ namespace GestorEquipos.Tests.Services
             }
         }
 
-        private static CasoTIService CreateService(MyDbContext db, RecordingEmailService? emailService = null) => new(db, emailService ?? new RecordingEmailService());
+        private static CasoTIService CreateService(MyDbContext db, RecordingEmailService? emailService = null) =>
+            new(db, emailService ?? new RecordingEmailService(), NullLogger<CasoTIService>.Instance);
 
         private static int SeedTipoCaso(MyDbContext db, string nombre = "Soporte de impresora")
         {
@@ -336,7 +338,10 @@ namespace GestorEquipos.Tests.Services
             var caso = await db.CasosTI.SingleAsync(c => c.Id == casoId);
             Assert.Equal(CasoTIEstado.Resuelto, caso.Estado);
             Assert.Equal(tec2Id, caso.TecnicoUserSystemId);
-            Assert.Single(emailService.Sent);
+            // CreateAsync ya notificó a tec1 y tec2 (ambos Técnico en Sistemas activos); el
+            // Resolve agrega una tercera: la de resolución a la persona atendida.
+            Assert.Equal(3, emailService.Sent.Count);
+            Assert.Contains(emailService.Sent, s => s.ToEmail == persona.Email && s.Subject == "Tu caso de soporte TI fue resuelto");
         }
 
         [Fact]
@@ -385,7 +390,9 @@ namespace GestorEquipos.Tests.Services
             await Assert.ThrowsAsync<InvalidOperationException>(
                 () => service.ResolveAsync(casoId, "Resuelto otra vez", tec1Id, AuthBootstrapper.TecnicoSistemasRoleName, token => $"https://x/{token}"));
 
-            Assert.Single(emailService.Sent);
+            // CreateAsync notificó a tec1 (1 correo) + el primer Resolve (1 correo) = 2; el
+            // segundo intento, al fallar, no debe agregar un tercero.
+            Assert.Equal(2, emailService.Sent.Count);
         }
 
         [Fact]
@@ -409,9 +416,10 @@ namespace GestorEquipos.Tests.Services
             Assert.NotNull(caso.RatingToken);
             Assert.NotEqual(Guid.Empty, caso.RatingToken!.Value);
 
-            Assert.Single(emailService.Sent);
-            Assert.Equal(persona.Email, emailService.Sent[0].ToEmail);
-            Assert.Contains(caso.RatingToken.Value.ToString(), emailService.Sent[0].BodyHtml);
+            // CreateAsync notificó a tec1 (1 correo) + la resolución a la persona (otro) = 2.
+            Assert.Equal(2, emailService.Sent.Count);
+            var resolutionEmail = Assert.Single(emailService.Sent, s => s.ToEmail == persona.Email);
+            Assert.Contains(caso.RatingToken.Value.ToString(), resolutionEmail.BodyHtml);
         }
 
         [Fact]
@@ -822,6 +830,85 @@ namespace GestorEquipos.Tests.Services
 
             Assert.Empty(result.Resumen);
             Assert.Empty(result.Comentarios);
+        }
+
+        [Fact]
+        public async Task CreateAsync_NotifiesAllActiveTecnicos()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (tec1Id, tec1Persona) = SeedTecnico(db, "tec1", AuthBootstrapper.TecnicoSistemasRoleName);
+            var (tec2Id, tec2Persona) = SeedTecnico(db, "tec2", AuthBootstrapper.TecnicoSistemasRoleName);
+            var persona = SeedPersonaAtendida(db, "Persona1");
+            var tipoCasoId = SeedTipoCaso(db, "Formateo de equipo");
+            var emailService = new RecordingEmailService();
+            var service = CreateService(db, emailService);
+
+            var casoId = await service.CreateAsync(
+                NewVm(persona.Id, tipoCasoId, asunto: "No enciende el equipo"),
+                tec1Id, tec1Persona.Id, AuthBootstrapper.TecnicoSistemasRoleName,
+                id => $"https://assetops.local/CasoTI/Details/{id}");
+
+            Assert.Equal(2, emailService.Sent.Count);
+            Assert.Contains(emailService.Sent, s => s.ToEmail == "tec1@empresa.local");
+            Assert.Contains(emailService.Sent, s => s.ToEmail == "tec2@empresa.local");
+            Assert.All(emailService.Sent, s => Assert.Contains("No enciende el equipo", s.BodyHtml));
+            Assert.All(emailService.Sent, s => Assert.Contains("Formateo de equipo", s.BodyHtml));
+            Assert.All(emailService.Sent, s => Assert.Contains($"https://assetops.local/CasoTI/Details/{casoId}", s.BodyHtml));
+        }
+
+        [Fact]
+        public async Task CreateAsync_DoesNotNotifyInactiveOrNonTecnicoAccounts()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (tecActivoId, tecActivoPersona) = SeedTecnico(db, "tecactivo", AuthBootstrapper.TecnicoSistemasRoleName);
+            var (adminId, _) = SeedTecnico(db, "admin1", AuthBootstrapper.AdministradorRoleName);
+            var (auditorId, _) = SeedTecnico(db, "auditor1", AuthBootstrapper.AuditorRoleName);
+            var (tecInactivoId, tecInactivoPersona) = SeedTecnico(db, "tecinactivo", AuthBootstrapper.TecnicoSistemasRoleName);
+            tecInactivoPersona.Activo = false;
+            await db.SaveChangesAsync();
+
+            var persona = SeedPersonaAtendida(db, "Persona1");
+            var tipoCasoId = SeedTipoCaso(db);
+            var emailService = new RecordingEmailService();
+            var service = CreateService(db, emailService);
+
+            await service.CreateAsync(NewVm(persona.Id, tipoCasoId), tecActivoId, tecActivoPersona.Id, AuthBootstrapper.TecnicoSistemasRoleName);
+
+            var sent = Assert.Single(emailService.Sent);
+            Assert.Equal("tecactivo@empresa.local", sent.ToEmail);
+        }
+
+        [Fact]
+        public async Task CreateAsync_SucceedsEvenWhenNotificationEmailFails()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (tecId, tecPersona) = SeedTecnico(db, "tec1", AuthBootstrapper.TecnicoSistemasRoleName);
+            var persona = SeedPersonaAtendida(db, "Persona1");
+            var tipoCasoId = SeedTipoCaso(db);
+            var emailService = new RecordingEmailService { ThrowOnSend = true };
+            var service = CreateService(db, emailService);
+
+            var casoId = await service.CreateAsync(NewVm(persona.Id, tipoCasoId), tecId, tecPersona.Id, AuthBootstrapper.TecnicoSistemasRoleName);
+
+            Assert.True(casoId > 0);
+            Assert.True(db.CasosTI.Any(c => c.Id == casoId));
+            Assert.Empty(emailService.Sent);
+        }
+
+        [Fact]
+        public async Task CreateAsync_WithoutBuildCaseUrl_SendsNotificationWithoutLink()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (tecId, tecPersona) = SeedTecnico(db, "tec1", AuthBootstrapper.TecnicoSistemasRoleName);
+            var persona = SeedPersonaAtendida(db, "Persona1");
+            var tipoCasoId = SeedTipoCaso(db);
+            var emailService = new RecordingEmailService();
+            var service = CreateService(db, emailService);
+
+            await service.CreateAsync(NewVm(persona.Id, tipoCasoId), tecId, tecPersona.Id, AuthBootstrapper.TecnicoSistemasRoleName);
+
+            var sent = Assert.Single(emailService.Sent);
+            Assert.DoesNotContain("href", sent.BodyHtml);
         }
     }
 }

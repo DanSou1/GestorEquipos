@@ -58,7 +58,10 @@ namespace Gestor_Equipos.Controllers
 
             try
             {
-                var id = await _casoTIService.CreateAsync(vm, GetCurrentUserSystemId(), GetCurrentUsersId(), GetCurrentRole(), HttpContext.RequestAborted);
+                var id = await _casoTIService.CreateAsync(
+                    vm, GetCurrentUserSystemId(), GetCurrentUsersId(), GetCurrentRole(),
+                    caseId => Url.Action("Details", "CasoTI", new { id = caseId }, Request.Scheme)!,
+                    HttpContext.RequestAborted);
                 return RedirectToAction(nameof(Details), new { id });
             }
             catch (InvalidOperationException ex)

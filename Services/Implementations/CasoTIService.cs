@@ -3,6 +3,7 @@ using Gestor_Equipos.Services.Auth;
 using GestorEquipos.Models;
 using GestorEquipos.Models.ViewModels.CasoTI;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Gestor_Equipos.Services.Implementations
 {
@@ -10,14 +11,16 @@ namespace Gestor_Equipos.Services.Implementations
     {
         private readonly MyDbContext _dbContext;
         private readonly IEmailService _emailService;
+        private readonly ILogger<CasoTIService> _logger;
 
-        public CasoTIService(MyDbContext dbContext, IEmailService emailService)
+        public CasoTIService(MyDbContext dbContext, IEmailService emailService, ILogger<CasoTIService> logger)
         {
             _dbContext = dbContext;
             _emailService = emailService;
+            _logger = logger;
         }
 
-        public async Task<int> CreateAsync(CasoTICreateViewModel vm, int actingUserSystemId, int actingUsersId, string actingUserRole, CancellationToken ct = default)
+        public async Task<int> CreateAsync(CasoTICreateViewModel vm, int actingUserSystemId, int actingUsersId, string actingUserRole, Func<int, string>? buildCaseUrl = null, CancellationToken ct = default)
         {
             int personaUserId;
 
@@ -47,11 +50,8 @@ namespace Gestor_Equipos.Services.Implementations
                 .SingleOrDefaultAsync(u => u.Id == personaUserId, ct)
                 ?? throw new InvalidOperationException("Persona no encontrada.");
 
-            var tipoCasoExiste = await _dbContext.TiposCaso.AnyAsync(t => t.Id == vm.TipoCasoId, ct);
-            if (!tipoCasoExiste)
-            {
-                throw new InvalidOperationException("Tipo de caso inválido.");
-            }
+            var tipoCaso = await _dbContext.TiposCaso.SingleOrDefaultAsync(t => t.Id == vm.TipoCasoId, ct)
+                ?? throw new InvalidOperationException("Tipo de caso inválido.");
 
             var caso = new CasoTI
             {
@@ -71,7 +71,60 @@ namespace Gestor_Equipos.Services.Implementations
 
             _dbContext.CasosTI.Add(caso);
             await _dbContext.SaveChangesAsync(ct);
+
+            // UX-09: notificar a los técnicos es un aviso best-effort, no un requisito para que el
+            // caso quede creado — a diferencia de ResolveAsync/CreateUserWithLoginAsync (donde el
+            // correo es la razón de ser de la operación), aquí un SMTP caído o un técnico con
+            // correo inválido no debe bloquear a quien está reportando un problema real.
+            await NotifyTecnicosAsync(caso, persona, tipoCaso.Nombre, buildCaseUrl, ct);
+
             return caso.Id;
+        }
+
+        private async Task NotifyTecnicosAsync(CasoTI caso, Users persona, string tipoCasoNombre, Func<int, string>? buildCaseUrl, CancellationToken ct)
+        {
+            var tecnicos = await _dbContext.UserSystems
+                .Include(us => us.User)
+                .Where(us => us.Rol.Name == AuthBootstrapper.TecnicoSistemasRoleName && us.User.Activo)
+                .ToListAsync(ct);
+
+            var personaNombre = $"{persona.Name} {persona.LastName}";
+            var body = BuildNewCaseEmailBody(caso.Asunto ?? "(sin asunto)", personaNombre, tipoCasoNombre, buildCaseUrl?.Invoke(caso.Id));
+
+            foreach (var tecnico in tecnicos)
+            {
+                if (string.IsNullOrWhiteSpace(tecnico.User.Email))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    await _emailService.SendAsync(
+                        tecnico.User.Email,
+                        $"{tecnico.User.Name} {tecnico.User.LastName}",
+                        "Nuevo caso de soporte TI registrado",
+                        body,
+                        Array.Empty<EmailAttachment>(),
+                        ct);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "No se pudo notificar el caso {CasoId} al técnico {TecnicoEmail}.", caso.Id, tecnico.User.Email);
+                }
+            }
+        }
+
+        private static string BuildNewCaseEmailBody(string asunto, string personaNombre, string tipoCasoNombre, string? caseUrl)
+        {
+            var enlace = caseUrl is null ? "" : $"""<p><a href="{caseUrl}">Ver el caso</a></p>""";
+            return $"""
+                <p>Se registró un nuevo caso de soporte TI:</p>
+                <p><strong>Asunto:</strong> {asunto}<br/>
+                <strong>Persona:</strong> {personaNombre}<br/>
+                <strong>Tipo:</strong> {tipoCasoNombre}</p>
+                {enlace}
+                """;
         }
 
         public async Task<CasoTIDetailViewModel?> GetDetailAsync(int id, int actingUserSystemId, int actingUsersId, string actingUserRole, CancellationToken ct = default)
