@@ -106,3 +106,5 @@ Patrones repetidos:
 ## Deployment
 
 `Dockerfile`/`docker-compose.yml` para despliegue en contenedor (servidor de pruebas); `.env.example` documenta las variables — copiar a `.env`, nunca commitearlo. Incluye `SMTP_FROM_ADDRESS`/`SMTP_APP_PASSWORD` para el envío de correo del módulo de Mantenimientos Programados (mapeadas a `Smtp__FromAddress`/`Smtp__Password` en `docker-compose.yml`), ambas opcionales — si faltan, el resto de la app arranca igual, solo falla al intentar enviar un correo.
+
+**Hay un servidor de pruebas real corriendo** (VM Proxmox, Docker) con los datos de producción ya migrados — ver **`DEPLOYMENT.md`** para la topología completa, cómo conectarse (VM/SSH/Proxmox), los archivos que existen solo ahí (`docker-compose.net-override.yml`, la config de Nginx) y el procedimiento paso a paso para subir cualquier cambio de código a ese servidor. Leer ese archivo antes de intentar desplegar o diagnosticar algo ahí — documenta varios bugs de infraestructura ya resueltos (bucle de login, redirects rotos) que si no se conocen de antemano cuestan mucho tiempo volver a diagnosticar.
