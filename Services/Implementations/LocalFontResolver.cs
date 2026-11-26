@@ -34,7 +34,29 @@ namespace Gestor_Equipos.Services.Implementations
             ["verdanaz.ttf"] = new[] { "verdanaz.ttf", "DejaVuSans-BoldOblique.ttf" },
         };
 
+        // fonts-dejavu-core (el paquete instalado en el contenedor, ver Dockerfile) no trae
+        // variantes Oblique/Italic de DejaVu Sans (solo Regular/Bold) — sin este fallback,
+        // cualquier texto en itálico (ej. AddEmptyNote en DesktopPdfService/MaintenancePdfService)
+        // deja a PdfSharp con un font source null y crashea con NullReferenceException.
+        private static readonly IReadOnlyDictionary<string, string> StyleFallback = new Dictionary<string, string>
+        {
+            ["verdanai.ttf"] = "verdana.ttf",
+            ["verdanaz.ttf"] = "verdanab.ttf",
+            ["ariali.ttf"] = "arial.ttf",
+            ["arialbi.ttf"] = "arialbd.ttf",
+            ["timesi.ttf"] = "times.ttf",
+            ["timesbi.ttf"] = "timesbd.ttf",
+            ["couri.ttf"] = "cour.ttf",
+            ["courbi.ttf"] = "courbd.ttf",
+        };
+
         public byte[]? GetFont(string faceName)
+        {
+            return TryResolve(faceName)
+                ?? (StyleFallback.TryGetValue(faceName, out var fallback) ? TryResolve(fallback) : null);
+        }
+
+        private static byte[]? TryResolve(string faceName)
         {
             var candidates = FontFileAliases.TryGetValue(faceName, out var aliases) ? aliases : new[] { faceName };
 
