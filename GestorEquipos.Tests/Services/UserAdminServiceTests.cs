@@ -109,6 +109,34 @@ namespace GestorEquipos.Tests.Services
         }
 
         [Fact]
+        public async Task CreateUserWithLoginAsync_IncludesLoginButtonWhenUrlProvided()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            SeedColaboradorRole(db);
+            var emailService = new RecordingEmailService();
+            var service = CreateService(db, emailService);
+
+            await service.CreateUserWithLoginAsync(NewPersonVm("nueva@empresa.local"), "https://extranet.exro.co/Login/Index");
+
+            var sent = Assert.Single(emailService.Sent);
+            Assert.Contains("href=\"https://extranet.exro.co/Login/Index\"", sent.BodyHtml);
+        }
+
+        [Fact]
+        public async Task CreateUserWithLoginAsync_OmitsLoginButtonWhenUrlNotProvided()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            SeedColaboradorRole(db);
+            var emailService = new RecordingEmailService();
+            var service = CreateService(db, emailService);
+
+            await service.CreateUserWithLoginAsync(NewPersonVm("nueva@empresa.local"));
+
+            var sent = Assert.Single(emailService.Sent);
+            Assert.DoesNotContain("<a href", sent.BodyHtml);
+        }
+
+        [Fact]
         public async Task CreateUserWithLoginAsync_PropagatesExceptionWhenEmailFails()
         {
             using var db = TestHelpers.CreateDbContext();

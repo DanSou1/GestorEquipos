@@ -4,6 +4,7 @@ namespace GestorEquipos.Models.ViewModels.CasoTI
     {
         public int Id { get; set; }
         public DateOnly Fecha { get; set; }
+        public DateTime CreatedAtUtc { get; set; }
         public string Asunto { get; set; } = string.Empty;
         public string TecnicoNombre { get; set; } = string.Empty;
         public string PersonaNombre { get; set; } = string.Empty;

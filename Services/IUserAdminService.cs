@@ -7,7 +7,7 @@ namespace Gestor_Equipos.Services
     public interface IUserAdminService
     {
         Task<int> CreateUserAsync(UserCreateViewModel vm);
-        Task<int> CreateUserWithLoginAsync(UserCreateViewModel vm);
+        Task<int> CreateUserWithLoginAsync(UserCreateViewModel vm, string? loginUrl = null);
         Task UpdateUserAsync(int id, UserCreateViewModel vm);
         Task CreateLoginAsync(int userId, string username, string password, int rolId);
         Task<int> CreateAccountAsync(UserCreateViewModel personVm, string username, string password, int rolId);

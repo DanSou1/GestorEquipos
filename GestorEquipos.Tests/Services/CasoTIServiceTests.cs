@@ -76,9 +76,8 @@ namespace GestorEquipos.Tests.Services
             return persona;
         }
 
-        private static CasoTICreateViewModel NewVm(int personaId, int tipoCasoId, DateOnly? fecha = null, string asunto = "Asunto de prueba") => new()
+        private static CasoTICreateViewModel NewVm(int personaId, int tipoCasoId, string asunto = "Asunto de prueba") => new()
         {
-            Fecha = fecha ?? DateOnly.FromDateTime(DateTime.Now),
             Asunto = asunto,
             PersonaUserId = personaId,
             TipoCasoId = tipoCasoId
@@ -99,6 +98,24 @@ namespace GestorEquipos.Tests.Services
 
             Assert.Null((await db.CasosTI.SingleAsync(c => c.Id == idByAdmin)).TecnicoUserSystemId);
             Assert.Null((await db.CasosTI.SingleAsync(c => c.Id == idByTecnico)).TecnicoUserSystemId);
+        }
+
+        [Fact]
+        public async Task CreateAsync_AlwaysUsesTodayRegardlessOfAnyClientInput()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (tecId, tecPersona) = SeedTecnico(db, "tec1", AuthBootstrapper.TecnicoSistemasRoleName);
+            var persona = SeedPersonaAtendida(db, "Persona1");
+            var tipoCasoId = SeedTipoCaso(db);
+            var service = CreateService(db);
+
+            var before = DateTime.UtcNow;
+            var casoId = await service.CreateAsync(NewVm(persona.Id, tipoCasoId), tecId, tecPersona.Id, AuthBootstrapper.TecnicoSistemasRoleName);
+            var after = DateTime.UtcNow;
+
+            var caso = await db.CasosTI.SingleAsync(c => c.Id == casoId);
+            Assert.Equal(DateOnly.FromDateTime(DateTime.Now), caso.Fecha);
+            Assert.InRange(caso.CreatedAtUtc, before.AddSeconds(-1), after.AddSeconds(1));
         }
 
         [Fact]
@@ -215,9 +232,15 @@ namespace GestorEquipos.Tests.Services
             var service = CreateService(db);
 
             var idImpresora = await service.CreateAsync(
-                NewVm(persona.Id, tipoCasoId, new DateOnly(2026, 3, 1), "Impresora no imprime"), tecId, tecPersona.Id, AuthBootstrapper.TecnicoSistemasRoleName);
+                NewVm(persona.Id, tipoCasoId, "Impresora no imprime"), tecId, tecPersona.Id, AuthBootstrapper.TecnicoSistemasRoleName);
             var idRed = await service.CreateAsync(
-                NewVm(otraPersona.Id, tipoCasoId, new DateOnly(2026, 6, 1), "Sin acceso a internet"), tecId, tecPersona.Id, AuthBootstrapper.TecnicoSistemasRoleName);
+                NewVm(otraPersona.Id, tipoCasoId, "Sin acceso a internet"), tecId, tecPersona.Id, AuthBootstrapper.TecnicoSistemasRoleName);
+
+            // La fecha ya no viene del cliente (CreateAsync siempre usa "hoy") — para probar el
+            // filtro FechaDesde/Hasta con fechas distintas, se sobrescribe directo en la entidad.
+            (await db.CasosTI.SingleAsync(c => c.Id == idImpresora)).Fecha = new DateOnly(2026, 3, 1);
+            (await db.CasosTI.SingleAsync(c => c.Id == idRed)).Fecha = new DateOnly(2026, 6, 1);
+            await db.SaveChangesAsync();
 
             var porAsunto = await service.GetIndexAsync(tecId, tecPersona.Id, AuthBootstrapper.TecnicoSistemasRoleName,
                 new CasoTIIndexFilterViewModel { Asunto = "impresora" });
@@ -587,10 +610,25 @@ namespace GestorEquipos.Tests.Services
             Assert.Equal("Excelente", caso.RatingComment);
         }
 
+        // CreateAsync ya no acepta una fecha del cliente (siempre usa "hoy") — para los tests de
+        // GetStatsAsync, que necesitan fechas específicas para probar agrupaciones por
+        // semana/mes/año, este helper inserta el caso directo vía EF en vez de pasar por el
+        // servicio. tecnicoId/tecnicoPersonaId quedan sin usar en el cuerpo pero se conservan en
+        // la firma para no tocar ningún call site existente.
         private async Task<int> CreateCasoOnDateAsync(MyDbContext db, CasoTIService service, int tecnicoId, int tecnicoPersonaId, int personaId, int tipoCasoId, DateOnly fecha)
         {
-            var id = await service.CreateAsync(NewVm(personaId, tipoCasoId, fecha), tecnicoId, tecnicoPersonaId, AuthBootstrapper.TecnicoSistemasRoleName);
-            return id;
+            var caso = new CasoTI
+            {
+                Fecha = fecha,
+                Asunto = "Asunto de prueba",
+                PersonaUserId = personaId,
+                TipoCasoId = tipoCasoId,
+                Estado = CasoTIEstado.Abierto,
+                CreatedAtUtc = fecha.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)
+            };
+            db.CasosTI.Add(caso);
+            await db.SaveChangesAsync();
+            return caso.Id;
         }
 
         [Fact]
@@ -707,6 +745,101 @@ namespace GestorEquipos.Tests.Services
 
             var auditorStats = await service.GetStatsAsync(auditorId, auditorPersona.Id, AuthBootstrapper.AuditorRoleName, null, CasoTIGranularidad.DiaSemana, null, null);
             Assert.Equal(1, auditorStats.BarChart.Values.Sum());
+        }
+
+        private static async Task<int> SeedResolvedCasoAsync(MyDbContext db, int tecnicoId, int personaId, int tipoCasoId, DateTime createdAtUtc, DateTime resolvedAtUtc)
+        {
+            var caso = new CasoTI
+            {
+                Fecha = DateOnly.FromDateTime(createdAtUtc),
+                Asunto = "Asunto de prueba",
+                PersonaUserId = personaId,
+                TipoCasoId = tipoCasoId,
+                TecnicoUserSystemId = tecnicoId,
+                Estado = CasoTIEstado.Resuelto,
+                CreatedAtUtc = createdAtUtc,
+                ResolvedAtUtc = resolvedAtUtc
+            };
+            db.CasosTI.Add(caso);
+            await db.SaveChangesAsync();
+            return caso.Id;
+        }
+
+        [Fact]
+        public async Task GetStatsAsync_PieChart_IncludesAverageResolutionTimePerTipo()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (tecId, tecPersona) = SeedTecnico(db, "tec1", AuthBootstrapper.TecnicoSistemasRoleName);
+            var persona = SeedPersonaAtendida(db, "Persona1");
+            var tipoConResueltos = SeedTipoCaso(db, "Formateo de equipo");
+            var tipoSinResueltos = SeedTipoCaso(db, "Soporte excel");
+            var service = CreateService(db);
+
+            var baseFecha = new DateTime(2026, 1, 5, 9, 0, 0, DateTimeKind.Utc);
+            await SeedResolvedCasoAsync(db, tecId, persona.Id, tipoConResueltos, baseFecha, baseFecha.AddMinutes(30));
+            await SeedResolvedCasoAsync(db, tecId, persona.Id, tipoConResueltos, baseFecha, baseFecha.AddMinutes(90));
+            await CreateCasoOnDateAsync(db, service, tecId, tecPersona.Id, persona.Id, tipoSinResueltos, DateOnly.FromDateTime(baseFecha));
+
+            var stats = await service.GetStatsAsync(tecId, tecPersona.Id, AuthBootstrapper.TecnicoSistemasRoleName, null, CasoTIGranularidad.DiaSemana, null, null);
+
+            var indexConResueltos = stats.PieChart.Labels.IndexOf("Formateo de equipo");
+            var indexSinResueltos = stats.PieChart.Labels.IndexOf("Soporte excel");
+            Assert.Equal("1h 0m", stats.PieAvgResolutionLabels[indexConResueltos]);
+            Assert.Equal("-", stats.PieAvgResolutionLabels[indexSinResueltos]);
+        }
+
+        [Fact]
+        public async Task GetRatingsAsync_ComputesAverageResolutionTimePerTecnico()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (tec1Id, _) = SeedTecnico(db, "tec1", AuthBootstrapper.TecnicoSistemasRoleName);
+            var (tec2Id, _) = SeedTecnico(db, "tec2", AuthBootstrapper.TecnicoSistemasRoleName);
+            var persona = SeedPersonaAtendida(db, "Persona1");
+            var tipoCasoId = SeedTipoCaso(db);
+            var service = CreateService(db);
+
+            var baseFecha = new DateTime(2026, 1, 5, 9, 0, 0, DateTimeKind.Utc);
+            await SeedResolvedCasoAsync(db, tec1Id, persona.Id, tipoCasoId, baseFecha, baseFecha.AddMinutes(10));
+            await SeedResolvedCasoAsync(db, tec2Id, persona.Id, tipoCasoId, baseFecha, baseFecha.AddMinutes(120));
+
+            var ratings = await service.GetRatingsAsync(tec1Id, 0, AuthBootstrapper.TecnicoSistemasRoleName, null);
+
+            var tec1Resumen = ratings.Resumen.Single(r => r.TecnicoUserSystemId == tec1Id);
+            var tec2Resumen = ratings.Resumen.Single(r => r.TecnicoUserSystemId == tec2Id);
+            Assert.Equal(10, tec1Resumen.TiempoPromedioResolucionMinutos);
+            Assert.Equal("10 min", tec1Resumen.TiempoPromedioResolucionLabel);
+            Assert.Equal(120, tec2Resumen.TiempoPromedioResolucionMinutos);
+            Assert.Equal("2h 0m", tec2Resumen.TiempoPromedioResolucionLabel);
+        }
+
+        [Fact]
+        public async Task GetRatingsAsync_BuildsStackedChartOfResueltosPorTipoYTecnico()
+        {
+            using var db = TestHelpers.CreateDbContext();
+            var (tec1Id, _) = SeedTecnico(db, "tec1", AuthBootstrapper.TecnicoSistemasRoleName);
+            var (tec2Id, _) = SeedTecnico(db, "tec2", AuthBootstrapper.TecnicoSistemasRoleName);
+            var persona = SeedPersonaAtendida(db, "Persona1");
+            var tipoZoom = SeedTipoCaso(db, "Creación sala zoom");
+            var service = CreateService(db);
+
+            var baseFecha = new DateTime(2026, 1, 5, 9, 0, 0, DateTimeKind.Utc);
+            for (var i = 0; i < 10; i++)
+            {
+                await SeedResolvedCasoAsync(db, tec1Id, persona.Id, tipoZoom, baseFecha, baseFecha.AddMinutes(5));
+            }
+            for (var i = 0; i < 28; i++)
+            {
+                await SeedResolvedCasoAsync(db, tec2Id, persona.Id, tipoZoom, baseFecha, baseFecha.AddMinutes(5));
+            }
+
+            var ratings = await service.GetRatingsAsync(tec1Id, 0, AuthBootstrapper.TecnicoSistemasRoleName, null);
+
+            var tipoIndex = ratings.ResueltosPorTipoYTecnico.Labels.IndexOf("Creación sala zoom");
+            Assert.True(tipoIndex >= 0);
+            var tec1Serie = ratings.ResueltosPorTipoYTecnico.Series.Single(s => s.Label.StartsWith("tec1"));
+            var tec2Serie = ratings.ResueltosPorTipoYTecnico.Series.Single(s => s.Label.StartsWith("tec2"));
+            Assert.Equal(10, tec1Serie.Values[tipoIndex]);
+            Assert.Equal(28, tec2Serie.Values[tipoIndex]);
         }
 
         private static async Task ResolveAndRateAsync(MyDbContext db, CasoTIService service, int casoId, int tecnicoId, int rating, string? comment)

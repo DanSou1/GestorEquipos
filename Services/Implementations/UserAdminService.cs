@@ -255,7 +255,7 @@ namespace Gestor_Equipos.Services.Implementations
         // SaveChangesAsync, LOG-01) envuelto en una transacción explícita: si el correo falla, no
         // se confirma — no queremos una cuenta creada sin que la persona haya recibido su clave
         // (mismo patrón de reversión que MaintenanceCampaignService.CompleteAndSendAsync).
-        public async Task<int> CreateUserWithLoginAsync(UserCreateViewModel vm)
+        public async Task<int> CreateUserWithLoginAsync(UserCreateViewModel vm, string? loginUrl = null)
         {
             var colaboradorRoleId = await _dbContext.Rols
                 .Where(r => r.Name == AuthBootstrapper.ColaboradorRoleName)
@@ -276,6 +276,14 @@ namespace Gestor_Equipos.Services.Implementations
                 userSystem.MustChangePassword = true;
                 await _dbContext.SaveChangesAsync();
 
+                // UX-11: el botón de ingreso es opcional (loginUrl?) para no romper ningún test
+                // ni caller existente que no tenga forma de construir una URL absoluta (solo un
+                // controller puede, vía Url.Action) — mismo patrón que el link opcional de
+                // CasoTIService.BuildNewCaseEmailBody.
+                var botonIngreso = loginUrl is null ? "" : $"""
+                    <p><a href="{loginUrl}" style="display:inline-block;padding:10px 20px;background:#2c67e5;color:#fff;text-decoration:none;border-radius:6px;">Ingresar a la aplicación</a></p>
+                    """;
+
                 await _emailService.SendAsync(
                     normalizedEmail,
                     $"{vm.Name} {vm.LastName}",
@@ -285,6 +293,7 @@ namespace Gestor_Equipos.Services.Implementations
                     <p>Se creó tu acceso a la plataforma AssetOps.</p>
                     <p>Usuario: <strong>{normalizedEmail}</strong><br/>
                     Contraseña temporal: <strong>{password}</strong></p>
+                    {botonIngreso}
                     <p>Deberás cambiarla la primera vez que inicies sesión.</p>
                     """,
                     Array.Empty<EmailAttachment>());

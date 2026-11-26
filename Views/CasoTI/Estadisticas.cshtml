@@ -87,11 +87,11 @@
             </div>
             <table class="visually-hidden">
                 <caption>Tipos de caso</caption>
-                <thead><tr><th scope="col">Tipo</th><th scope="col">Casos</th></tr></thead>
+                <thead><tr><th scope="col">Tipo</th><th scope="col">Casos</th><th scope="col">Tiempo promedio de resolución</th></tr></thead>
                 <tbody>
                     @for (var i = 0; i < Model.PieChart.Labels.Count; i++)
                     {
-                        <tr><td>@Model.PieChart.Labels[i]</td><td>@Model.PieChart.Values[i]</td></tr>
+                        <tr><td>@Model.PieChart.Labels[i]</td><td>@Model.PieChart.Values[i]</td><td>@Model.PieAvgResolutionLabels[i]</td></tr>
                     }
                 </tbody>
             </table>
@@ -113,7 +113,8 @@
    {
        labels = Model.PieChart.Labels,
        values = Model.PieChart.Values,
-       colors = Model.PieColors
+       colors = Model.PieColors,
+       avgResolution = Model.PieAvgResolutionLabels
    }))</script>
 
 @section Scripts {

@@ -71,7 +71,7 @@ namespace Gestor_Equipos.Controllers
 
             try
             {
-                await _userAdminService.CreateUserWithLoginAsync(vm);
+                await _userAdminService.CreateUserWithLoginAsync(vm, Url.Action("Index", "Login", null, Request.Scheme));
             }
             catch (InvalidOperationException ex)
             {

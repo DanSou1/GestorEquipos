@@ -70,7 +70,7 @@
     <table class="app-table">
         <thead>
             <tr>
-                <th>Fecha</th>
+                <th>Fecha y hora</th>
                 <th>Asunto</th>
                 <th>Técnico</th>
                 <th>Persona atendida</th>
@@ -84,7 +84,7 @@
             @foreach (var c in Model)
             {
                 <tr>
-                    <td>@c.Fecha.ToString("dd/MM/yyyy")</td>
+                    <td>@c.CreatedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
                     <td>@c.Asunto</td>
                     <td>@c.TecnicoNombre</td>
                     <td>@c.PersonaNombre</td>

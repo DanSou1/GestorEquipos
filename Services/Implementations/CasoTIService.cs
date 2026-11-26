@@ -40,11 +40,6 @@ namespace Gestor_Equipos.Services.Implementations
                 personaUserId = vm.PersonaUserId.Value;
             }
 
-            if (vm.Fecha > DateOnly.FromDateTime(DateTime.Now))
-            {
-                throw new InvalidOperationException("La fecha no puede ser futura.");
-            }
-
             var persona = await _dbContext.Users
                 .Include(u => u.Area)
                 .SingleOrDefaultAsync(u => u.Id == personaUserId, ct)
@@ -55,7 +50,9 @@ namespace Gestor_Equipos.Services.Implementations
 
             var caso = new CasoTI
             {
-                Fecha = vm.Fecha,
+                // UX-10: la fecha nunca viene del cliente — siempre es el día en que se crea el
+                // caso, igual que CreatedAtUtc abajo (mismo instante).
+                Fecha = DateOnly.FromDateTime(DateTime.Now),
                 Asunto = vm.Asunto,
                 // Todo caso nace sin técnico asignado, sin importar quién lo crea — queda
                 // asignado a quien lo resuelva (ver ResolveAsync), para que cualquier
@@ -161,6 +158,7 @@ namespace Gestor_Equipos.Services.Implementations
             {
                 Id = caso.Id,
                 Fecha = caso.Fecha,
+                CreatedAtUtc = caso.CreatedAtUtc,
                 Asunto = caso.Asunto ?? "-",
                 TecnicoUserSystemId = caso.TecnicoUserSystemId,
                 TecnicoNombre = caso.Tecnico is null ? "Sin asignar" : $"{caso.Tecnico.User.Name} {caso.Tecnico.User.LastName}",
@@ -205,8 +203,12 @@ namespace Gestor_Equipos.Services.Implementations
                 query = query.Where(c => c.TipoCasoId == filter.TipoCasoId.Value);
             }
 
+            // Se ordena por CreatedAtUtc (no Fecha): Fecha ahora siempre es "hoy" para un caso
+            // recién creado, así que ya no distingue entre varios casos del mismo día — el
+            // timestamp exacto sí lo hace, y es lo que le permite a un técnico/admin priorizar
+            // visualmente por antigüedad.
             var casos = await query
-                .OrderByDescending(c => c.Fecha)
+                .OrderByDescending(c => c.CreatedAtUtc)
                 .ThenByDescending(c => c.Id)
                 .ToListAsync(ct);
 
@@ -229,6 +231,7 @@ namespace Gestor_Equipos.Services.Implementations
             {
                 Id = c.Id,
                 Fecha = c.Fecha,
+                CreatedAtUtc = c.CreatedAtUtc,
                 Asunto = c.Asunto ?? "-",
                 TecnicoNombre = c.Tecnico is null ? "Sin asignar" : $"{c.Tecnico.User.Name} {c.Tecnico.User.LastName}",
                 PersonaNombre = $"{c.Persona.Name} {c.Persona.LastName}",
@@ -369,7 +372,9 @@ namespace Gestor_Equipos.Services.Implementations
                 query = query.Where(c => c.Fecha.Month == mes.Value);
             }
 
-            var casos = await query.Select(c => new { c.Fecha, TipoCasoNombre = c.TipoCaso.Nombre }).ToListAsync(ct);
+            var casos = await query
+                .Select(c => new { c.Fecha, TipoCasoNombre = c.TipoCaso.Nombre, c.CreatedAtUtc, c.ResolvedAtUtc })
+                .ToListAsync(ct);
 
             var vm = new CasoTIStatsViewModel
             {
@@ -382,13 +387,21 @@ namespace Gestor_Equipos.Services.Implementations
 
             var pieGroups = casos
                 .GroupBy(c => c.TipoCasoNombre)
-                .Select(g => new { Tipo = g.Key, Count = g.Count() })
+                .Select(g =>
+                {
+                    var resueltos = g.Where(c => c.ResolvedAtUtc.HasValue).ToList();
+                    double? avgMinutos = resueltos.Count > 0
+                        ? resueltos.Average(c => (c.ResolvedAtUtc!.Value - c.CreatedAtUtc).TotalMinutes)
+                        : null;
+                    return new { Tipo = g.Key, Count = g.Count(), AvgMinutos = avgMinutos };
+                })
                 .OrderByDescending(g => g.Count)
                 .ToList();
 
             vm.PieChart.Labels = pieGroups.Select(g => g.Tipo).ToList();
             vm.PieChart.Values = pieGroups.Select(g => g.Count).ToList();
             vm.PieColors = pieGroups.Select((_, i) => PiePalette[i % PiePalette.Length]).ToList();
+            vm.PieAvgResolutionLabels = pieGroups.Select(g => FormatDuracion(g.AvgMinutos)).ToList();
 
             return vm;
         }
@@ -399,28 +412,64 @@ namespace Gestor_Equipos.Services.Implementations
             // casos resueltos tienen RatingToken/RatingValue (y TecnicoUserSystemId asignado),
             // pero un Auditor nunca debe depender implícitamente de eso para quedar protegido.
             var query = ApplyRoleScope(
-                _dbContext.CasosTI.Include(c => c.Tecnico).ThenInclude(t => t!.User).Include(c => c.Persona),
+                _dbContext.CasosTI.Include(c => c.Tecnico).ThenInclude(t => t!.User).Include(c => c.Persona).Include(c => c.TipoCaso),
                 actingUserSystemId, actingUsersId, actingUserRole, tecnicoFilterUserSystemId)
                 .Where(c => c.Estado == CasoTIEstado.Resuelto);
 
             var casos = await query.ToListAsync(ct);
 
-            var resumen = casos
+            var tecnicoGroups = casos
                 .Where(c => c.TecnicoUserSystemId.HasValue)
                 .GroupBy(c => c.TecnicoUserSystemId!.Value)
+                .ToList();
+
+            var resumen = tecnicoGroups
                 .Select(g =>
                 {
                     var calificados = g.Where(c => c.RatingValue.HasValue).ToList();
+                    var resueltosConTiempo = g.Where(c => c.ResolvedAtUtc.HasValue)
+                        .Select(c => (c.ResolvedAtUtc!.Value - c.CreatedAtUtc).TotalMinutes)
+                        .ToList();
+                    double? avgMinutos = resueltosConTiempo.Count > 0 ? resueltosConTiempo.Average() : null;
                     return new CasoTITecnicoRatingSummary
                     {
                         TecnicoUserSystemId = g.Key,
                         TecnicoNombre = $"{g.First().Tecnico!.User.Name} {g.First().Tecnico!.User.LastName}",
                         Promedio = calificados.Count > 0 ? calificados.Average(c => c.RatingValue!.Value) : null,
-                        CantidadCalificados = calificados.Count
+                        CantidadCalificados = calificados.Count,
+                        TiempoPromedioResolucionMinutos = avgMinutos,
+                        TiempoPromedioResolucionLabel = FormatDuracion(avgMinutos)
                     };
                 })
                 .OrderBy(r => r.TecnicoNombre)
                 .ToList();
+
+            // Barras apiladas: por cada tipo de caso (eje X), cuántos resolvió cada técnico.
+            var tipoLabels = casos
+                .GroupBy(c => c.TipoCaso.Nombre)
+                .Select(g => new { Tipo = g.Key, Count = g.Count() })
+                .OrderByDescending(g => g.Count)
+                .Select(g => g.Tipo)
+                .ToList();
+
+            var resueltosPorTipoYTecnico = new CasoTIStackedChartViewModel { Labels = tipoLabels };
+            for (var i = 0; i < tecnicoGroups.Count; i++)
+            {
+                var g = tecnicoGroups[i];
+                resueltosPorTipoYTecnico.Series.Add(new CasoTIChartSeries
+                {
+                    Label = $"{g.First().Tecnico!.User.Name} {g.First().Tecnico!.User.LastName}",
+                    Values = tipoLabels.Select(tipo => g.Count(c => c.TipoCaso.Nombre == tipo)).ToList(),
+                    Color = PiePalette[i % PiePalette.Length]
+                });
+            }
+
+            var tiempoPromedioPorTecnicoChart = new CasoTIChartDataViewModel
+            {
+                Labels = resumen.Select(r => r.TecnicoNombre).ToList(),
+                Values = resumen.Select(r => (int)Math.Round(r.TiempoPromedioResolucionMinutos ?? 0)).ToList()
+            };
+            var tiempoPromedioPorTecnicoLabels = resumen.Select(r => r.TiempoPromedioResolucionLabel).ToList();
 
             var comentarios = casos
                 .Where(c => c.RatingValue.HasValue)
@@ -437,7 +486,14 @@ namespace Gestor_Equipos.Services.Implementations
                 })
                 .ToList();
 
-            return new CasoTIRatingsViewModel { Resumen = resumen, Comentarios = comentarios };
+            return new CasoTIRatingsViewModel
+            {
+                Resumen = resumen,
+                Comentarios = comentarios,
+                ResueltosPorTipoYTecnico = resueltosPorTipoYTecnico,
+                TiempoPromedioPorTecnicoChart = tiempoPromedioPorTecnicoChart,
+                TiempoPromedioPorTecnicoLabels = tiempoPromedioPorTecnicoLabels
+            };
         }
 
         private static readonly string[] PiePalette =
@@ -447,6 +503,30 @@ namespace Gestor_Equipos.Services.Implementations
 
         private static readonly string[] DiasSemana = { "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo" };
         private static readonly string[] MesesAbrev = { "ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic" };
+
+        // Formato legible de una duración en minutos, usado para anotar el tiempo promedio de
+        // resolución en las gráficas (torta por tipo, barras por técnico). "-" cuando no hay
+        // ningún caso resuelto todavía sobre el que promediar.
+        private static string FormatDuracion(double? minutos)
+        {
+            if (!minutos.HasValue)
+            {
+                return "-";
+            }
+
+            var m = minutos.Value;
+            if (m < 60)
+            {
+                return $"{Math.Round(m)} min";
+            }
+
+            if (m < 1440)
+            {
+                return $"{(int)(m / 60)}h {Math.Round(m % 60)}m";
+            }
+
+            return $"{(int)(m / 1440)}d {(int)(m % 1440 / 60)}h";
+        }
 
         private static CasoTIChartDataViewModel BuildBarChart(List<DateOnly> fechas, CasoTIGranularidad granularidad)
         {

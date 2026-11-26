@@ -14,5 +14,9 @@ namespace GestorEquipos.Models.ViewModels.CasoTI
         public CasoTIChartDataViewModel BarChart { get; set; } = new();
         public CasoTIChartDataViewModel PieChart { get; set; } = new();
         public List<string> PieColors { get; set; } = new();
+
+        // Paralela a PieChart.Labels: tiempo promedio de resolución formateado para ese tipo de
+        // caso ("-" si ninguno de ese tipo ha sido resuelto todavía).
+        public List<string> PieAvgResolutionLabels { get; set; } = new();
     }
 }

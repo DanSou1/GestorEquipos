@@ -32,6 +32,7 @@
                 <th>Técnico</th>
                 <th>Promedio</th>
                 <th>Casos calificados</th>
+                <th>Tiempo promedio de resolución</th>
             </tr>
         </thead>
         <tbody>
@@ -41,6 +42,7 @@
                     <td>@r.TecnicoNombre</td>
                     <td>@(r.Promedio.HasValue ? r.Promedio.Value.ToString("0.0") + " / 5" : "-")</td>
                     <td>@r.CantidadCalificados</td>
+                    <td>@r.TiempoPromedioResolucionLabel</td>
                 </tr>
             }
         </tbody>
@@ -51,6 +53,86 @@
         <p class="text-muted p-3 mb-0">No hay casos resueltos con calificación todavía.</p>
     }
 </div>
+
+<div class="charts-row">
+    <div class="chart-card">
+        <h2 class="chart-card__title">Casos resueltos por técnico y tipo</h2>
+        @if (Model.ResueltosPorTipoYTecnico.Series.Any())
+        {
+            <div class="chart-card__body">
+                <div class="chart-card__canvas-wrap chart-card__canvas-wrap--bar">
+                    <canvas id="casoTIStackedChart" role="img" aria-label="Casos resueltos por técnico, agrupados por tipo de caso"></canvas>
+                </div>
+            </div>
+            <table class="visually-hidden">
+                <caption>Casos resueltos por técnico y tipo</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Tipo</th>
+                        @foreach (var serie in Model.ResueltosPorTipoYTecnico.Series)
+                        {
+                            <th scope="col">@serie.Label</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (var i = 0; i < Model.ResueltosPorTipoYTecnico.Labels.Count; i++)
+                    {
+                        <tr>
+                            <td>@Model.ResueltosPorTipoYTecnico.Labels[i]</td>
+                            @foreach (var serie in Model.ResueltosPorTipoYTecnico.Series)
+                            {
+                                <td>@serie.Values[i]</td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <p class="text-muted mb-0">No hay casos resueltos todavía.</p>
+        }
+    </div>
+    <div class="chart-card">
+        <h2 class="chart-card__title">Tiempo promedio de resolución por técnico</h2>
+        @if (Model.TiempoPromedioPorTecnicoChart.Values.Any())
+        {
+            <div class="chart-card__body">
+                <div class="chart-card__canvas-wrap chart-card__canvas-wrap--bar">
+                    <canvas id="casoTITiempoPromedioChart" role="img" aria-label="Tiempo promedio de resolución por técnico"></canvas>
+                </div>
+            </div>
+            <table class="visually-hidden">
+                <caption>Tiempo promedio de resolución por técnico</caption>
+                <thead><tr><th scope="col">Técnico</th><th scope="col">Tiempo promedio</th></tr></thead>
+                <tbody>
+                    @for (var i = 0; i < Model.TiempoPromedioPorTecnicoChart.Labels.Count; i++)
+                    {
+                        <tr><td>@Model.TiempoPromedioPorTecnicoChart.Labels[i]</td><td>@Model.TiempoPromedioPorTecnicoLabels[i]</td></tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <p class="text-muted mb-0">No hay casos resueltos todavía.</p>
+        }
+    </div>
+</div>
+
+<script id="casoTIStackedChartData" type="application/json">@Html.Raw(System.Text.Json.JsonSerializer.Serialize(new
+   {
+       labels = Model.ResueltosPorTipoYTecnico.Labels,
+       series = Model.ResueltosPorTipoYTecnico.Series.Select(s => new { label = s.Label, values = s.Values, color = s.Color })
+   }))</script>
+
+<script id="casoTITiempoPromedioChartData" type="application/json">@Html.Raw(System.Text.Json.JsonSerializer.Serialize(new
+   {
+       labels = Model.TiempoPromedioPorTecnicoChart.Labels,
+       values = Model.TiempoPromedioPorTecnicoChart.Values,
+       tooltipLabels = Model.TiempoPromedioPorTecnicoLabels
+   }))</script>
 
 <h2 class="h5">Comentarios recientes</h2>
 <div class="app-card">
@@ -83,3 +165,8 @@
         <p class="text-muted p-3 mb-0">No hay comentarios registrados.</p>
     }
 </div>
+
+@section Scripts {
+    <script src="~/lib/chartjs/dist/chart.umd.min.js" asp-append-version="true"></script>
+    <script src="~/js/casoti-charts.js" asp-append-version="true"></script>
+}

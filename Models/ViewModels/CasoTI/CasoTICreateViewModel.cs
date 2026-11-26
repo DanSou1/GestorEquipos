@@ -4,9 +4,6 @@ namespace GestorEquipos.Models.ViewModels.CasoTI
 {
     public class CasoTICreateViewModel
     {
-        [Required(ErrorMessage = "La fecha es obligatoria.")]
-        public DateOnly Fecha { get; set; } = DateOnly.FromDateTime(DateTime.Now);
-
         [Required(ErrorMessage = "El asunto es obligatorio.")]
         [MaxLength(150)]
         public string Asunto { get; set; } = string.Empty;

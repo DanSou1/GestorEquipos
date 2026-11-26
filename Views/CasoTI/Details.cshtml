@@ -16,8 +16,8 @@
 
 <div class="app-card p-3">
     <dl class="row mb-0">
-        <dt class="col-sm-3">Fecha</dt>
-        <dd class="col-sm-9">@Model.Fecha.ToString("dd/MM/yyyy")</dd>
+        <dt class="col-sm-3">Fecha y hora</dt>
+        <dd class="col-sm-9">@Model.CreatedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</dd>
 
         <dt class="col-sm-3">Asunto</dt>
         <dd class="col-sm-9">@Model.Asunto</dd>
