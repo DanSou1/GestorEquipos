@@ -1,0 +1,25 @@
+@model List<GestorEquipos.Models.ViewModels.SalasJuntas.SalaJuntaLinkViewModel>
+@{
+    ViewData["Title"] = "Salas de Juntas";
+}
+
+<div class="section-header">
+    <h1>Salas de Juntas</h1>
+</div>
+
+<h2 class="stat-card-row__heading">Selecciona una sala para reservarla en Google Calendar</h2>
+<div class="stat-card-row">
+    @foreach (var sala in Model)
+    {
+        <a href="@sala.Url" target="_blank" rel="noopener noreferrer" class="stat-card d-block text-decoration-none text-reset">
+            <div class="stat-card__header">
+                <span class="stat-card__icon stat-card__icon--blue">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
+                </span>
+                <span class="stat-card__label">@sala.Nombre</span>
+            </div>
+            <div class="stat-card__value">Reservar en Google Calendar</div>
+            <div class="stat-card__bar stat-card__bar--blue"></div>
+        </a>
+    }
+</div>

@@ -25,6 +25,10 @@ namespace Gestor_Equipos.Services.Auth
         // autenticado) y que deben seguir vedados para Colaborador salvo una acción puntual
         // (ver MaintenanceCampaignController.Sign).
         public const string AllStaffRoles = $"{AdministradorRoleName},{TecnicoSistemasRoleName},{AuditorRoleName}";
+        // Todos los roles del personal propio más Colaborador — es decir, todos excepto Auditor.
+        // Pensada para módulos que le interesan a cualquiera que trabaje en la empresa, no solo
+        // a quien gestiona el inventario (ej. reservar una sala de juntas).
+        public const string AllRolesExceptAuditor = $"{AdministradorRoleName},{TecnicoSistemasRoleName},{ColaboradorRoleName}";
         public const string RaesUserEmail = "raes@system.local";
         // UX-06: distinct from RaesUserEmail — this represents "returned, equipment still in
         // service" (Desktop.Estado stays true), not "retired". Activo=false so it's picked up
