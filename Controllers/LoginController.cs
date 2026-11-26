@@ -98,7 +98,13 @@ namespace Gestor_Equipos.Controllers
 
             _logger.LogInformation("[Login] Cookie de sesion emitida para {Email}. Redirigiendo...", model.Email);
 
-            if (!string.IsNullOrWhiteSpace(model.ReturnUrl) && Url.IsLocalUrl(model.ReturnUrl))
+            // UX-08: un Colaborador que llega al login vía una redirección de autorización (ej.
+            // entra directo a "/" -> HomeController exige AllStaffRoles -> Login?ReturnUrl=%2F)
+            // nunca debe honrar ese ReturnUrl: quedaría apuntando a una pantalla que no puede ver
+            // y caería en AccessDenied justo después de autenticarse. Para Colaborador, el destino
+            // siempre es el default por rol, sin importar de dónde vino.
+            if (authenticatedUser.RoleName != Gestor_Equipos.Services.Auth.AuthBootstrapper.ColaboradorRoleName
+                && !string.IsNullOrWhiteSpace(model.ReturnUrl) && Url.IsLocalUrl(model.ReturnUrl))
             {
                 return Redirect(model.ReturnUrl);
             }
